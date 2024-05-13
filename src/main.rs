@@ -1,22 +1,22 @@
 mod config;
 
 use std::path::PathBuf;
+use argh::FromArgs;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
-use clap::Parser;
 use crate::config::ServerConfig;
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[derive(FromArgs)]
+/// rust based basic media server
 struct Args {
-	/// Path to config directory
-	#[arg(long)]
+	/// path to config directory
+	#[argh(option)]
 	config_dir: PathBuf,
 }
 
 #[tokio::main]
 async fn main() {
-	let args = Args::parse();
+	let args: Args = argh::from_env();
 	
 	setup_logging();
 	
@@ -24,7 +24,7 @@ async fn main() {
 	
 	info!("Starting server");
 	
-	
+	println!("{:?}", config.general_config);
 }
 
 fn setup_logging() {
