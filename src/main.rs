@@ -1,10 +1,13 @@
-mod config;
-
 use std::path::PathBuf;
+
 use argh::FromArgs;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
+
 use crate::config::ServerConfig;
+
+mod config;
+mod web_server;
 
 #[derive(FromArgs)]
 /// rust based basic media server
@@ -19,12 +22,11 @@ async fn main() {
 	let args: Args = argh::from_env();
 	
 	setup_logging();
+	info!("Starting server");
 	
 	let config = ServerConfig::load(args.config_dir).await.expect("Loading config");
 	
-	info!("Starting server");
-	
-	println!("{:?}", config.general_config);
+	web_server::serve(config).await;
 }
 
 fn setup_logging() {
@@ -33,5 +35,5 @@ fn setup_logging() {
 		.finish();
 	
 	tracing::subscriber::set_global_default(subscriber)
-		.expect("setting default subscriber failed");
+		.expect("Setting default subscriber failed");
 }
