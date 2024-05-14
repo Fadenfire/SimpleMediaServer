@@ -26,7 +26,7 @@ async fn main() {
 	
 	let config = ServerConfig::load(args.config_dir).await.expect("Loading config");
 	
-	web_server::serve(config).await;
+	web_server::run(config).await;
 }
 
 fn setup_logging() {

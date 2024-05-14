@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
-warp = { version = "0.3", features = ["tls"] }
+axum = { version = "0.7", features = ["http2"] }
 bytes = "1.0"
 anyhow = "1.0"
 argh = { version = "0.1" }
