@@ -9,6 +9,7 @@ use crate::config::ServerConfig;
 use crate::web_server::state::ServerState;
 
 mod state;
+mod api_routes;
 
 pub async fn serve(server_config: ServerConfig) {
 	let general_config = server_config.general_config.clone();
@@ -21,9 +22,14 @@ pub async fn serve(server_config: ServerConfig) {
 }
 
 fn build_routes(server_state: Arc<ServerState>) -> BoxedFilter<(impl Reply, )> {
+	let api_routes = warp::path("api")
+		.and(api_routes::build_routes(server_state));
+	
 	let route = warp::get()
 		.and(warp::path::tail())
 		.map(|tail: Tail| format!("test path: {}", tail.as_str()));
 	
-	route.boxed()
+	api_routes
+		.or(route)
+		.boxed()
 }
