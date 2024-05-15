@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -16,8 +16,12 @@ pub async fn run(server_config: ServerConfig, web_ui_dir: PathBuf) {
 	let server_state = Arc::new(ServerState::new(server_config));
 	let router = build_router(server_state.clone(), web_ui_dir);
 	
-	let listener = tokio::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), general_config.server_http_port)).await.unwrap();
-	axum::serve(listener, router).await.unwrap();
+	let http_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), general_config.server_http_port);
+	
+	axum_server::bind(http_addr)
+		.serve(router.into_make_service())
+		.await
+		.unwrap();
 }
 
 fn build_router(server_state: Arc<ServerState>, web_ui_dir: PathBuf) -> Router {
