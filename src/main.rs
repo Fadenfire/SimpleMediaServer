@@ -25,8 +25,13 @@ async fn main() {
 	info!("Starting server");
 	
 	let config = ServerConfig::load(args.config_dir).await.expect("Loading config");
+	let web_ui_dir = get_web_ui_assets_dir();
 	
-	web_server::run(config).await;
+	if !tokio::fs::try_exists(&web_ui_dir).await.unwrap_or(false) {
+		panic!("Web UI assets directory does not exist");
+	}
+	
+	web_server::run(config, web_ui_dir).await;
 }
 
 fn setup_logging() {
@@ -36,4 +41,13 @@ fn setup_logging() {
 	
 	tracing::subscriber::set_global_default(subscriber)
 		.expect("Setting default subscriber failed");
+}
+
+fn get_web_ui_assets_dir() -> PathBuf {
+	std::env::var_os("WEB_UI_DIR")
+		.map(PathBuf::from)
+		.unwrap_or_else(|| {
+			let exe_path = std::env::current_exe().expect("Could not get location of current executable");
+			exe_path.parent().unwrap().join("web-ui")
+		})
 }
