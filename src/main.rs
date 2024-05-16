@@ -8,6 +8,7 @@ use crate::config::ServerConfig;
 
 mod config;
 mod web_server;
+mod utils;
 
 #[derive(FromArgs)]
 /// rust based basic media server
@@ -22,6 +23,8 @@ async fn main() {
 	let args: Args = argh::from_env();
 	
 	setup_logging();
+	ffmpeg_the_third::log::set_level(ffmpeg_the_third::log::Level::Error);
+	
 	info!("Starting server");
 	
 	let config = ServerConfig::load(args.config_dir).await.expect("Loading config");
