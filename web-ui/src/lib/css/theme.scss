@@ -1,5 +1,10 @@
 :root {
 	--background-color: #222228;
+	--panel-color: #36363B;
 	
 	--main-text-color: #EEE;
+	
+	--grid-card-width: 280px;
+	--grid-card-height: calc(var(--grid-tile-width) * 9 / 16);
+	--grid-tile-spacing: 30px;
 }

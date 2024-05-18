@@ -1,4 +1,5 @@
 @import url("theme.scss");
+@import url("fonts.css");
 
 * {
 	box-sizing: border-box;
@@ -8,5 +9,10 @@
 body {
 	background: var(--background-color);
 	color: var(--main-text-color);
-	font-family: sans-serif;
+	font-family: "Roboto", sans-serif;
+}
+
+main.main-content {
+	padding: 10px;
+	width: 100%;
 }

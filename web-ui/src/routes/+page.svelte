@@ -1,11 +1,15 @@
 <script lang="ts">
-    import type { PageData } from "./$types";
+    import DirectoryTile from "$lib/components/tile_grid/DirectoryTile.svelte";
+	import GridSection from "$lib/components/tile_grid/GridSection.svelte";
+	import type { PageData } from "./$types";
 
 	export let data: PageData;
 </script>
 
-<ul>
-	{#each data.libraries as library}
-		<li>{library.display_name} - {library.id}</li>
-	{/each}
-</ul>
+<main class="main-content">
+	<GridSection title="Libraries">
+		{#each data.libraries as library}
+			<DirectoryTile title="{library.display_name}" link="/files/{encodeURIComponent(library.id)}/" thumbnail=undefined />
+		{/each}
+	</GridSection>
+</main>
