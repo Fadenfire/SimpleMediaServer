@@ -40,10 +40,15 @@ impl Libraries {
 		Ok((library, path))
 	}
 	
-	pub fn resolve_path(&self, library_path: &str) -> Result<PathBuf, ApiError> {
+	pub fn resolve_library_and_path(&self, library_path: &str) -> Result<(&Library, PathBuf), ApiError> {
 		let (library, path) = self.split_library_path(library_path)?;
+		let resolved_path = library.resolve_path(path).ok_or(ApiError::FileNotFound)?;
 		
-		library.resolve_path(path).ok_or(ApiError::FileNotFound)
+		Ok((library, resolved_path))
+	}
+	
+	pub fn resolve_path(&self, library_path: &str) -> Result<PathBuf, ApiError> {
+		self.resolve_library_and_path(library_path).map(|it| it.1)
 	}
 }
 

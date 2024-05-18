@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -27,3 +28,10 @@ pub async fn locate_video(path: &Path) -> io::Result<PathBuf> {
 	Err(io::Error::from(io::ErrorKind::NotFound))
 }
 
+pub fn is_video(path: &Path) -> bool {
+	path
+		.extension()
+		.and_then(OsStr::to_str)
+		.filter(|ext| MEDIA_EXTENSIONS.contains(ext))
+		.is_some()
+}

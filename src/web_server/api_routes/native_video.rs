@@ -20,5 +20,5 @@ pub async fn native_video_route(
 	
 	ServeFile::new(&media_path).try_call(request).await
 		.map(|res| res.map(Body::new))
-		.map_err(ApiError::from_io_error)
+		.map_err(ApiError::from)
 }

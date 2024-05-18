@@ -16,7 +16,7 @@ pub async fn list_libraries_route(State(server_state): State<Arc<ServerState>>) 
 		})
 		.collect();
 	
-	Json::from(libraries)
+	Json(libraries)
 }
 
 #[derive(Debug, Serialize)]

@@ -8,7 +8,8 @@ pub enum ApiError {
 	NotFound,
 	LibraryNotFound,
 	FileNotFound,
-	UnexpectedError,
+	NotADirectory,
+	UnexpectedError(anyhow::Error),
 }
 
 impl ApiError {
@@ -17,25 +18,37 @@ impl ApiError {
 			Self::NotFound => (StatusCode::NOT_FOUND, "not_found"),
 			Self::LibraryNotFound => (StatusCode::NOT_FOUND, "library_not_found"),
 			Self::FileNotFound => (StatusCode::NOT_FOUND, "file_not_found"),
-			Self::UnexpectedError => (StatusCode::INTERNAL_SERVER_ERROR, "unexpected_error"),
+			Self::NotADirectory => (StatusCode::BAD_REQUEST, "not_a_directory"),
+			Self::UnexpectedError(err) => {
+				error!("Unexpected error: {:?}", err);
+				(StatusCode::INTERNAL_SERVER_ERROR, "unexpected_error")
+			},
 		}
 	}
-	
-	pub fn from_io_error(err: std::io::Error) -> Self {
+}
+
+impl From<anyhow::Error> for ApiError {
+	fn from(err: anyhow::Error) -> Self {
+		if let Some(err) = err.downcast_ref::<std::io::Error>() {
+			use std::io::ErrorKind;
+			
+			if let ErrorKind::NotFound | ErrorKind::PermissionDenied = err.kind() {
+				return Self::FileNotFound;
+			}
+		}
+		
+		Self::UnexpectedError(err)
+	}
+}
+
+impl From<std::io::Error> for ApiError {
+	fn from(err: std::io::Error) -> Self {
 		use std::io::ErrorKind;
 		
 		match err.kind() {
 			ErrorKind::NotFound | ErrorKind::PermissionDenied => Self::FileNotFound,
-			_ => {
-				error!("IO error: {:?}", err);
-				Self::UnexpectedError
-			},
+			_ => Self::UnexpectedError(err.into()),
 		}
-	}
-	
-	pub fn from_unknown_err(err: anyhow::Error) -> Self {
-		error!("Unknown error: {:?}", err);
-		Self::UnexpectedError
 	}
 }
 
