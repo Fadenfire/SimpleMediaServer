@@ -12,11 +12,13 @@ mod list_libraries;
 pub mod error;
 mod file_info;
 mod thumbnail;
+mod native_video;
 
 pub fn build_router() -> Router<Arc<ServerState>> {
 	Router::new()
 		.route("/libraries", get(list_libraries::list_libraries_route))
 		.route("/file_info/*library_path", get(file_info::file_info_route))
 		.route("/thumbnail/*library_path", get(thumbnail::thumbnail_route))
+		.route("/media/source/*library_path", get(native_video::native_video_route))
 		.fallback(|| async { ApiError::NotFound.into_response() })
 }
