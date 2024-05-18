@@ -18,6 +18,9 @@ interface FileInfo {
 interface DirectoryInfo {
 	type: "directory",
 	display_name: string,
+}
+
+interface ListDirectoryResponse {
 	files: ChildFile[],
 	directories: ChildDirectory[],
 }
@@ -25,9 +28,13 @@ interface DirectoryInfo {
 interface ChildFile {
 	path_name: string,
 	display_name: string,
+	thumbnail_path: string,
 	duration: number,
 }
 
 interface ChildDirectory {
 	path_name: string,
+	display_name: string,
+	thumbnail_path?: string,
+	child_count: number,
 }

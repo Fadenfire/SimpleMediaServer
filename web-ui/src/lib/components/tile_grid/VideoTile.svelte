@@ -9,10 +9,12 @@
 </script>
 
 <BaseTile>
-	<div class="card">
-		<img class="thumbnail" src="{thumbnailPath}" alt="{title}">
-		<div class="duration-container"><span>{formatDuration(duration)}</span></div>
-	</div>
+	<a class="card-link" href="{link}">
+		<div class="card">
+			<img class="thumbnail" src="{thumbnailPath}" alt="{title}">
+			<div class="duration-container"><span>{formatDuration(duration)}</span></div>
+		</div>
+	</a>
 	<a class="title" href="{link}">{title}</a>
 </BaseTile>
 
@@ -20,11 +22,13 @@
 	.card {
 		background-color: var(--panel-color);
 		width: var(--grid-card-width);
-		height: calc(--grid-card-height);
+		height: var(--grid-card-height);
 		margin-bottom: 8px;
 		border-radius: 8px;
+		color: var(--main-text-color);
 		overflow: hidden;
 		position: relative;
+		box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
 	}
 	
 	.thumbnail {
@@ -42,6 +46,10 @@
 		padding: 3px 5px;
 		border-radius: 4px;
 		font-weight: 500;
+	}
+	
+	.card-link {
+		text-decoration: none;
 	}
 	
 	.title {

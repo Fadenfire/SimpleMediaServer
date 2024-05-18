@@ -23,3 +23,7 @@ export function joinPath(path: string, component: string): string {
 export function escapePath(path: string): string {
 	return path.split("/").map(encodeURIComponent).join("/");
 }
+
+export function isStandalone(): boolean {
+	return window.matchMedia("(display-mode: standalone)").matches;
+}

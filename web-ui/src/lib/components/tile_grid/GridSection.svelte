@@ -21,7 +21,7 @@
 	.tile-grid {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
+		align-items: start;
 		gap: var(--grid-tile-spacing);
 	}
 </style>

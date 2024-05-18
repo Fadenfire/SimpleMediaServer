@@ -6,10 +6,14 @@
 	export let data: PageData;
 </script>
 
+<svelte:head>
+	<title>Home - Media Server</title>
+</svelte:head>
+
 <main class="main-content">
 	<GridSection title="Libraries">
 		{#each data.libraries as library}
-			<DirectoryTile title="{library.display_name}" link="/files/{encodeURIComponent(library.id)}/" thumbnail=undefined />
+			<DirectoryTile title="{library.display_name}" link="/files/{encodeURIComponent(library.id)}/" thumbnail={undefined} />
 		{/each}
 	</GridSection>
 </main>

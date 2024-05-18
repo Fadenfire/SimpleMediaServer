@@ -11,5 +11,8 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	
 	const file_info: FileInfoResponse = await res.json();
 	
-	return { file_info };
+	const list_dir_promise: Promise<ListDirectoryResponse> | null = file_info.type === "directory" ? fetch(`/api/list_dir/${encodeURIComponent(params.library_id)}/${escapePath(params.path)}`)
+		.then(res => res.json()) : null;
+	
+	return { file_info, list_dir_promise };
 }
