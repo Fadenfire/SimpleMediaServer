@@ -16,7 +16,7 @@ mod libraries;
 
 pub async fn run(server_config: ServerConfig, web_ui_dir: PathBuf) {
 	let general_config = server_config.general_config.clone();
-	let server_state = Arc::new(ServerState::new(server_config));
+	let server_state = Arc::new(ServerState::init(server_config).await.expect("Error initializing server state"));
 	let router = build_router(server_state.clone(), web_ui_dir);
 	
 	let http_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), general_config.server_http_port);

@@ -5,16 +5,24 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.0", features = ["full"] }
+tokio-stream = "0.1"
 axum = { version = "0.7" }
 axum-server = { version = "0.6", features = ["tls-rustls"] }
 tower-http = { version = "0.5", features = ["fs"] }
+headers = "0.4"
 bytes = "1.0"
 mime_guess = "2.0"
+mime = "0.3"
 anyhow = "1.0"
 argh = "0.1"
 ffmpeg-the-third = "2.0"
+ffmpeg-sys-the-third = "2.0"
+turbojpeg = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
+blake3 = "1.0"
+rand = "0.8"
+rand_chacha = "0.3"
 tracing = "0.1"
 tracing-subscriber = "0.3"

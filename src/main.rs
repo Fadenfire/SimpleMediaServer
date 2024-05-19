@@ -9,6 +9,8 @@ use crate::config::ServerConfig;
 mod config;
 mod web_server;
 mod utils;
+mod services;
+mod transcoding;
 
 #[derive(FromArgs)]
 /// rust based basic media server
