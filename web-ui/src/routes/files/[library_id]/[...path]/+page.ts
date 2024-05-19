@@ -2,6 +2,8 @@ import { error } from "@sveltejs/kit";
 import type { PageLoad } from "./$types";
 import { escapePath } from "$lib/utils";
 
+export const trailingSlash = "always";
+
 export const load: PageLoad = async ({ params, fetch }) => {
 	const res = await fetch(`/api/file_info/${encodeURIComponent(params.library_id)}/${escapePath(params.path)}`);
 	
@@ -11,8 +13,12 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	
 	const file_info: FileInfoResponse = await res.json();
 	
-	const list_dir_promise: Promise<ListDirectoryResponse> | null = file_info.type === "directory" ? fetch(`/api/list_dir/${encodeURIComponent(params.library_id)}/${escapePath(params.path)}`)
-		.then(res => res.json()) : null;
+	let list_dir_promise: Promise<ListDirectoryResponse> | null = null;
 	
-	return { file_info, list_dir_promise };
+	if (file_info.type === "directory") {
+		list_dir_promise = fetch(`/api/list_dir/${encodeURIComponent(params.library_id)}/${escapePath(params.path)}`)
+			.then(res => res.json());
+	}
+	
+	return { file_info, list_dir_promise: list_dir_promise! };
 }

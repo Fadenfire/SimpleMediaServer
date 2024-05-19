@@ -4,9 +4,7 @@
 
 <section>
 	<h1>{title}</h1>
-	<div class="tile-grid">
-		<slot></slot>
-	</div>
+	<slot/>
 </section>
 
 <style lang="scss">
@@ -16,12 +14,5 @@
 	
 	h1 {
 		margin-bottom: 10px;
-	}
-	
-	.tile-grid {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: start;
-		gap: var(--grid-tile-spacing);
 	}
 </style>
