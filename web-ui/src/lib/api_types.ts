@@ -13,6 +13,7 @@ interface FileInfo {
 	size: number,
 	duration: number,
 	artist?: string,
+	video_resolution?: Dimension,
 }
 
 interface DirectoryInfo {
@@ -37,4 +38,9 @@ interface ChildDirectory {
 	display_name: string,
 	thumbnail_path?: string,
 	child_count: number,
+}
+
+interface Dimension {
+	width: number,
+	height: number,
 }

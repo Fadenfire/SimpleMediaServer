@@ -10,6 +10,7 @@ use tracing::instrument;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::state::ServerState;
 use crate::web_server::video_locator;
+use crate::web_server::video_metadata::Dimension;
 
 #[instrument(skip(server_state))]
 pub async fn file_info_route(
@@ -30,6 +31,7 @@ pub async fn file_info_route(
 			size: file_metadata.len(),
 			duration: video_metadata.duration.as_secs(),
 			artist: video_metadata.artist,
+			video_resolution: video_metadata.video_resolution,
 		};
 		
 		Ok(Json(FileInfoResponse::File(file_info)))
@@ -66,6 +68,7 @@ pub struct FileInfo {
 	size: u64,
 	duration: u64,
 	artist: Option<String>,
+	video_resolution: Option<Dimension>,
 }
 
 #[derive(Debug, Serialize)]

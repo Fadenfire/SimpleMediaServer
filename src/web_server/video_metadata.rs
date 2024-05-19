@@ -7,7 +7,9 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
 use ffmpeg_the_third as ffmpeg;
-use ffmpeg_the_third::{Rational, Rescale, rescale};
+use ffmpeg_the_third::{codec, Rational, Rescale, rescale};
+use ffmpeg_the_third::media::Type;
+use serde::{Deserialize, Serialize};
 
 pub struct VideoMetadataCache {
 	metadata_cache: Mutex<HashMap<PathBuf, VideoMetadata>>,
@@ -52,6 +54,18 @@ impl VideoMetadataCache {
 			
 			let artist = demuxer.metadata().get("artist").map(ToOwned::to_owned);
 			
+			let mut video_resolution = None;
+			
+			if let Some(video_stream) = demuxer.streams().best(Type::Video) {
+				let decoder = codec::context::Context::from_parameters(video_stream.parameters())?
+					.decoder().video().context("Opening decoder")?;
+				
+				video_resolution = Some(Dimension {
+					width: decoder.width(),
+					height: decoder.height(),
+				})
+			}
+			
 			Ok(VideoMetadata {
 				file_path: video_path2,
 				size: file_metadata.len(),
@@ -59,6 +73,7 @@ impl VideoMetadataCache {
 				duration,
 				title,
 				artist,
+				video_resolution,
 			})
 		}).await.unwrap()?;
 		
@@ -79,4 +94,11 @@ pub struct VideoMetadata {
 	pub duration: Duration,
 	pub title: String,
 	pub artist: Option<String>,
+	pub video_resolution: Option<Dimension>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Dimension {
+	pub width: u32,
+	pub height: u32,
 }
