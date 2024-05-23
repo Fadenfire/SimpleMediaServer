@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use axum::{extract, Json};
@@ -40,14 +41,14 @@ pub async fn list_dir_route(
 				None => continue
 			};
 			
-			let video_metadata = server_state.video_metadata_cache.fetch_video_metadata(&path).await?;
+			let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&path).await?;
 			let thumbnail_path = format!("/api/thumbnail/{}/{}", library_path.trim_end_matches('/'), path_name);
 			
 			files.push(FileEntry {
 				path_name: path_name.to_owned(),
-				display_name: video_metadata.title,
+				display_name: media_metadata.title,
 				thumbnail_path,
-				duration: video_metadata.duration.as_secs(),
+				duration: media_metadata.duration.as_secs(),
 			});
 		} else if file_type.is_dir() {
 			let path_name = match path.file_name().and_then(OsStr::to_str) {
@@ -58,32 +59,16 @@ pub async fn list_dir_route(
 			let mut child_count: u32 = 0;
 			let mut thumbnail_path: Option<String> = None;
 			
-			let _: anyhow::Result<()> = async {
-				let mut read_dir_inner = tokio::fs::read_dir(&path).await?;
-				let mut thumbnail_path_name: Option<String> = None;
+			if let Ok(video_paths) = collect_video_list(&path).await {
+				child_count = video_paths.len() as u32;
 				
-				while let Some(entry) = read_dir_inner.next_entry().await? {
-					let path = entry.path();
-					
-					if entry.file_type().await?.is_file() && video_locator::is_video(&path) {
-						child_count += 1;
-						
-						if let Some(file_name) = path.file_stem().and_then(OsStr::to_str) {
-							let p = thumbnail_path_name.get_or_insert_with(|| file_name.to_owned());
-							
-							if file_name < p.as_str() {
-								*p = file_name.to_owned();
-							}
-						}
-					}
-				}
-				
-				thumbnail_path = thumbnail_path_name.map(|thumbnail_path_name| {
-					format!("/api/thumbnail/{}/{}/{}", library_path.trim_end_matches('/'), path_name, thumbnail_path_name)
-				});
-				
-				Ok(())
-			}.await;
+				thumbnail_path = video_paths.first()
+					.and_then(|path| path.file_stem())
+					.and_then(|stem| stem.to_str())
+					.map(|thumbnail_path_name| {
+						format!("/api/thumbnail/{}/{}/{}", library_path.trim_end_matches('/'), path_name, thumbnail_path_name)
+					});
+			}
 			
 			directories.push(DirectoryEntry {
 				path_name: path_name.to_owned(),
@@ -103,6 +88,23 @@ pub async fn list_dir_route(
 	};
 	
 	Ok(Json(res))
+}
+
+pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>> {
+	let mut read_dir = tokio::fs::read_dir(dir_path).await?;
+	let mut video_paths: Vec<PathBuf> = Vec::new();
+	
+	while let Some(entry) = read_dir.next_entry().await? {
+		let path = entry.path();
+		
+		if entry.file_type().await?.is_file() && video_locator::is_video(&path) {
+			video_paths.push(path);
+		}
+	}
+	
+	video_paths.sort_by_key(|path| path.file_name().map(ToOwned::to_owned));
+	
+	Ok(video_paths)
 }
 
 #[derive(Debug, Serialize)]

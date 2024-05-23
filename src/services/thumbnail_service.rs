@@ -3,8 +3,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use ffmpeg_the_third as ffmpeg;
-use ffmpeg_the_third::{frame, Rational, Rescale, rescale};
-use ffmpeg_the_third::format::Pixel;
+use ffmpeg_the_third::{Rational, Rescale, rescale};
 use ffmpeg_the_third::software::scaling;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -14,6 +13,7 @@ use turbojpeg::Subsamp;
 use crate::services::artifact_cache::{ArtifactCache, CacheEntry, FileValidityKey};
 use crate::transcoding::backends::software::SoftwareVideoBackend;
 use crate::transcoding::backends::VideoBackend;
+use crate::transcoding::image_utils::{extract_frame, scale_frame_rgb};
 
 pub struct ThumbnailService {
 	cache: ArtifactCache<FileValidityKey>,
@@ -43,6 +43,8 @@ impl ThumbnailService {
 const TARGET_THUMBNAIL_HEIGHT: u32 = 720;
 const JPEG_QUALITY: i32 = 90;
 
+const MICRO_TIME_BASE: Rational = Rational(1, 1_000_000);
+
 fn extract_thumbnail(media_path: PathBuf) -> anyhow::Result<Bytes> {
 	let mut demuxer = ffmpeg::format::input(&media_path).context("Opening video file")?;
 	
@@ -52,12 +54,11 @@ fn extract_thumbnail(media_path: PathBuf) -> anyhow::Result<Bytes> {
 	let mut video_backend = SoftwareVideoBackend::new();
 	let mut decoder = video_backend.create_decoder(video_stream.parameters())?;
 	
-	const MICRO_TIME_BASE: Rational = Rational(1, 1_000_000);
-	
 	let video_duration = demuxer.duration().rescale(rescale::TIME_BASE, MICRO_TIME_BASE);
 	let duration_hash = blake3::hash(&video_duration.to_le_bytes());
 	let mut rng = ChaCha20Rng::from_seed(duration_hash.as_bytes().to_owned());
 	
+	let mut scaler_cache: Option<scaling::Context> = None;
 	let mut best_frame: Option<turbojpeg::OwnedBuf> = None;
 	
 	for _ in 0..5 {
@@ -66,37 +67,15 @@ fn extract_thumbnail(media_path: PathBuf) -> anyhow::Result<Bytes> {
 		
 		demuxer.seek(time, time..).context("Seeking")?;
 		
-		let mut frame = frame::Video::empty();
-		let mut found_frame = false;
-		
-		for result in demuxer.packets() {
-			let (stream, packet) = result?;
-			
-			if stream.index() == video_stream_index {
-				decoder.send_packet(&packet).context("Decoding packet")?;
-				
-				if decoder.receive_frame(&mut frame).is_ok() {
-					found_frame = true;
-					break;
-				}
-			}
-		}
-		
-		if !found_frame {
-			continue;
-		}
+		let frame = match extract_frame(&mut demuxer, &mut decoder, video_stream_index)? {
+			Some(f) => f,
+			None => continue,
+		};
 		
 		let out_height = frame.height().min(TARGET_THUMBNAIL_HEIGHT);
 		let out_width = frame.width() * out_height / frame.height();
 		
-		let mut converter = scaling::Context::get(
-			frame.format(), frame.width(), frame.height(),
-			Pixel::RGB24, out_width, out_height,
-			scaling::Flags::BICUBIC,
-		).context("Creating image converter")?;
-		
-		let mut rgb_frame = frame::Video::empty();
-		converter.run(&frame, &mut rgb_frame).context("Converting frame")?;
+		let rgb_frame = scale_frame_rgb(&mut scaler_cache, &frame, out_width, out_height)?;
 		
 		let image = turbojpeg::Image {
 			pixels: rgb_frame.data(0),

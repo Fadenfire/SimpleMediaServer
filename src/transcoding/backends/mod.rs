@@ -1,4 +1,5 @@
 pub mod software;
+pub mod video_toolbox;
 
 use ffmpeg_the_third::{codec, Dictionary, Rational};
 

@@ -2,14 +2,16 @@ use std::path::PathBuf;
 
 use crate::config::ServerConfig;
 use crate::services::thumbnail_service::ThumbnailService;
+use crate::services::thumbnail_sheet_service::ThumbnailSheetService;
 use crate::web_server::libraries::Libraries;
-use crate::web_server::video_metadata::VideoMetadataCache;
+use crate::web_server::video_metadata::MediaMetadataCache;
 
 pub struct ServerState {
 	pub server_config: ServerConfig,
 	pub libraries: Libraries,
-	pub video_metadata_cache: VideoMetadataCache,
+	pub video_metadata_cache: MediaMetadataCache,
 	pub thumbnail_extractor: ThumbnailService,
+	pub timeline_generator: ThumbnailSheetService,
 }
 
 impl ServerState {
@@ -19,8 +21,9 @@ impl ServerState {
 		Ok(Self {
 			server_config,
 			libraries,
-			video_metadata_cache: VideoMetadataCache::new(),
+			video_metadata_cache: MediaMetadataCache::new(),
 			thumbnail_extractor: ThumbnailService::init(PathBuf::from("cache/thumbnail")).await?, // TODO: Add config option for cache path
+			timeline_generator: ThumbnailSheetService::init(PathBuf::from("cache/timeline-thumbnail")).await?,
 		})
 	}
 }

@@ -10,35 +10,37 @@ use ffmpeg_the_third as ffmpeg;
 use ffmpeg_the_third::{codec, Rational, Rescale, rescale};
 use ffmpeg_the_third::media::Type;
 use serde::{Deserialize, Serialize};
+use crate::services::thumbnail_sheet_service;
+use crate::services::thumbnail_sheet_service::ThumbnailSheetParams;
 
-pub struct VideoMetadataCache {
-	metadata_cache: Mutex<HashMap<PathBuf, VideoMetadata>>,
+pub struct MediaMetadataCache {
+	metadata_cache: Mutex<HashMap<PathBuf, MediaMetadata>>,
 }
 
-impl VideoMetadataCache {
+impl MediaMetadataCache {
 	pub fn new() -> Self {
 		Self {
 			metadata_cache: Mutex::new(HashMap::new()),
 		}
 	}
 	
-	pub async fn fetch_video_metadata(&self, video_path: impl AsRef<Path>) -> anyhow::Result<VideoMetadata> {
+	pub async fn fetch_media_metadata(&self, video_path: impl AsRef<Path>) -> anyhow::Result<MediaMetadata> {
 		let video_path = video_path.as_ref();
 		let file_metadata = tokio::fs::metadata(video_path).await?;
 		
 		{
 			let cache = self.metadata_cache.lock().unwrap();
 			
-			if let Some(video_metadata) = cache.get(video_path) {
-				if video_metadata.size == file_metadata.len() && video_metadata.mod_time == file_metadata.modified().ok() {
-					return Ok(video_metadata.clone());
+			if let Some(media_metadata) = cache.get(video_path) {
+				if media_metadata.file_size == file_metadata.len() && media_metadata.mod_time == file_metadata.modified().ok() {
+					return Ok(media_metadata.clone());
 				}
 			}
 		}
 		
 		let video_path2 = video_path.to_owned();
 		
-		let video_metadata = tokio::task::spawn_blocking(move || -> anyhow::Result<VideoMetadata> {
+		let media_metadata = tokio::task::spawn_blocking(move || -> anyhow::Result<MediaMetadata> {
 			let demuxer = ffmpeg::format::input(&video_path2).context("Opening video file")?;
 			
 			let duration_millis = demuxer.duration()
@@ -54,47 +56,59 @@ impl VideoMetadataCache {
 			
 			let artist = demuxer.metadata().get("artist").map(ToOwned::to_owned);
 			
-			let mut video_resolution = None;
+			let video_metadata = match demuxer.streams().best(Type::Video) {
+				Some(video_stream) => {
+					let decoder = codec::context::Context::from_parameters(video_stream.parameters())?
+						.decoder().video().context("Opening decoder")?;
+					
+					let thumbnail_sheet_params = thumbnail_sheet_service::calculate_sheet_params(&demuxer, &decoder);
+					
+					Some(VideoMetadata {
+						video_size: Dimension {
+							width: decoder.width(),
+							height: decoder.height(),
+						},
+						thumbnail_sheet_params,
+					})
+				}
+				None => None
+			};
 			
-			if let Some(video_stream) = demuxer.streams().best(Type::Video) {
-				let decoder = codec::context::Context::from_parameters(video_stream.parameters())?
-					.decoder().video().context("Opening decoder")?;
-				
-				video_resolution = Some(Dimension {
-					width: decoder.width(),
-					height: decoder.height(),
-				})
-			}
-			
-			Ok(VideoMetadata {
+			Ok(MediaMetadata {
 				file_path: video_path2,
-				size: file_metadata.len(),
+				file_size: file_metadata.len(),
 				mod_time: file_metadata.modified().ok(),
 				duration,
 				title,
 				artist,
-				video_resolution,
+				video_metadata,
 			})
 		}).await.unwrap()?;
 		
 		{
 			let mut cache = self.metadata_cache.lock().unwrap();
-			cache.insert(video_path.to_owned(), video_metadata.clone());
+			cache.insert(video_path.to_owned(), media_metadata.clone());
 		}
 		
-		Ok(video_metadata)
+		Ok(media_metadata)
 	}
 }
 
 #[derive(Clone, Debug)]
-pub struct VideoMetadata {
+pub struct MediaMetadata {
 	pub file_path: PathBuf,
-	pub size: u64,
+	pub file_size: u64,
 	pub mod_time: Option<SystemTime>,
 	pub duration: Duration,
 	pub title: String,
 	pub artist: Option<String>,
-	pub video_resolution: Option<Dimension>,
+	pub video_metadata: Option<VideoMetadata>,
+}
+
+#[derive(Clone, Debug)]
+pub struct VideoMetadata {
+	pub video_size: Dimension,
+	pub thumbnail_sheet_params: ThumbnailSheetParams,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

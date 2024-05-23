@@ -2,12 +2,14 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::sync::Arc;
 
+use anyhow::Context;
 use axum::{extract, Json};
 use axum::extract::State;
 use serde::Serialize;
 use tracing::instrument;
 
 use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_routes::list_dir;
 use crate::web_server::state::ServerState;
 use crate::web_server::video_locator;
 use crate::web_server::video_metadata::Dimension;
@@ -24,14 +26,33 @@ pub async fn file_info_route(
 	let file_metadata = tokio::fs::metadata(&resolved_path).await?;
 	
 	if file_metadata.is_file() {
-		let video_metadata = server_state.video_metadata_cache.fetch_video_metadata(&resolved_path).await?;
+		let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&resolved_path).await?;
 		
-		let file_info = FileInfo {
-			display_name: video_metadata.title,
-			size: file_metadata.len(),
-			duration: video_metadata.duration.as_secs(),
-			artist: video_metadata.artist,
-			video_resolution: video_metadata.video_resolution,
+		let adjacent_files = list_dir::collect_video_list(&resolved_path.parent().context("No parent")?).await?;
+		let this_index = adjacent_files.iter().position(|path| path == &resolved_path).context("Can't find self in file list")?;
+		
+		let video_info = media_metadata.video_metadata.map(|video_metadata| {
+			VideoInfo {
+				video_size: video_metadata.video_size,
+				sheet_thumbnail_size: Dimension {
+					width: video_metadata.thumbnail_sheet_params.thumbnail_width,
+					height: video_metadata.thumbnail_sheet_params.thumbnail_height,
+				},
+				thumbnail_sheet_rows: video_metadata.thumbnail_sheet_params.sheet_rows,
+				thumbnail_sheet_cols: video_metadata.thumbnail_sheet_params.sheet_cols,
+				thumbnail_sheet_interval: video_metadata.thumbnail_sheet_params.interval,
+			}
+		});
+		
+		let file_info = MediaInfo {
+			path: library_path.clone(),
+			display_name: media_metadata.title,
+			file_size: file_metadata.len(),
+			duration: media_metadata.duration.as_secs(),
+			artist: media_metadata.artist,
+			video_info,
+			prev_video: this_index.checked_sub(1).and_then(|i| adjacent_files.get(i)).and_then(|path| path.file_stem()).and_then(OsStr::to_str).map(ToOwned::to_owned),
+			next_video: adjacent_files.get(this_index + 1).and_then(|path| path.file_stem()).and_then(OsStr::to_str).map(ToOwned::to_owned),
 		};
 		
 		Ok(Json(FileInfoResponse::File(file_info)))
@@ -58,17 +79,29 @@ pub async fn file_info_route(
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum FileInfoResponse {
-	File(FileInfo),
+	File(MediaInfo),
 	Directory(DirectoryInfo),
 }
 
 #[derive(Debug, Serialize)]
-pub struct FileInfo {
+pub struct MediaInfo {
+	path: String,
 	display_name: String,
-	size: u64,
+	file_size: u64,
 	duration: u64,
 	artist: Option<String>,
-	video_resolution: Option<Dimension>,
+	video_info: Option<VideoInfo>,
+	prev_video: Option<String>,
+	next_video: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct VideoInfo {
+	video_size: Dimension,
+	sheet_thumbnail_size: Dimension,
+	thumbnail_sheet_rows: u32,
+	thumbnail_sheet_cols: u32,
+	thumbnail_sheet_interval: u32,
 }
 
 #[derive(Debug, Serialize)]
