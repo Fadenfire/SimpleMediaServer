@@ -11,7 +11,7 @@
 </svelte:head>
 
 {#if data.file_info.type === "file"}
-	<FilePage file_info={data.file_info}/>
+	<FilePage mediaInfo={data.file_info}/>
 {:else if data.file_info.type === "directory"}
 	<DirectoryPage dir_info={data.file_info} list_dir_promise={data.list_dir_promise}/>
 {/if}

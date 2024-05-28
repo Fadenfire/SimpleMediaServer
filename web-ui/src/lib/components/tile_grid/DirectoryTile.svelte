@@ -13,7 +13,7 @@
 		{#if thumbnail !== undefined}
 			<img class="thumbnail" src="{thumbnail}" alt="{title}">
 		{:else}
-			<div class="folder-icon"><FeatherIcon name="folder" width="4em" height="4em"/></div>
+			<div class="folder-icon"><FeatherIcon name="folder" size="4em"/></div>
 		{/if}
 		{#if child_count > 0}
 			<div class="count-container"><FeatherIcon name="list"/> {child_count}</div>

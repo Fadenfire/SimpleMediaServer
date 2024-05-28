@@ -5,10 +5,25 @@
 	
 	--main-text-color: #EEE;
 	--secondary-text-color: #BBB;
+	--disabled-text-color: #999;
 	--dim-text-color: #555;
 	
 	--nav-bar-height: 40px;
 	
 	--grid-card-width: 280px;
 	--grid-tile-spacing: 30px;
+	
+	--video-player-base-bar-color: #DDD6;
+	--video-player-buffer-bar-color: #EEE6;
+	--video-player-accent-bar-color: red;
+	
+	--video-player-timeline-width: 14px;
+	--video-player-bar-width: 3px;
+	--video-player-bar-focused-width: 5px;
+	--video-player-thumb-size: 10px;
+	
+	--video-player-control-size: 20px;
+	--video-player-center-control-size: 40px;
+	--video-player-center-control-icon-size: 26px;
+	--video-player-seek-indicator-size: 90px;
 }

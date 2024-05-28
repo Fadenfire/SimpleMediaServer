@@ -4,10 +4,10 @@
 
 </script>
 <nav>
-	<a class="nav-item" href="/"><FeatherIcon name="home" width="100%" height="100%"/></a>
+	<a class="nav-item" href="/"><FeatherIcon name="home" size="100%"/></a>
 	
 	{#if isStandalone()}
-		<a class="nav-item" href="javascript:window.history.back()"><FeatherIcon name="arrow-left" width="100%" height="100%"/></a>
+		<a class="nav-item" href="javascript:window.history.back()"><FeatherIcon name="arrow-left" size="100%"/></a>
 	{/if}
 </nav>
 
@@ -22,6 +22,7 @@
 	}
 	
 	.nav-item {
+		display: block;
 		width: var(--nav-bar-height);
 		height: var(--nav-bar-height);
 		color: var(--main-text-color);

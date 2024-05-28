@@ -27,3 +27,12 @@ export function escapePath(path: string): string {
 export function isStandalone(): boolean {
 	return window.matchMedia("(display-mode: standalone)").matches;
 }
+
+export function replayAnimations(elem: Element | undefined) {
+	if (elem === undefined) return;
+	
+	elem.getAnimations().forEach(anim => {
+		anim.cancel();
+		anim.play();
+	});
+}

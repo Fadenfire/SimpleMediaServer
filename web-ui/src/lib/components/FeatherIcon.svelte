@@ -1,21 +1,30 @@
 <script lang="ts">
 	import feather from "feather-icons";
-	export const directions = ["n", "ne", "e", "se", "s", "sw", "w", "nw"] as const;
 
 	export let name: string;
-	export let direction: typeof directions[number] = "n";
+	export let rotation: number = 0;
+	export let size: string | undefined = undefined;
 	export let width = "1em";
 	export let height = "1em";
-	export let customClass = "";
+	export let strokeWidth: string | undefined = undefined;
+	export let style: string = "";
+	
+	$: if (size) {
+		width = size;
+		height = size;
+	}
 	
 	$: icon = feather.icons[name];
-	$: rotation = directions.indexOf(direction) * 45;
+	$: attrs = Object.assign({}, icon.attrs);
+	
+	$: if (strokeWidth) {
+		attrs["stroke-width"] = strokeWidth;
+	}
 </script>
 
 <svg
-	{...icon.attrs}
-	class="{customClass}"
-	style="width: {width}; height: {height}; transform: rotate({rotation}deg);"
+	{...attrs}
+	style="width: {width}; height: {height}; transform: rotate({rotation}deg); {style}"
 >
 	<g>{@html icon.contents}</g>
 </svg>

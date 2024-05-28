@@ -5,15 +5,26 @@ interface Library {
 	display_name: string,
 }
 
-type FileInfoResponse = FileInfo | DirectoryInfo;
+type FileInfoResponse = MediaInfo | DirectoryInfo;
 
-interface FileInfo {
+interface MediaInfo {
 	type: "file",
+	path: string,
 	display_name: String,
-	size: number,
+	file_size: number,
 	duration: number,
-	artist?: string,
-	video_resolution?: Dimension,
+	artist: string | null,
+	video_info: VideoInfo | null,
+	prev_video: string | null,
+	next_video: string | null,
+}
+
+interface VideoInfo {
+	video_size: Dimension,
+	sheet_thumbnail_size: Dimension,
+	thumbnail_sheet_rows: number,
+	thumbnail_sheet_cols: number,
+	thumbnail_sheet_interval: number,
 }
 
 interface DirectoryInfo {

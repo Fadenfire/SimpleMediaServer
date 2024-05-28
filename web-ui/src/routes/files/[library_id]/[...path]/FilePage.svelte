@@ -2,18 +2,18 @@
     import { page } from "$app/stores";
     import VideoPlayer from "$lib/components/video_player/VideoPlayer.svelte";
 
-	export let file_info: FileInfo;
+	export let mediaInfo: MediaInfo;
 	
-	$: video_aspect_radio = file_info.video_resolution ? file_info.video_resolution.width / file_info.video_resolution.height : 16.0 / 9.0;
+	$: video_aspect_radio = mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0;
 </script>
 
 <div class="main-container" style="--video-aspect-radio: {video_aspect_radio}">
 	<main class="main-content">
 		<div class="video-container">
-			<VideoPlayer path="{`${$page.params.library_id}/${$page.params.path}`}"/>
+			<VideoPlayer mediaInfo={mediaInfo}/>
 		</div>
-		<h1 class="title">{file_info.display_name}</h1>
-		{#if file_info.artist} <span class="extra-info">{file_info.artist}</span> {/if}
+		<h1 class="title">{mediaInfo.display_name}</h1>
+		{#if mediaInfo.artist} <span class="extra-info">{mediaInfo.artist}</span> {/if}
 	</main>
 </div>
 

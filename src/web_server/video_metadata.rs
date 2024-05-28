@@ -61,7 +61,7 @@ impl MediaMetadataCache {
 					let decoder = codec::context::Context::from_parameters(video_stream.parameters())?
 						.decoder().video().context("Opening decoder")?;
 					
-					let thumbnail_sheet_params = thumbnail_sheet_service::calculate_sheet_params(&demuxer, &decoder);
+					let thumbnail_sheet_params = thumbnail_sheet_service::calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height());
 					
 					Some(VideoMetadata {
 						video_size: Dimension {

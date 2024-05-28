@@ -12,7 +12,7 @@ use turbojpeg::Subsamp;
 use crate::services::artifact_cache::{ArtifactCache, CacheEntry, FileValidityKey};
 use crate::transcoding::backends::software::SoftwareVideoBackend;
 use crate::transcoding::backends::VideoBackend;
-use crate::transcoding::image_utils::{extract_frame, frame_image_sample_rgb, scale_frame_rgb};
+use crate::transcoding::image_utils::{frame_image_sample_rgb, scale_frame_rgb};
 
 pub struct ThumbnailSheetService {
 	cache: ArtifactCache<FileValidityKey>,
@@ -39,7 +39,7 @@ impl ThumbnailSheetService {
 	}
 }
 
-const TARGET_THUMBNAIL_HEIGHT: u32 = 72;
+const TARGET_THUMBNAIL_HEIGHT: u32 = 120;
 const JPEG_QUALITY: i32 = 90;
 
 const SEC_TIME_BASE: Rational = Rational(1, 1);
@@ -54,15 +54,15 @@ pub struct ThumbnailSheetParams {
 	pub interval: u32,
 }
 
-pub fn calculate_sheet_params(demuxer: &format::context::Input, decoder: &decoder::Video) -> ThumbnailSheetParams {
-	let video_duration: u32 = demuxer.duration().rescale(rescale::TIME_BASE, SEC_TIME_BASE).try_into().unwrap();
+pub fn calculate_sheet_params(duration: i64, video_width: u32, video_height: u32) -> ThumbnailSheetParams {
+	let video_duration: u32 = duration.rescale(rescale::TIME_BASE, SEC_TIME_BASE).try_into().unwrap();
 	let interval = (video_duration / 500).max(10);
 	
 	let thumbnail_count = video_duration / interval;
 	let sheet_dimension = (thumbnail_count as f64).sqrt().ceil() as u32;
 	
 	ThumbnailSheetParams {
-		thumbnail_width: decoder.width() * TARGET_THUMBNAIL_HEIGHT / decoder.height(),
+		thumbnail_width: video_width * TARGET_THUMBNAIL_HEIGHT / video_height,
 		thumbnail_height: TARGET_THUMBNAIL_HEIGHT,
 		thumbnail_count,
 		sheet_rows: sheet_dimension,
@@ -88,7 +88,7 @@ pub fn generate_sheet(media_path: PathBuf) -> anyhow::Result<Bytes> {
 		unsafe { (*stream.as_mut_ptr()).discard = discard.into(); }
 	}
 	
-	let sheet_params = calculate_sheet_params(&demuxer, &decoder);
+	let sheet_params = calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height());
 	
 	let mut scaler_cache: Option<scaling::Context> = None;
 	
