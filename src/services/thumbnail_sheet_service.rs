@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use bytes::Bytes;
@@ -6,6 +6,7 @@ use ffmpeg_the_third as ffmpeg;
 use ffmpeg_the_third::{decoder, Discard, format, frame, Rational, Rescale, rescale};
 use ffmpeg_the_third::software::scaling;
 use image::{GenericImage, Rgb, RgbImage};
+use serde::{Deserialize, Serialize};
 use tokio::sync::Semaphore;
 use turbojpeg::Subsamp;
 
@@ -15,20 +16,31 @@ use crate::transcoding::backends::VideoBackend;
 use crate::transcoding::image_utils::{frame_image_sample_rgb, scale_frame_rgb};
 
 pub struct ThumbnailSheetService {
-	cache: ArtifactCache<FileValidityKey>,
+	cache: ArtifactCache<FileValidityKey, ThumbnailSheetParams>,
 	limiter: Semaphore,
 }
 
 impl ThumbnailSheetService {
 	pub async fn init(cache_dir: PathBuf) -> anyhow::Result<Self> {
 		Ok(Self {
-			cache: ArtifactCache::new(cache_dir).await?,
+			cache: ArtifactCache::<FileValidityKey, ThumbnailSheetParams>::new(cache_dir).await?,
 			limiter: Semaphore::new(2),
 		})
 	}
 	
-	pub async fn generate_image(&self, media_path: PathBuf) -> anyhow::Result<CacheEntry> {
-		let cache_key = format!("{}.jpg", blake3::hash(media_path.as_os_str().as_encoded_bytes()).to_hex());
+	fn make_cache_key(media_path: &Path) -> String {
+		format!("{}.jpg", blake3::hash(media_path.as_os_str().as_encoded_bytes()).to_hex())
+	}
+	
+	pub async fn get_cached_params(&self, media_path: &Path) -> anyhow::Result<Option<ThumbnailSheetParams>> {
+		let cache_key = Self::make_cache_key(media_path);
+		let validity_key = FileValidityKey::from_file(media_path).await?;
+		
+		Ok(self.cache.get(&cache_key, &validity_key).await?.map(|entry| entry.metadata))
+	}
+	
+	pub async fn generate_image(&self, media_path: PathBuf) -> anyhow::Result<CacheEntry<ThumbnailSheetParams>> {
+		let cache_key = Self::make_cache_key(&media_path);
 		let validity_key = FileValidityKey::from_file(&media_path).await?;
 		
 		self.cache.get_or_insert(&cache_key, validity_key, || async {
@@ -44,7 +56,7 @@ const JPEG_QUALITY: i32 = 90;
 
 const SEC_TIME_BASE: Rational = Rational(1, 1);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ThumbnailSheetParams {
 	pub thumbnail_width: u32,
 	pub thumbnail_height: u32,
@@ -71,7 +83,7 @@ pub fn calculate_sheet_params(duration: i64, video_width: u32, video_height: u32
 	}
 }
 
-pub fn generate_sheet(media_path: PathBuf) -> anyhow::Result<Bytes> {
+pub fn generate_sheet(media_path: PathBuf) -> anyhow::Result<(Bytes, ThumbnailSheetParams)> {
 	let mut demuxer = format::input(&media_path).context("Opening video file")?;
 	
 	let video_stream = demuxer.streams().best(ffmpeg::media::Type::Video).unwrap();
@@ -205,5 +217,5 @@ pub fn generate_sheet(media_path: PathBuf) -> anyhow::Result<Bytes> {
 	
 	let output_buffer = turbojpeg::compress_image(&sprite_sheet, JPEG_QUALITY, Subsamp::Sub2x2).unwrap();
 	
-	Ok(Bytes::from(output_buffer.to_vec()))
+	Ok((Bytes::from(output_buffer.to_vec()), sheet_params))
 }

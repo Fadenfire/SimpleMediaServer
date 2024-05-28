@@ -23,7 +23,7 @@ pub struct ThumbnailService {
 impl ThumbnailService {
 	pub async fn init(cache_dir: PathBuf) -> anyhow::Result<Self> {
 		Ok(Self {
-			cache: ArtifactCache::new(cache_dir).await?,
+			cache: ArtifactCache::<FileValidityKey>::new(cache_dir).await?,
 			limiter: Semaphore::new(4),
 		})
 	}
@@ -45,7 +45,7 @@ const JPEG_QUALITY: i32 = 90;
 
 const MICRO_TIME_BASE: Rational = Rational(1, 1_000_000);
 
-fn extract_thumbnail(media_path: PathBuf) -> anyhow::Result<Bytes> {
+fn extract_thumbnail(media_path: PathBuf) -> anyhow::Result<(Bytes, ())> {
 	let mut demuxer = ffmpeg::format::input(&media_path).context("Opening video file")?;
 	
 	let video_stream = demuxer.streams().best(ffmpeg::media::Type::Video).unwrap();
@@ -96,5 +96,5 @@ fn extract_thumbnail(media_path: PathBuf) -> anyhow::Result<Bytes> {
 	
 	let output_buffer = best_frame.ok_or_else(|| anyhow!("No thumbnails found"))?;
 	
-	Ok(Bytes::from(output_buffer.to_vec()))
+	Ok((Bytes::from(output_buffer.to_vec()), ()))
 }

@@ -11,7 +11,7 @@ use ffmpeg_the_third::{codec, Rational, Rescale, rescale};
 use ffmpeg_the_third::media::Type;
 use serde::{Deserialize, Serialize};
 use crate::services::thumbnail_sheet_service;
-use crate::services::thumbnail_sheet_service::ThumbnailSheetParams;
+use crate::services::thumbnail_sheet_service::{ThumbnailSheetParams, ThumbnailSheetService};
 
 pub struct MediaMetadataCache {
 	metadata_cache: Mutex<HashMap<PathBuf, MediaMetadata>>,
@@ -24,21 +24,23 @@ impl MediaMetadataCache {
 		}
 	}
 	
-	pub async fn fetch_media_metadata(&self, video_path: impl AsRef<Path>) -> anyhow::Result<MediaMetadata> {
-		let video_path = video_path.as_ref();
-		let file_metadata = tokio::fs::metadata(video_path).await?;
+	pub async fn fetch_media_metadata(&self, media_path: impl AsRef<Path>, thumbnail_sheet_service: &ThumbnailSheetService) -> anyhow::Result<MediaMetadata> {
+		let media_path = media_path.as_ref();
+		let file_metadata = tokio::fs::metadata(media_path).await?;
 		
 		{
 			let cache = self.metadata_cache.lock().unwrap();
 			
-			if let Some(media_metadata) = cache.get(video_path) {
+			if let Some(media_metadata) = cache.get(media_path) {
 				if media_metadata.file_size == file_metadata.len() && media_metadata.mod_time == file_metadata.modified().ok() {
 					return Ok(media_metadata.clone());
 				}
 			}
 		}
 		
-		let video_path2 = video_path.to_owned();
+		let thumbnail_sheet_params = thumbnail_sheet_service.get_cached_params(&media_path).await?;
+		
+		let video_path2 = media_path.to_owned();
 		
 		let media_metadata = tokio::task::spawn_blocking(move || -> anyhow::Result<MediaMetadata> {
 			let demuxer = ffmpeg::format::input(&video_path2).context("Opening video file")?;
@@ -61,7 +63,9 @@ impl MediaMetadataCache {
 					let decoder = codec::context::Context::from_parameters(video_stream.parameters())?
 						.decoder().video().context("Opening decoder")?;
 					
-					let thumbnail_sheet_params = thumbnail_sheet_service::calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height());
+					let thumbnail_sheet_params = thumbnail_sheet_params.unwrap_or_else(|| {
+						thumbnail_sheet_service::calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height())
+					});
 					
 					Some(VideoMetadata {
 						video_size: Dimension {
@@ -87,7 +91,7 @@ impl MediaMetadataCache {
 		
 		{
 			let mut cache = self.metadata_cache.lock().unwrap();
-			cache.insert(video_path.to_owned(), media_metadata.clone());
+			cache.insert(media_path.to_owned(), media_metadata.clone());
 		}
 		
 		Ok(media_metadata)

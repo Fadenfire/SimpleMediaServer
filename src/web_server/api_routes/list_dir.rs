@@ -41,7 +41,7 @@ pub async fn list_dir_route(
 				None => continue
 			};
 			
-			let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&path).await?;
+			let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&path, &server_state.timeline_generator).await?;
 			let thumbnail_path = format!("/api/thumbnail/{}/{}", library_path.trim_end_matches('/'), path_name);
 			
 			files.push(FileEntry {

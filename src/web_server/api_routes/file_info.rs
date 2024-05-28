@@ -26,7 +26,7 @@ pub async fn file_info_route(
 	let file_metadata = tokio::fs::metadata(&resolved_path).await?;
 	
 	if file_metadata.is_file() {
-		let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&resolved_path).await?;
+		let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&resolved_path, &server_state.timeline_generator).await?;
 		
 		let adjacent_files = list_dir::collect_video_list(&resolved_path.parent().context("No parent")?).await?;
 		let this_index = adjacent_files.iter().position(|path| path == &resolved_path).context("Can't find self in file list")?;
