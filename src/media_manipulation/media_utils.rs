@@ -1,46 +1,49 @@
 use anyhow::Context;
-use ffmpeg_the_third::{decoder, format, frame, Rational};
+use ffmpeg_the_third::{decoder, Discard, format, frame, Rational};
 use ffmpeg_the_third::format::Pixel;
 use ffmpeg_the_third::software::scaling;
 use image::flat::SampleLayout;
 use image::FlatSamples;
 
 pub const SECONDS_TIME_BASE: Rational = Rational(1, 1);
+pub const MILLIS_TIME_BASE: Rational = Rational(1, 1_000);
 pub const MICRO_TIME_BASE: Rational = Rational(1, 1_000_000);
 
-pub fn extract_frame(
+pub fn set_decoder_time_base(decoder: &mut decoder::Video, time_base: Rational) {
+	unsafe {
+		(*decoder.as_mut_ptr()).pkt_timebase = time_base.into();
+	}
+}
+
+pub fn discard_all_but_keyframes(demuxer: &mut format::context::Input, stream_index: usize) {
+	for mut stream in demuxer.streams_mut() {
+		let discard = if stream.index() == stream_index { Discard::NonKey } else { Discard::All };
+		unsafe { (*stream.as_mut_ptr()).discard = discard.into(); }
+	}
+}
+
+pub fn push_one_packet(
 	demuxer: &mut format::context::Input,
 	decoder: &mut decoder::Video,
-	video_stream_index: usize
-) -> anyhow::Result<Option<frame::Video>> {
-	let mut frame = frame::Video::empty();
-	let mut found_frame = false;
-	
+	stream_index: usize,
+) -> anyhow::Result<()> {
 	for result in demuxer.packets() {
 		let (stream, packet) = result?;
 		
-		if stream.index() == video_stream_index {
+		if stream.index() == stream_index && packet.is_key() {
 			decoder.send_packet(&packet).context("Decoding packet")?;
-			
-			if decoder.receive_frame(&mut frame).is_ok() {
-				found_frame = true;
-				break;
-			}
+			break;
 		}
 	}
 	
-	if found_frame {
-		Ok(Some(frame))
-	} else {
-		Ok(None)
-	}
+	Ok(())
 }
 
 pub fn scale_frame_rgb(
 	cache: &mut Option<scaling::Context>,
 	in_frame: &frame::Video,
 	out_width: u32,
-	out_height: u32
+	out_height: u32,
 ) -> anyhow::Result<frame::Video> {
 	let context = match cache {
 		Some(ctx) => {

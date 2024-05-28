@@ -6,10 +6,11 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
-use ffmpeg_the_third::{codec, format, Rational, Rescale, rescale};
+use ffmpeg_the_third::{codec, format, Rescale, rescale};
 use ffmpeg_the_third::media::Type;
 use serde::{Deserialize, Serialize};
 
+use crate::media_manipulation::media_utils::MILLIS_TIME_BASE;
 use crate::media_manipulation::thumbnail_sheet;
 use crate::media_manipulation::thumbnail_sheet::ThumbnailSheetParams;
 use crate::services::artifact_cache::ArtifactCache;
@@ -47,7 +48,7 @@ impl MediaMetadataCache {
 			let demuxer = format::input(&video_path2).context("Opening video file")?;
 			
 			let duration_millis = demuxer.duration()
-				.rescale(rescale::TIME_BASE, Rational(1, 1000))
+				.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)
 				.try_into()
 				.unwrap_or(0);
 			let duration = Duration::from_millis(duration_millis);
