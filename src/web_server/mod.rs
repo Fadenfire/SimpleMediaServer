@@ -13,6 +13,7 @@ mod api_routes;
 mod video_metadata;
 mod video_locator;
 mod libraries;
+mod web_utils;
 
 pub async fn run(server_config: ServerConfig, web_ui_dir: PathBuf) {
 	let general_config = server_config.general_config.clone();
