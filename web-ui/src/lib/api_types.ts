@@ -35,6 +35,7 @@ interface DirectoryInfo {
 interface ListDirectoryResponse {
 	files: ChildFile[],
 	directories: ChildDirectory[],
+	total_duration: number,
 }
 
 interface ChildFile {

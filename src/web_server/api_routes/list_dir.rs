@@ -1,6 +1,8 @@
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{extract, Json};
 use axum::extract::State;
@@ -29,6 +31,10 @@ pub async fn list_dir_route(
 	let mut files: Vec<FileEntry> = Vec::new();
 	let mut directories: Vec<DirectoryEntry> = Vec::new();
 	
+	let mut total_time = Duration::from_millis(0);
+	
+	let mut file_stem_set: HashSet<String> = HashSet::new();
+	
 	while let Some(entry) = read_dir.next_entry().await? {
 		let path = entry.path();
 		let file_type = entry.file_type().await?;
@@ -41,8 +47,13 @@ pub async fn list_dir_route(
 				None => continue
 			};
 			
+			if file_stem_set.contains(path_name) { continue; }
+			file_stem_set.insert(path_name.to_owned());
+			
 			let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&path, &server_state.thumbnail_sheet_generator).await?;
 			let thumbnail_path = format!("/api/thumbnail/{}/{}", library_path.trim_end_matches('/'), path_name);
+			
+			total_time += media_metadata.duration;
 			
 			files.push(FileEntry {
 				path_name: path_name.to_owned(),
@@ -64,7 +75,7 @@ pub async fn list_dir_route(
 				
 				thumbnail_path = video_paths.first()
 					.and_then(|path| path.file_stem())
-					.and_then(|stem| stem.to_str())
+					.and_then(OsStr::to_str)
 					.map(|thumbnail_path_name| {
 						format!("/api/thumbnail/{}/{}/{}", library_path.trim_end_matches('/'), path_name, thumbnail_path_name)
 					});
@@ -79,12 +90,13 @@ pub async fn list_dir_route(
 		}
 	}
 	
-	directories.sort_by_key(|it| it.path_name.clone());
-	files.sort_by_key(|it| it.path_name.clone());
+	directories.sort_by(|a, b| natord::compare(&a.path_name, &b.path_name));
+	files.sort_by(|a, b| natord::compare(&a.path_name, &b.path_name));
 	
 	let res = ListDirResponse {
 		files,
 		directories,
+		total_duration: total_time.as_secs(),
 	};
 	
 	Ok(Json(res))
@@ -93,16 +105,28 @@ pub async fn list_dir_route(
 pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>> {
 	let mut read_dir = tokio::fs::read_dir(dir_path).await?;
 	let mut video_paths: Vec<PathBuf> = Vec::new();
+	let mut file_stem_set: HashSet<String> = HashSet::new();
 	
 	while let Some(entry) = read_dir.next_entry().await? {
 		let path = entry.path();
 		
-		if entry.file_type().await?.is_file() && video_locator::is_video(&path) {
-			video_paths.push(path);
-		}
+		if !entry.file_type().await?.is_file() || !video_locator::is_video(&path) { continue; }
+		
+		let stem = match path.file_stem().and_then(OsStr::to_str) {
+			Some(s) => s,
+			None => continue
+		};
+		
+		if file_stem_set.contains(stem) { continue; }
+		file_stem_set.insert(stem.to_owned());
+		
+		video_paths.push(path);
 	}
 	
-	video_paths.sort_by_key(|path| path.file_name().map(ToOwned::to_owned));
+	video_paths.sort_by(|a, b| natord::compare(
+		a.file_stem().unwrap().to_str().unwrap(), // file_stem must have been Some to be added
+		b.file_stem().unwrap().to_str().unwrap()  //  to the list, so this should be safe
+	));
 	
 	Ok(video_paths)
 }
@@ -111,6 +135,7 @@ pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>>
 pub struct ListDirResponse {
 	files: Vec<FileEntry>,
 	directories: Vec<DirectoryEntry>,
+	total_duration: u64,
 }
 
 #[derive(Debug, Serialize)]

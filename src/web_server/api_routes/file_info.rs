@@ -44,6 +44,17 @@ pub async fn file_info_route(
 			}
 		});
 		
+		let prev_video = this_index
+			.checked_sub(1)
+			.and_then(|i| adjacent_files.get(i))
+			.and_then(|path| path.file_stem())
+			.and_then(OsStr::to_str)
+			.map(ToOwned::to_owned);
+		let next_video = adjacent_files.get(this_index + 1)
+			.and_then(|path| path.file_stem())
+			.and_then(OsStr::to_str)
+			.map(ToOwned::to_owned);
+		
 		let file_info = MediaInfo {
 			path: library_path.clone(),
 			display_name: media_metadata.title,
@@ -51,8 +62,8 @@ pub async fn file_info_route(
 			duration: media_metadata.duration.as_secs(),
 			artist: media_metadata.artist,
 			video_info,
-			prev_video: this_index.checked_sub(1).and_then(|i| adjacent_files.get(i)).and_then(|path| path.file_stem()).and_then(OsStr::to_str).map(ToOwned::to_owned),
-			next_video: adjacent_files.get(this_index + 1).and_then(|path| path.file_stem()).and_then(OsStr::to_str).map(ToOwned::to_owned),
+			prev_video,
+			next_video,
 		};
 		
 		Ok(Json(FileInfoResponse::File(file_info)))

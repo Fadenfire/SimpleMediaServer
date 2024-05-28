@@ -39,7 +39,6 @@ impl MediaMetadataCache {
 		}
 		
 		let thumbnail_sheet_params = thumbnail_sheet_service.get_cached_params(&media_path).await?;
-		
 		let video_path2 = media_path.to_owned();
 		
 		let media_metadata = tokio::task::spawn_blocking(move || -> anyhow::Result<MediaMetadata> {
