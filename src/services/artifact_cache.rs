@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use std::future::Future;
 use std::io;
-use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::SystemTime;
@@ -9,31 +7,96 @@ use std::time::SystemTime;
 use bytes::Bytes;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use tokio::sync::Semaphore;
 
-pub struct ArtifactCache<V, M = ()> {
-	cache_dir: PathBuf,
-	locks: Mutex<HashMap<String, Weak<tokio::sync::Mutex<()>>>>,
-	phantom_data: PhantomData<(V, M)>,
+pub trait ArtifactGenerator {
+	type Input;
+	type ValidityKey: Eq + Serialize + DeserializeOwned;
+	type Metadata: Serialize + DeserializeOwned;
+	
+	fn create_cache_key(&self, input: &Self::Input) -> String;
+	
+	async fn create_validity_key(&self, input: &Self::Input) -> anyhow::Result<Self::ValidityKey>;
+	
+	async fn generate_artifact(&self, input: Self::Input) -> anyhow::Result<(Bytes, Self::Metadata)>;
 }
 
-impl<V: Eq + Serialize + DeserializeOwned, M: Serialize + DeserializeOwned> ArtifactCache<V, M> {
-	pub async fn new(cache_dir: PathBuf) -> Result<Self, io::Error> {
+pub struct ArtifactCache<G: ArtifactGenerator> {
+	generator: G,
+	cache_dir: PathBuf,
+	locks: Mutex<HashMap<String, Weak<tokio::sync::Mutex<()>>>>,
+	generation_limiter: Semaphore,
+}
+
+impl<G: ArtifactGenerator> ArtifactCache<G> {
+	pub async fn new(generator: G, cache_dir: PathBuf) -> Result<Self, io::Error> {
 		tokio::fs::create_dir_all(&cache_dir).await?;
 		
 		Ok(Self {
+			generator,
 			cache_dir,
 			locks: Mutex::new(HashMap::new()),
-			phantom_data: PhantomData,
+			generation_limiter: Semaphore::new(64),
 		})
 	}
 	
-	async fn get_inner(&self, cache_key: &str, validity_key: &V) -> anyhow::Result<QueryResult<M>> {
+	pub fn with_task_limit(mut self, limit: usize) -> Self {
+		self.generation_limiter = Semaphore::new(limit);
+		self
+	}
+	
+	pub async fn get(&self, input: &G::Input) -> anyhow::Result<Option<CacheEntry<G::Metadata>>> {
+		let validity_key = self.generator.create_validity_key(input).await?;
+		
+		let cache_key = self.generator.create_cache_key(input);
+		let lock = self.get_lock(&cache_key);
+		let _lock_guard = lock.lock().await;
+		
+		match self.get_inner(&cache_key, &validity_key).await? {
+			QueryResult::Present { cache_entry } => Ok(Some(cache_entry)),
+			QueryResult::Absent { .. } => Ok(None),
+		}
+	}
+	
+	pub async fn get_or_generate(&self, input: G::Input) -> anyhow::Result<CacheEntry<G::Metadata>> {
+		let validity_key = self.generator.create_validity_key(&input).await?;
+		
+		let cache_key = self.generator.create_cache_key(&input);
+		let lock = self.get_lock(&cache_key);
+		let _lock_guard = lock.lock().await;
+		
+		match self.get_inner(&cache_key, &validity_key).await? {
+			QueryResult::Present { cache_entry } => Ok(cache_entry),
+			QueryResult::Absent { cache_file_path, cache_metadata_path } => {
+				let (artifact_data, metadata) = {
+					let _permit = self.generation_limiter.acquire().await.unwrap();
+					self.generator.generate_artifact(input).await?
+				};
+				
+				let entry_metadata = CacheEntryMetadata {
+					validity_key,
+					metadata,
+				};
+				
+				tokio::fs::write(&cache_file_path, &artifact_data).await?;
+				tokio::fs::write(&cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
+				
+				Ok(CacheEntry {
+					cache_file: cache_file_path,
+					mod_time: SystemTime::now(),
+					metadata: entry_metadata.metadata
+				})
+			}
+		}
+	}
+	
+	async fn get_inner(&self, cache_key: &str, validity_key: &G::ValidityKey) -> anyhow::Result<QueryResult<G::Metadata>> {
 		let cache_file_path = self.cache_dir.join(cache_key);
 		let cache_metadata_path = cache_file_path.with_extension("meta.json");
 		
 		if let Some(file_metadata) = tokio::fs::metadata(&cache_file_path).await.ok() {
 			let entry_metadata = tokio::fs::read(&cache_metadata_path).await.ok()
-				.and_then(|data| serde_json::from_slice::<CacheEntryMetadata<V, M>>(&data).ok());
+				.and_then(|data| serde_json::from_slice::<CacheEntryMetadata<G::ValidityKey, G::Metadata>>(&data).ok());
 			
 			if let Some(entry_metadata) = entry_metadata {
 				if &entry_metadata.validity_key == validity_key {
@@ -52,46 +115,6 @@ impl<V: Eq + Serialize + DeserializeOwned, M: Serialize + DeserializeOwned> Arti
 			cache_file_path,
 			cache_metadata_path,
 		})
-	}
-	
-	pub async fn get(&self, cache_key: &str, validity_key: &V) -> anyhow::Result<Option<CacheEntry<M>>> {
-		let lock = self.get_lock(cache_key);
-		let _lock_guard = lock.lock().await;
-		
-		match self.get_inner(cache_key, validity_key).await? {
-			QueryResult::Present { cache_entry } => Ok(Some(cache_entry)),
-			QueryResult::Absent { .. } => Ok(None),
-		}
-	}
-	
-	pub async fn get_or_insert<F, Fut>(&self, cache_key: &str, validity_key: V, func: F) -> anyhow::Result<CacheEntry<M>>
-	where
-		F: FnOnce() -> Fut,
-		Fut: Future<Output = anyhow::Result<(Bytes, M)>>
-	{
-		let lock = self.get_lock(cache_key);
-		let _lock_guard = lock.lock().await;
-		
-		match self.get_inner(cache_key, &validity_key).await? {
-			QueryResult::Present { cache_entry } => Ok(cache_entry),
-			QueryResult::Absent { cache_file_path, cache_metadata_path } => {
-				let (artifact_data, metadata) = func().await?;
-				
-				let entry_metadata = CacheEntryMetadata {
-					validity_key,
-					metadata,
-				};
-				
-				tokio::fs::write(&cache_file_path, &artifact_data).await?;
-				tokio::fs::write(&cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
-				
-				Ok(CacheEntry {
-					cache_file: cache_file_path,
-					mod_time: SystemTime::now(),
-					metadata: entry_metadata.metadata
-				})
-			}
-		}
 	}
 	
 	fn get_lock(&self, key: &str) -> Arc<tokio::sync::Mutex<()>> {

@@ -6,12 +6,14 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
-use ffmpeg_the_third as ffmpeg;
-use ffmpeg_the_third::{codec, Rational, Rescale, rescale};
+use ffmpeg_the_third::{codec, format, Rational, Rescale, rescale};
 use ffmpeg_the_third::media::Type;
 use serde::{Deserialize, Serialize};
-use crate::services::thumbnail_sheet_service;
-use crate::services::thumbnail_sheet_service::{ThumbnailSheetParams, ThumbnailSheetService};
+
+use crate::media_manipulation::thumbnail_sheet;
+use crate::media_manipulation::thumbnail_sheet::ThumbnailSheetParams;
+use crate::services::artifact_cache::ArtifactCache;
+use crate::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 
 pub struct MediaMetadataCache {
 	metadata_cache: Mutex<HashMap<PathBuf, MediaMetadata>>,
@@ -24,25 +26,25 @@ impl MediaMetadataCache {
 		}
 	}
 	
-	pub async fn fetch_media_metadata(&self, media_path: impl AsRef<Path>, thumbnail_sheet_service: &ThumbnailSheetService) -> anyhow::Result<MediaMetadata> {
-		let media_path = media_path.as_ref();
-		let file_metadata = tokio::fs::metadata(media_path).await?;
+	pub async fn fetch_media_metadata(&self, media_path: impl AsRef<Path>, thumbnail_sheet_cache: &ArtifactCache<ThumbnailSheetGenerator>) -> anyhow::Result<MediaMetadata> {
+		let media_path = media_path.as_ref().to_owned();
+		let file_metadata = tokio::fs::metadata(&media_path).await?;
 		
 		{
 			let cache = self.metadata_cache.lock().unwrap();
 			
-			if let Some(media_metadata) = cache.get(media_path) {
+			if let Some(media_metadata) = cache.get(&media_path) {
 				if media_metadata.file_size == file_metadata.len() && media_metadata.mod_time == file_metadata.modified().ok() {
 					return Ok(media_metadata.clone());
 				}
 			}
 		}
 		
-		let thumbnail_sheet_params = thumbnail_sheet_service.get_cached_params(&media_path).await?;
-		let video_path2 = media_path.to_owned();
+		let thumbnail_sheet_params = thumbnail_sheet_cache.get(&media_path).await?.map(|entry| entry.metadata);
+		let video_path2 = media_path.clone();
 		
 		let media_metadata = tokio::task::spawn_blocking(move || -> anyhow::Result<MediaMetadata> {
-			let demuxer = ffmpeg::format::input(&video_path2).context("Opening video file")?;
+			let demuxer = format::input(&video_path2).context("Opening video file")?;
 			
 			let duration_millis = demuxer.duration()
 				.rescale(rescale::TIME_BASE, Rational(1, 1000))
@@ -63,7 +65,7 @@ impl MediaMetadataCache {
 						.decoder().video().context("Opening decoder")?;
 					
 					let thumbnail_sheet_params = thumbnail_sheet_params.unwrap_or_else(|| {
-						thumbnail_sheet_service::calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height())
+						thumbnail_sheet::calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height())
 					});
 					
 					Some(VideoMetadata {

@@ -10,7 +10,7 @@ mod config;
 mod web_server;
 mod utils;
 mod services;
-mod transcoding;
+mod media_manipulation;
 
 #[derive(FromArgs)]
 /// rust based basic media server

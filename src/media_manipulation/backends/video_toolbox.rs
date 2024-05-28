@@ -4,7 +4,7 @@ use ffmpeg_the_third::{codec, decoder, Dictionary, encoder, Rational};
 use ffmpeg_the_third::codec::Parameters;
 use ffmpeg_the_third::format::Pixel;
 
-use crate::transcoding::backends::VideoBackend;
+use crate::media_manipulation::backends::VideoBackend;
 
 pub struct VideoToolboxVideoBackend;
 

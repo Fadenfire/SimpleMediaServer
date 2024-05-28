@@ -40,7 +40,7 @@ pub async fn thumbnail_route(
 		}
 	}
 	
-	let generated_thumbnail = server_state.thumbnail_generator.extract_thumbnail(media_path).await?;
+	let generated_thumbnail = server_state.thumbnail_generator.get_or_generate(media_path).await?;
 	let res = serve_file_basic(&generated_thumbnail.cache_file, generated_thumbnail.mod_time, mime::IMAGE_JPEG, &headers).await?;
 	
 	Ok(res)

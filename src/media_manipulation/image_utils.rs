@@ -1,9 +1,12 @@
 use anyhow::Context;
-use ffmpeg_the_third::{decoder, format, frame};
+use ffmpeg_the_third::{decoder, format, frame, Rational};
 use ffmpeg_the_third::format::Pixel;
 use ffmpeg_the_third::software::scaling;
 use image::flat::SampleLayout;
 use image::FlatSamples;
+
+pub const SECONDS_TIME_BASE: Rational = Rational(1, 1);
+pub const MICRO_TIME_BASE: Rational = Rational(1, 1_000_000);
 
 pub fn extract_frame(
 	demuxer: &mut format::context::Input,
