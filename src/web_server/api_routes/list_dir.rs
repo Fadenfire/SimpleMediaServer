@@ -1,24 +1,28 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::Duration;
 
-use axum::{extract, Json};
-use axum::extract::State;
+use http::{Method, StatusCode};
 use serde::Serialize;
 use tracing::instrument;
 
 use crate::web_server::api_routes::error::ApiError;
-use crate::web_server::state::ServerState;
+use crate::web_server::libraries::reconstruct_library_path;
+use crate::web_server::router::ServerState;
 use crate::web_server::video_locator;
+use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
-#[instrument(skip(server_state))]
+#[instrument(skip(server_state, request))]
 pub async fn list_dir_route(
-	State(server_state): State<Arc<ServerState>>,
-	extract::Path(library_path): extract::Path<String>,
-) -> Result<Json<ListDirResponse>, ApiError> {
-	let resolved_path = server_state.libraries.resolve_path(&library_path)?;
+	server_state: &ServerState,
+	request: &HyperRequest,
+	library_id: &str,
+	library_path: &[&str]
+) -> Result<HyperResponse, ApiError> {
+	restrict_method(request, &[Method::GET, Method::HEAD])?;
+	
+	let resolved_path = server_state.libraries.resolve_path(library_id, library_path)?;
 	
 	let file_metadata = tokio::fs::metadata(&resolved_path).await?;
 	
@@ -51,7 +55,7 @@ pub async fn list_dir_route(
 			file_stem_set.insert(path_name.to_owned());
 			
 			let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&path, &server_state.thumbnail_sheet_generator).await?;
-			let thumbnail_path = format!("/api/thumbnail/{}/{}", library_path.trim_end_matches('/'), path_name);
+			let thumbnail_path = format!("/api/thumbnail/{}/{}", reconstruct_library_path(library_id, library_path), path_name);
 			
 			total_time += media_metadata.duration;
 			
@@ -77,7 +81,7 @@ pub async fn list_dir_route(
 					.and_then(|path| path.file_stem())
 					.and_then(OsStr::to_str)
 					.map(|thumbnail_path_name| {
-						format!("/api/thumbnail/{}/{}/{}", library_path.trim_end_matches('/'), path_name, thumbnail_path_name)
+						format!("/api/thumbnail/{}/{}/{}", reconstruct_library_path(library_id, library_path), path_name, thumbnail_path_name)
 					});
 			}
 			
@@ -99,7 +103,7 @@ pub async fn list_dir_route(
 		total_duration: total_time.as_secs(),
 	};
 	
-	Ok(Json(res))
+	Ok(json_response(StatusCode::OK, &res))
 }
 
 pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>> {

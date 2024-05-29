@@ -1,14 +1,16 @@
-use axum::http::StatusCode;
-use axum::Json;
-use axum::response::{IntoResponse, Response};
+use headers::HeaderMapExt;
+use http::{Method, StatusCode};
 use serde::Serialize;
 use tracing::error;
+
+use crate::web_server::web_utils::{HyperResponse, json_response};
 
 pub enum ApiError {
 	NotFound,
 	LibraryNotFound,
 	FileNotFound,
 	NotADirectory,
+	MethodNotAllowed(Vec<Method>),
 	UnexpectedError(anyhow::Error),
 }
 
@@ -19,11 +21,29 @@ impl ApiError {
 			Self::LibraryNotFound => (StatusCode::NOT_FOUND, "library_not_found"),
 			Self::FileNotFound => (StatusCode::NOT_FOUND, "file_not_found"),
 			Self::NotADirectory => (StatusCode::BAD_REQUEST, "not_a_directory"),
+			Self::MethodNotAllowed(_) => (StatusCode::METHOD_NOT_ALLOWED, "method_not_allowed"),
 			Self::UnexpectedError(err) => {
 				error!("Unexpected error: {:?}", err);
 				(StatusCode::INTERNAL_SERVER_ERROR, "unexpected_error")
-			},
+			}
 		}
+	}
+	
+	pub fn into_response(self) -> HyperResponse {
+		let (status, message) = self.get_code_and_message();
+		
+		let reply = ErrorMessage {
+			code: status.as_u16(),
+			message: message.to_owned(),
+		};
+		
+		let mut res = json_response(status, &reply);
+		
+		if let Self::MethodNotAllowed(allowed_methods) = self {
+			res.headers_mut().typed_insert(headers::Allow::from_iter(allowed_methods));
+		}
+		
+		res
 	}
 }
 
@@ -49,19 +69,6 @@ impl From<std::io::Error> for ApiError {
 			ErrorKind::NotFound | ErrorKind::PermissionDenied => Self::FileNotFound,
 			_ => Self::UnexpectedError(err.into()),
 		}
-	}
-}
-
-impl IntoResponse for ApiError {
-	fn into_response(self) -> Response {
-		let (status, message) = self.get_code_and_message();
-		
-		let reply = ErrorMessage {
-			code: status.as_u16(),
-			message: message.to_owned(),
-		};
-		
-		(status, Json(reply)).into_response()
 	}
 }
 

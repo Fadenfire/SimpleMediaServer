@@ -1,26 +1,29 @@
 use std::borrow::Cow;
 use std::ffi::OsStr;
-use std::sync::Arc;
 
 use anyhow::Context;
-use axum::{extract, Json};
-use axum::extract::State;
+use http::{Method, StatusCode};
 use serde::Serialize;
 use tracing::instrument;
 
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::api_routes::list_dir;
-use crate::web_server::state::ServerState;
+use crate::web_server::libraries::reconstruct_library_path;
+use crate::web_server::router::ServerState;
 use crate::web_server::video_locator;
 use crate::web_server::video_metadata::Dimension;
+use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
-#[instrument(skip(server_state))]
+#[instrument(skip(server_state, request))]
 pub async fn file_info_route(
-	State(server_state): State<Arc<ServerState>>,
-	extract::Path(library_path): extract::Path<String>,
-) -> Result<Json<FileInfoResponse>, ApiError> {
-	let (library, rel_path) = server_state.libraries.split_library_path(&library_path)?;
-	let resolved_path = library.resolve_path(rel_path).ok_or(ApiError::FileNotFound)?;
+	server_state: &ServerState,
+	request: &HyperRequest,
+	library_id: &str,
+	library_path: &[&str]
+) -> Result<HyperResponse, ApiError> {
+	restrict_method(request, &[Method::GET, Method::HEAD])?;
+	
+	let (library, resolved_path) = server_state.libraries.resolve_library_and_path(library_id, library_path)?;
 	let resolved_path = video_locator::locate_video(&resolved_path).await.map_err(|_| ApiError::FileNotFound)?;
 	
 	let file_metadata = tokio::fs::metadata(&resolved_path).await?;
@@ -56,7 +59,7 @@ pub async fn file_info_route(
 			.map(ToOwned::to_owned);
 		
 		let file_info = MediaInfo {
-			path: library_path.clone(),
+			path: reconstruct_library_path(library_id, library_path),
 			display_name: media_metadata.title,
 			file_size: file_metadata.len(),
 			duration: media_metadata.duration.as_secs(),
@@ -66,9 +69,9 @@ pub async fn file_info_route(
 			next_video,
 		};
 		
-		Ok(Json(FileInfoResponse::File(file_info)))
+		Ok(json_response(StatusCode::OK, &FileInfoResponse::File(file_info)))
 	} else if file_metadata.is_dir() {
-		let display_name = if rel_path.is_empty() {
+		let display_name = if library_path.is_empty() {
 			library.display_name.clone()
 		} else {
 			resolved_path.file_name()
@@ -81,7 +84,7 @@ pub async fn file_info_route(
 			display_name,
 		};
 		
-		Ok(Json(FileInfoResponse::Directory(dir_info)))
+		Ok(json_response(StatusCode::OK, &FileInfoResponse::Directory(dir_info)))
 	} else {
 		Err(ApiError::FileNotFound)
 	}

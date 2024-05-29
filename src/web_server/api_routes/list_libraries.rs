@@ -1,22 +1,23 @@
-use std::sync::Arc;
-
-use axum::extract::State;
-use axum::Json;
+use http::{Method, StatusCode};
 use serde::Serialize;
 use tracing::instrument;
 
-use crate::web_server::state::ServerState;
+use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::libraries::Libraries;
+use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
-#[instrument(skip(server_state))]
-pub async fn list_libraries_route(State(server_state): State<Arc<ServerState>>) -> Json<Vec<Library>> {
-	let libraries: Vec<Library> = server_state.libraries.iter_libraries()
+#[instrument(skip(request, libraries))]
+pub async fn list_libraries_route(request: &HyperRequest, libraries: &Libraries) -> Result<HyperResponse, ApiError> {
+	restrict_method(request, &[Method::GET, Method::HEAD])?;
+	
+	let libraries: Vec<Library> = libraries.iter_libraries()
 		.map(|lib| Library {
 			id: lib.id.clone(),
 			display_name: lib.display_name.clone(),
 		})
 		.collect();
 	
-	Json(libraries)
+	Ok(json_response(StatusCode::OK, &libraries))
 }
 
 #[derive(Debug, Serialize)]
