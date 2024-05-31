@@ -7,8 +7,9 @@ use tower_service::Service;
 use tracing::instrument;
 
 use crate::config::ServerConfig;
-use crate::services::{thumbnail_service, thumbnail_sheet_service};
+use crate::services::{hls_segment_service, thumbnail_service, thumbnail_sheet_service};
 use crate::services::artifact_cache::ArtifactCache;
+use crate::services::hls_segment_service::HlsSegmentGenerator;
 use crate::services::thumbnail_service::ThumbnailGenerator;
 use crate::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 use crate::web_server::api_routes;
@@ -25,6 +26,7 @@ pub struct ServerState {
 	pub video_metadata_cache: MediaMetadataCache,
 	pub thumbnail_generator: ArtifactCache<ThumbnailGenerator>,
 	pub thumbnail_sheet_generator: ArtifactCache<ThumbnailSheetGenerator>,
+	pub hls_segment_generator: ArtifactCache<HlsSegmentGenerator>,
 }
 
 impl ServerState {
@@ -49,6 +51,7 @@ impl ServerState {
 			video_metadata_cache: MediaMetadataCache::new(),
 			thumbnail_generator: thumbnail_service::init_service(PathBuf::from("cache/thumbnail")).await?, // TODO: Add config option for cache path
 			thumbnail_sheet_generator: thumbnail_sheet_service::init_service(PathBuf::from("cache/timeline-thumbnail")).await?,
+			hls_segment_generator: hls_segment_service::init_service(PathBuf::from("cache/segments")).await?,
 		})
 	}
 }

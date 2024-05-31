@@ -11,6 +11,8 @@ mod list_dir;
 mod thumbnail;
 mod thumbnail_sheet;
 mod native_video;
+mod hls_manifest;
+mod hls_segment;
 
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
 	let result = match path {
@@ -30,6 +32,12 @@ pub async fn route_request(request: HyperRequest, path: &[&str], server_state: A
 		
 		["media", "source", library_id, library_path @ ..] =>
 			native_video::native_video_route(&server_state, request, *library_id, library_path).await,
+		
+		["media", "hls", library_id, library_path @ .., "manifest"] =>
+			hls_manifest::hls_manifest_route(&server_state, &request, *library_id, library_path).await,
+		
+		["media", "hls", library_id, library_path @ .., "segment", segment_index] =>
+			hls_segment::hls_segment_route(&server_state, &request, *library_id, library_path, *segment_index).await,
 		
 		_ => Err(ApiError::NotFound)
 	};

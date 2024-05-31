@@ -10,7 +10,7 @@ use turbojpeg::Subsamp;
 
 use crate::media_manipulation::backends::software::SoftwareVideoBackend;
 use crate::media_manipulation::backends::VideoBackend;
-use crate::media_manipulation::media_utils::{discard_all_but_keyframes, MICRO_TIME_BASE, push_one_packet, scale_frame_rgb, set_decoder_time_base};
+use crate::media_manipulation::media_utils::{discard_all_but_keyframes, MICRO_TIME_BASE, push_one_packet, scale_frame_rgb, set_video_decoder_time_base};
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 720;
 const JPEG_QUALITY: i32 = 90;
@@ -25,7 +25,7 @@ pub fn extract_thumbnail(media_path: PathBuf) -> anyhow::Result<Bytes> {
 	let mut decoder = video_backend.create_decoder(video_stream.parameters())?;
 	
 	decoder.set_parameters(video_stream.parameters())?;
-	set_decoder_time_base(&mut decoder, video_stream.time_base().into());
+	set_video_decoder_time_base(&mut decoder, video_stream.time_base().into());
 	discard_all_but_keyframes(&mut demuxer, video_stream_index);
 	
 	let video_duration = demuxer.duration().rescale(rescale::TIME_BASE, MICRO_TIME_BASE);

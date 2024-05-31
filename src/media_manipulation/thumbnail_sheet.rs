@@ -10,7 +10,7 @@ use turbojpeg::Subsamp;
 
 use crate::media_manipulation::backends::software::SoftwareVideoBackend;
 use crate::media_manipulation::backends::VideoBackend;
-use crate::media_manipulation::media_utils::{discard_all_but_keyframes, frame_image_sample_rgb, push_one_packet, scale_frame_rgb, SECONDS_TIME_BASE, set_decoder_time_base};
+use crate::media_manipulation::media_utils::{discard_all_but_keyframes, frame_image_sample_rgb, push_one_packet, scale_frame_rgb, SECONDS_TIME_BASE, set_video_decoder_time_base};
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 120;
 const JPEG_QUALITY: i32 = 90;
@@ -52,7 +52,7 @@ pub fn generate_sheet(media_path: PathBuf) -> anyhow::Result<(Bytes, ThumbnailSh
 	let mut decoder = video_backend.create_decoder(video_stream.parameters())?;
 	
 	decoder.set_parameters(video_stream.parameters())?;
-	set_decoder_time_base(&mut decoder, video_stream.time_base().into());
+	set_video_decoder_time_base(&mut decoder, video_stream.time_base().into());
 	discard_all_but_keyframes(&mut demuxer, video_stream_index);
 	
 	let sheet_params = calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height());

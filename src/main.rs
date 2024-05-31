@@ -5,6 +5,7 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::config::ServerConfig;
+use crate::media_manipulation::transcoding;
 
 mod config;
 mod web_server;
@@ -25,7 +26,7 @@ async fn main() {
 	let args: Args = argh::from_env();
 	
 	setup_logging();
-	ffmpeg_the_third::log::set_level(ffmpeg_the_third::log::Level::Error);
+	// ffmpeg_the_third::log::set_level(ffmpeg_the_third::log::Level::Error);
 	
 	info!("Starting server");
 	
