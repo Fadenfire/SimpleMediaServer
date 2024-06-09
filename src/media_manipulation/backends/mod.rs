@@ -1,7 +1,7 @@
 pub mod software;
 pub mod video_toolbox;
 
-use ffmpeg_the_third::{codec, Dictionary, Rational};
+use ffmpeg_next::{codec, Dictionary, Rational};
 
 pub trait VideoBackend {
 	fn create_encoder(
@@ -18,6 +18,7 @@ pub trait VideoBackend {
 	
 	fn create_decoder(
 		&mut self,
-		params: codec::Parameters
+		params: codec::Parameters,
+		packet_time_base: Rational,
 	) -> anyhow::Result<codec::decoder::Video>;
 }

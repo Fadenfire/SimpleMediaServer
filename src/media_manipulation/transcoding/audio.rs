@@ -2,10 +2,10 @@ use std::cmp::min;
 use std::ops::Range;
 
 use anyhow::{anyhow, Context};
-use ffmpeg_the_third as ffmpeg;
-use ffmpeg_the_third::{codec, Dictionary, format, frame, Packet, Rational, Rescale};
+use ffmpeg_next as ffmpeg;
+use ffmpeg_next::{codec, Dictionary, format, frame, Packet, Rational, Rescale};
 
-use crate::media_manipulation::media_utils::{SECONDS_TIME_BASE, set_audio_decoder_time_base};
+use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;
 
 pub struct AudioTranscoder {
 	decoder: codec::decoder::Audio,
@@ -23,7 +23,6 @@ pub struct AudioTranscoder {
 pub struct AudioTranscoderParams<'a> {
 	pub in_stream: &'a ffmpeg::Stream<'a>,
 	pub muxer: &'a mut format::context::Output,
-	pub decoder_codec: Option<codec::Audio>,
 	pub encoder_codec: codec::Audio,
 	pub bit_rate: usize,
 	pub encoder_options: Dictionary<'a>,
@@ -33,20 +32,19 @@ impl AudioTranscoder {
 	pub fn new(params: AudioTranscoderParams) -> anyhow::Result<Self> {
 		let has_global_header = params.muxer.format().flags().contains(format::flag::Flags::GLOBAL_HEADER);
 		
-		let decoder_context = codec::context::Context::from_parameters(params.in_stream.parameters())?;
+		let mut decoder = codec::context::Context::from_parameters(params.in_stream.parameters())?
+			.decoder()
+			.audio()?;
 		
-		let mut decoder = match params.decoder_codec {
-			Some(codec) => decoder_context.decoder().open_as(codec)?.audio()?,
-			None => decoder_context.decoder().audio()?
-		};
+		decoder.set_packet_time_base(params.in_stream.time_base());
 		
-		decoder.set_parameters(params.in_stream.parameters())?;
-		set_audio_decoder_time_base(&mut decoder, params.in_stream.time_base());
+		let rate_time_base = Rational::new(1, decoder.rate() as i32);
 		
 		let mut out_stream = params.muxer.add_stream(params.encoder_codec)?;
 		
-		let encoder_context = codec::context::Context::from_parameters(out_stream.parameters())?;
-		let mut encoder = encoder_context.encoder().audio()?;
+		let mut encoder = codec::context::Context::new_with_codec(*params.encoder_codec)
+			.encoder()
+			.audio()?;
 		
 		if has_global_header {
 			encoder.set_flags(codec::flag::Flags::GLOBAL_HEADER);
@@ -54,16 +52,13 @@ impl AudioTranscoder {
 		
 		encoder.set_rate(decoder.rate() as i32);
 		encoder.set_channel_layout(decoder.channel_layout());
-		encoder.set_channels(decoder.channels() as i32);
 		encoder.set_format(decoder.format());
 		encoder.set_bit_rate(params.bit_rate);
-		
-		let mut encoder = encoder.open_as_with(params.encoder_codec, params.encoder_options)?;
-		out_stream.set_parameters(&encoder);
-		
-		let rate_time_base = Rational::new(1, decoder.rate() as i32);
-		
 		encoder.set_time_base(rate_time_base);
+		
+		let encoder = encoder.open_with(params.encoder_options)?;
+		
+		out_stream.set_parameters(&encoder);
 		out_stream.set_time_base(rate_time_base);
 		
 		let staging_frame = frame::Audio::new(encoder.format(), encoder.frame_size() as usize, encoder.channel_layout());

@@ -3,11 +3,11 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
-use ffmpeg_sys_the_third::av_opt_set;
-use ffmpeg_the_third::{Dictionary, encoder, format, media, Rescale, rescale};
-use ffmpeg_the_third::codec::Id;
-use crate::media_manipulation::backends::video_toolbox::VideoToolboxVideoBackend;
+use ffmpeg_next::{Dictionary, encoder, format, media, Rescale, rescale};
+use ffmpeg_next::codec::Id;
+use ffmpeg_sys_next::av_opt_set;
 
+use crate::media_manipulation::backends::video_toolbox::VideoToolboxVideoBackend;
 use crate::media_manipulation::media_utils::{InMemoryMuxer, SECONDS_TIME_BASE};
 use crate::media_manipulation::transcoding::audio::{AudioTranscoder, AudioTranscoderParams};
 use crate::media_manipulation::transcoding::video::{VideoTranscoder, VideoTranscoderParams};
@@ -49,7 +49,6 @@ pub fn transcode_segment(media_path: PathBuf, segment_index: usize, segment_size
 		let params = AudioTranscoderParams {
 			in_stream: &audio_stream,
 			muxer: &mut muxer,
-			decoder_codec: None,
 			encoder_codec: audio_codec,
 			bit_rate: 160_000,
 			encoder_options: Dictionary::new()
@@ -89,9 +88,7 @@ pub fn transcode_segment(media_path: PathBuf, segment_index: usize, segment_size
 	
 	let end_time = time_bounds.end + PADDING_DELTA;
 	
-	for result in demuxer.packets() {
-		let (stream, packet) = result?;
-		
+	for (stream, packet) in demuxer.packets() {
 		if stream.index() == video_stream_index || stream.index() == audio_stream_index {
 			if packet.pts().unwrap() > end_time.rescale(SECONDS_TIME_BASE, stream.time_base()) {
 				break;

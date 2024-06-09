@@ -4,7 +4,7 @@ use std::sync::Arc;
 use http_body_util::BodyExt;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_service::Service;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::config::ServerConfig;
 use crate::services::{hls_segment_service, thumbnail_service, thumbnail_sheet_service};
@@ -51,13 +51,15 @@ impl ServerState {
 			video_metadata_cache: MediaMetadataCache::new(),
 			thumbnail_generator: thumbnail_service::init_service(PathBuf::from("cache/thumbnail")).await?, // TODO: Add config option for cache path
 			thumbnail_sheet_generator: thumbnail_sheet_service::init_service(PathBuf::from("cache/timeline-thumbnail")).await?,
-			hls_segment_generator: hls_segment_service::init_service(PathBuf::from("cache/segments")).await?,
+			hls_segment_generator: hls_segment_service::init_service(PathBuf::from("/tmp/media-server-segments-cache")).await?,
 		})
 	}
 }
 
 #[instrument(skip(request, server_state))]
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
+	info!("Request for {}", request.uri().path());
+	
 	match path {
 		["api", tail @ ..] => api_routes::route_request(request, tail, server_state).await,
 		

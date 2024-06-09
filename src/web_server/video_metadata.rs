@@ -6,8 +6,8 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
-use ffmpeg_the_third::{codec, format, Rescale, rescale};
-use ffmpeg_the_third::media::Type;
+use ffmpeg_next::{codec, format, Rescale, rescale};
+use ffmpeg_next::media::Type;
 use serde::{Deserialize, Serialize};
 
 use crate::media_manipulation::media_utils::MILLIS_TIME_BASE;

@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Context};
-use ffmpeg_sys_the_third::avcodec_alloc_context3;
-use ffmpeg_the_third::{codec, decoder, Dictionary, encoder, Rational};
-use ffmpeg_the_third::codec::Parameters;
-use ffmpeg_the_third::format::Pixel;
+use ffmpeg_next::{codec, decoder, Dictionary, encoder, Rational};
+use ffmpeg_next::codec::Parameters;
+use ffmpeg_next::format::Pixel;
 
 use crate::media_manipulation::backends::VideoBackend;
 
@@ -38,11 +37,11 @@ impl VideoBackend for SoftwareVideoBackend {
 		};
 		
 		let encoder_codec = encoder::find_by_name(encoder_name)
-			.ok_or_else(|| anyhow!("Unable to find encoder"))
-			.and_then(|codec| codec.video().context("Selected encoder doesn't support video"))?;
+			.ok_or_else(|| anyhow!("Unable to find encoder"))?;
 		
-		let encoder_context = unsafe { codec::context::Context::wrap(avcodec_alloc_context3(encoder_codec.as_ptr()), None) };
-		let mut encoder = encoder_context.encoder().video()?;
+		let mut encoder = codec::context::Context::new_with_codec(encoder_codec)
+			.encoder()
+			.video()?;
 		
 		if global_header {
 			encoder.set_flags(codec::flag::Flags::GLOBAL_HEADER);
@@ -58,9 +57,12 @@ impl VideoBackend for SoftwareVideoBackend {
 		encoder.open_as_with(encoder_codec, encoder_options).context("Opening encoder")
 	}
 	
-	fn create_decoder(&mut self, params: Parameters) -> anyhow::Result<decoder::Video> {
+	fn create_decoder(&mut self, params: Parameters, packet_time_base: Rational) -> anyhow::Result<decoder::Video> {
 		let decoder_context = codec::context::Context::from_parameters(params)?;
+		let mut decoder = decoder_context.decoder().video().context("Opening decoder")?;
 		
-		decoder_context.decoder().video().context("Opening decoder")
+		decoder.set_packet_time_base(packet_time_base);
+		
+		Ok(decoder)
 	}
 }

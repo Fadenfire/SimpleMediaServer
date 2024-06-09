@@ -1,12 +1,11 @@
 use std::ops::Range;
 
 use anyhow::{anyhow, Context};
-use ffmpeg_the_third as ffmpeg;
-use ffmpeg_the_third::{codec, Dictionary, filter, format, frame, Packet, picture, Rational, Rescale};
-use ffmpeg_the_third::format::Pixel;
+use ffmpeg_next as ffmpeg;
+use ffmpeg_next::{codec, Dictionary, filter, format, frame, Packet, picture, Rational, Rescale};
+use ffmpeg_next::format::Pixel;
 
 use crate::media_manipulation::backends::VideoBackend;
-use crate::media_manipulation::media_utils::set_video_decoder_time_base;
 
 const DEFAULT_PIXEL_FORMAT: Pixel = Pixel::YUV420P;
 
@@ -34,10 +33,7 @@ impl VideoTranscoder {
 	pub fn new(params: VideoTranscoderParams<impl VideoBackend>) -> anyhow::Result<Self> {
 		let has_global_header = params.muxer.format().flags().contains(format::flag::Flags::GLOBAL_HEADER);
 		
-		let mut decoder = params.backend.create_decoder(params.in_stream.parameters())?;
-		
-		decoder.set_parameters(params.in_stream.parameters())?;
-		set_video_decoder_time_base(&mut decoder, params.in_stream.time_base());
+		let decoder = params.backend.create_decoder(params.in_stream.parameters(), params.in_stream.time_base())?;
 		
 		let framerate = decoder.frame_rate().unwrap_or(Rational::new(60, 1));
 		let rate_time_base = framerate.invert();
@@ -159,17 +155,17 @@ impl VideoTranscoder {
 	}
 	
 	fn process_output_packets(&mut self, muxer: &mut format::context::Output, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		let stream_time_base = muxer.stream(self.out_stream_index).expect("Unknown stream").time_base();
+		// let stream_time_base = muxer.stream(self.out_stream_index).expect("Unknown stream").time_base();
 		
 		let scaled_time_bounds = Range {
-			start: time_bounds.start.rescale((1, 1), stream_time_base),
-			end: time_bounds.end.rescale((1, 1), stream_time_base),
+			start: time_bounds.start.rescale((1, 1), self.rate_time_base),
+			end: time_bounds.end.rescale((1, 1), self.rate_time_base),
 		};
 		
 		let mut out_packet = Packet::empty();
 		
 		while self.encoder.receive_packet(&mut out_packet).is_ok() {
-			out_packet.rescale_ts(self.rate_time_base, stream_time_base);
+			// out_packet.rescale_ts(self.rate_time_base, stream_time_base);
 			
 			let pts = out_packet.pts().unwrap();
 			
@@ -201,6 +197,8 @@ impl VideoTranscoder {
 				
 				out_packet.set_stream(self.out_stream_index);
 				
+				let stream_time_base = muxer.stream(self.out_stream_index).expect("Unknown stream").time_base();
+				out_packet.rescale_ts(self.rate_time_base, stream_time_base);
 				out_packet.write_interleaved(muxer).context("Writing packet")?;
 			}
 		}

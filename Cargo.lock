@@ -269,27 +269,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
-name = "ffmpeg-sys-the-third"
-version = "2.0.0+ffmpeg-7.0"
+name = "ffmpeg-next"
+version = "7.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a82bfdb0a7925996707f0a7dc37b2f3251ff5a15d26e78c586adb60c240dedc5"
+checksum = "ddfce5242643c8a57b5a44b7e933ccbde85f9508d1379e578e97eee4a9d4334b"
+dependencies = [
+ "bitflags",
+ "ffmpeg-sys-next",
+ "libc",
+]
+
+[[package]]
+name = "ffmpeg-sys-next"
+version = "7.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "972a460dd8e901b737ce0482bf71a837e1751e3dd7c8f8b0a4ead808e7f174a5"
 dependencies = [
  "bindgen",
  "cc",
  "libc",
+ "num_cpus",
  "pkg-config",
  "vcpkg",
-]
-
-[[package]]
-name = "ffmpeg-the-third"
-version = "2.0.1+ffmpeg-7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4aa99eb55979d5c1db3b0b7a807a5e50dda07f5f6c2dbc6e9b50c205f611646"
-dependencies = [
- "bitflags",
- "ffmpeg-sys-the-third",
- "libc",
 ]
 
 [[package]]
@@ -601,8 +602,8 @@ dependencies = [
  "argh",
  "blake3",
  "bytes",
- "ffmpeg-sys-the-third",
- "ffmpeg-the-third",
+ "ffmpeg-next",
+ "ffmpeg-sys-next",
  "headers",
  "http",
  "http-body-util",

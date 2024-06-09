@@ -5,7 +5,6 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::config::ServerConfig;
-use crate::media_manipulation::transcoding;
 
 mod config;
 mod web_server;

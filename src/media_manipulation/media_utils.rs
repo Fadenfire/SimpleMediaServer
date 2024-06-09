@@ -1,16 +1,14 @@
 use std::ffi::CString;
 use std::ops::{Deref, DerefMut};
-use std::panic::UnwindSafe;
 use std::ptr;
 use std::ptr::{null_mut, slice_from_raw_parts};
 
 use anyhow::Context;
-use bytes::Bytes;
-use ffmpeg_sys_the_third::{av_free, av_malloc, AVERROR_EOF, AVFMT_FLAG_CUSTOM_IO, avformat_alloc_output_context2, avio_alloc_context};
-use ffmpeg_the_third::{decoder, Discard, format, frame, Rational};
-use ffmpeg_the_third as ffmpeg;
-use ffmpeg_the_third::format::Pixel;
-use ffmpeg_the_third::software::scaling;
+use ffmpeg_sys_next::{av_free, av_malloc, AVERROR_EOF, AVFMT_FLAG_CUSTOM_IO, avformat_alloc_output_context2, avio_alloc_context};
+use ffmpeg_next::{decoder, Discard, format, frame, Rational};
+use ffmpeg_next as ffmpeg;
+use ffmpeg_next::format::Pixel;
+use ffmpeg_next::software::scaling;
 use image::flat::SampleLayout;
 use image::FlatSamples;
 use turbojpeg::libc;
@@ -18,18 +16,6 @@ use turbojpeg::libc;
 pub const SECONDS_TIME_BASE: Rational = Rational(1, 1);
 pub const MILLIS_TIME_BASE: Rational = Rational(1, 1_000);
 pub const MICRO_TIME_BASE: Rational = Rational(1, 1_000_000);
-
-pub fn set_video_decoder_time_base(decoder: &mut decoder::Video, time_base: Rational) {
-	unsafe {
-		(*decoder.as_mut_ptr()).pkt_timebase = time_base.into();
-	}
-}
-
-pub fn set_audio_decoder_time_base(decoder: &mut decoder::Audio, time_base: Rational) {
-	unsafe {
-		(*decoder.as_mut_ptr()).pkt_timebase = time_base.into();
-	}
-}
 
 pub fn discard_all_but_keyframes(demuxer: &mut format::context::Input, stream_index: usize) {
 	for mut stream in demuxer.streams_mut() {
@@ -43,9 +29,7 @@ pub fn push_one_packet(
 	decoder: &mut decoder::Video,
 	stream_index: usize,
 ) -> anyhow::Result<()> {
-	for result in demuxer.packets() {
-		let (stream, packet) = result?;
-		
+	for (stream, packet) in demuxer.packets() {
 		if stream.index() == stream_index && packet.is_key() {
 			decoder.send_packet(&packet).context("Decoding packet")?;
 			break;
@@ -157,7 +141,7 @@ impl InMemoryMuxer {
 		self.boxed_buffer.take().expect("Already taken")
 	}
 	
-	unsafe extern "C" fn write_packet(opaque: *mut libc::c_void, buf_ptr: *mut u8, buf_size: libc::c_int) -> libc::c_int {
+	unsafe extern "C" fn write_packet(opaque: *mut libc::c_void, buf_ptr: *const u8, buf_size: libc::c_int) -> libc::c_int {
 		let output_buffer_ref: *mut Option<Vec<u8>> = opaque.cast();
 		
 		if let Some(ref mut output_buffer) = *output_buffer_ref {

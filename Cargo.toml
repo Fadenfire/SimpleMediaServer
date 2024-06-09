@@ -18,8 +18,8 @@ mime = "0.3"
 mime_guess = "2.0"
 anyhow = "1.0"
 argh = "0.1"
-ffmpeg-the-third = "2.0"
-ffmpeg-sys-the-third = "2.0"
+ffmpeg-next = "7.0"
+ffmpeg-sys-next = "7.0"
 image = { version = "^0.24", default-features = false }
 turbojpeg = { version = "1.0", features = ["image"] }
 serde = { version = "1.0", features = ["derive"] }
