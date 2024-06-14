@@ -20,6 +20,8 @@ mod video_locator;
 mod libraries;
 mod web_utils;
 mod router;
+pub(crate) mod media_backend_factory;
+mod services;
 
 pub async fn run(server_config: ServerConfig, web_ui_dir: PathBuf) {
 	let general_config = server_config.general_config.clone();

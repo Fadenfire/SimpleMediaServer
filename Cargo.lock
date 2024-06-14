@@ -602,6 +602,7 @@ dependencies = [
  "argh",
  "blake3",
  "bytes",
+ "cfg-if",
  "ffmpeg-next",
  "ffmpeg-sys-next",
  "headers",

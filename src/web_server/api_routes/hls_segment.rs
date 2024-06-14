@@ -2,7 +2,7 @@ use std::str::FromStr;
 use http::Method;
 use tracing::instrument;
 
-use crate::services::hls_segment_service::SegmentParams;
+use crate::web_server::services::hls_segment_service::SegmentParams;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::router::ServerState;
 use crate::web_server::video_locator;

@@ -2,7 +2,7 @@ use http::{Method, Response};
 use http::header::CONTENT_TYPE;
 use tracing::instrument;
 
-use crate::services::hls_segment_service::SEGMENT_DURATION;
+use crate::web_server::services::hls_segment_service::SEGMENT_DURATION;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::router::ServerState;
 use crate::web_server::video_locator;

@@ -5,11 +5,12 @@ use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use crate::config::ServerConfig;
+use crate::media_manipulation::transcoding::{transcode_segment, TranscodingOptions};
+use crate::web_server::media_backend_factory::MediaBackendFactory;
 
 mod config;
 mod web_server;
 mod utils;
-mod services;
 mod media_manipulation;
 
 #[derive(FromArgs)]
@@ -25,7 +26,19 @@ async fn main() {
 	let args: Args = argh::from_env();
 	
 	setup_logging();
-	// ffmpeg_the_third::log::set_level(ffmpeg_the_third::log::Level::Error);
+	ffmpeg_next::log::set_level(ffmpeg_next::log::Level::Debug);
+	
+	// let data = transcode_segment(TranscodingOptions {
+	// 	backend_factory: &MediaBackendFactory::new(),
+	// 	media_path: PathBuf::from(std::env::args().nth(1).unwrap()),
+	// 	time_range: 100..105,
+	// 	target_video_height: 1080,
+	// 	target_video_framerate: 60,
+	// 	video_bitrate: 12_000_000,
+	// 	audio_bitrate: 160_000,
+	// }).unwrap();
+	// 
+	// tokio::fs::write("output.ts", &data).await.unwrap();
 	
 	info!("Starting server");
 	

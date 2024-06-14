@@ -3,14 +3,14 @@ use std::path::PathBuf;
 use anyhow::Context;
 use bytes::Bytes;
 use ffmpeg_next::{decoder, format, frame, media, rescale, Rescale};
-use ffmpeg_next::software::scaling;
 use image::{GenericImage, Rgb, RgbImage};
 use serde::{Deserialize, Serialize};
 use turbojpeg::Subsamp;
 
-use crate::media_manipulation::backends::software::SoftwareVideoBackend;
-use crate::media_manipulation::backends::VideoBackend;
-use crate::media_manipulation::media_utils::{discard_all_but_keyframes, frame_image_sample_rgb, push_one_packet, scale_frame_rgb, SECONDS_TIME_BASE};
+use crate::media_manipulation::backends::{BackendFactory, VideoBackend};
+use crate::media_manipulation::frame_scaler::FrameScaler;
+use crate::media_manipulation::media_utils;
+use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 120;
 const JPEG_QUALITY: i32 = 90;
@@ -42,33 +42,33 @@ pub fn calculate_sheet_params(duration: i64, video_width: u32, video_height: u32
 	}
 }
 
-pub fn generate_sheet(media_path: PathBuf) -> anyhow::Result<(Bytes, ThumbnailSheetParams)> {
+pub fn generate_sheet(backend_factory: &impl BackendFactory, media_path: PathBuf) -> anyhow::Result<(Bytes, ThumbnailSheetParams)> {
 	let mut demuxer = format::input(&media_path).context("Opening video file")?;
 	
 	let video_stream = demuxer.streams().best(media::Type::Video).unwrap();
 	let video_stream_index = video_stream.index();
 	
-	let mut video_backend = SoftwareVideoBackend::new();
+	let mut video_backend = backend_factory.create_video_backend().context("Creating video backend")?;
 	let mut decoder = video_backend.create_decoder(video_stream.parameters(), video_stream.time_base())?;
 	
-	discard_all_but_keyframes(&mut demuxer, video_stream_index);
+	media_utils::discard_all_but_keyframes(&mut demuxer, video_stream_index);
 	
 	let sheet_params = calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height());
-	
-	let mut scaler_cache: Option<scaling::Context> = None;
 	
 	let mut sprite_sheet = RgbImage::new(
 		sheet_params.sheet_cols * sheet_params.thumbnail_width,
 		sheet_params.sheet_rows * sheet_params.thumbnail_height,
 	);
 	
+	let mut scaler = FrameScaler::new();
 	let mut frame = frame::Video::empty();
+	
 	let mut frames_processed = 0;
 	
 	let mut receive_frames = |decoder: &mut decoder::Video| -> anyhow::Result<()> {
 		while decoder.receive_frame(&mut frame).is_ok() {
-			let rgb_frame = scale_frame_rgb(&mut scaler_cache, &frame, sheet_params.thumbnail_width, sheet_params.thumbnail_height)?;
-			let image_view = frame_image_sample_rgb(&rgb_frame);
+			let rgb_frame = scaler.scale_frame_rgb(&frame, sheet_params.thumbnail_width, sheet_params.thumbnail_height)?;
+			let image_view = media_utils::frame_image_sample_rgb(&rgb_frame);
 			
 			let x_pos = (frames_processed % sheet_params.sheet_cols) * sheet_params.thumbnail_width;
 			let y_pos = (frames_processed / sheet_params.sheet_rows) * sheet_params.thumbnail_height;
@@ -85,7 +85,7 @@ pub fn generate_sheet(media_path: PathBuf) -> anyhow::Result<(Bytes, ThumbnailSh
 		
 		demuxer.seek(time, time..).context("Seeking")?;
 		
-		push_one_packet(&mut demuxer, &mut decoder, video_stream_index)?;
+		media_utils::push_one_packet(&mut demuxer, &mut decoder, video_stream_index)?;
 		receive_frames(&mut decoder)?;
 	}
 	

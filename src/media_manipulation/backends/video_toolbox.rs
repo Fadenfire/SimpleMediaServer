@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Context};
-use ffmpeg_next::{codec, decoder, Dictionary, encoder, Rational};
+use ffmpeg_next::{codec, decoder, encoder, Rational};
 use ffmpeg_next::codec::Parameters;
 use ffmpeg_next::format::Pixel;
 
-use crate::media_manipulation::backends::VideoBackend;
+use crate::media_manipulation::backends::{VideoBackend, VideoEncoderParams};
 
 pub struct VideoToolboxVideoBackend;
 
@@ -14,18 +14,12 @@ impl VideoToolboxVideoBackend {
 }
 
 impl VideoBackend for VideoToolboxVideoBackend {
-	fn create_encoder(
-		&mut self,
-		codec: codec::Id,
-		time_base: Rational,
-		width: u32,
-		height: u32,
-		framerate: Option<Rational>,
-		bitrate: usize,
-		global_header: bool,
-		encoder_options: Dictionary
-	) -> anyhow::Result<encoder::Video> {
-		let encoder_name = match codec {
+	fn encoder_pixel_format(&self) -> Pixel {
+		Pixel::YUV420P
+	}
+	
+	fn create_encoder(&mut self, params: VideoEncoderParams) -> anyhow::Result<encoder::Video> {
+		let encoder_name = match params.codec {
 			codec::Id::H264 => "h264_videotoolbox",
 			_ => return Err(anyhow!("Unsupported encoder codec"))
 		};
@@ -37,18 +31,18 @@ impl VideoBackend for VideoToolboxVideoBackend {
 			.encoder()
 			.video()?;
 		
-		if global_header {
+		if params.global_header {
 			encoder.set_flags(codec::flag::Flags::GLOBAL_HEADER);
 		}
 		
-		encoder.set_time_base(time_base);
-		encoder.set_width(width);
-		encoder.set_height(height);
+		encoder.set_time_base(params.time_base);
+		encoder.set_width(params.width);
+		encoder.set_height(params.height);
 		encoder.set_format(Pixel::YUV420P);
-		encoder.set_frame_rate(framerate);
-		encoder.set_bit_rate(bitrate);
+		encoder.set_frame_rate(params.framerate);
+		encoder.set_bit_rate(params.bitrate);
 		
-		encoder.open_as_with(encoder_codec, encoder_options).context("Opening encoder")
+		encoder.open_as_with(encoder_codec, params.encoder_options).context("Opening encoder")
 	}
 	
 	fn create_decoder(&mut self, params: Parameters, packet_time_base: Rational) -> anyhow::Result<decoder::Video> {

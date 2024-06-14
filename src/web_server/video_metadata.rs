@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 use crate::media_manipulation::media_utils::MILLIS_TIME_BASE;
 use crate::media_manipulation::thumbnail_sheet;
 use crate::media_manipulation::thumbnail_sheet::ThumbnailSheetParams;
-use crate::services::artifact_cache::ArtifactCache;
-use crate::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
+use crate::web_server::services::artifact_cache::ArtifactCache;
+use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 
 pub struct MediaMetadataCache {
 	metadata_cache: Mutex<HashMap<PathBuf, MediaMetadata>>,

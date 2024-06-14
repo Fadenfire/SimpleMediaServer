@@ -7,13 +7,14 @@ use tower_service::Service;
 use tracing::{info, instrument};
 
 use crate::config::ServerConfig;
-use crate::services::{hls_segment_service, thumbnail_service, thumbnail_sheet_service};
-use crate::services::artifact_cache::ArtifactCache;
-use crate::services::hls_segment_service::HlsSegmentGenerator;
-use crate::services::thumbnail_service::ThumbnailGenerator;
-use crate::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 use crate::web_server::api_routes;
 use crate::web_server::libraries::Libraries;
+use crate::web_server::media_backend_factory::MediaBackendFactory;
+use crate::web_server::services::{hls_segment_service, thumbnail_service, thumbnail_sheet_service};
+use crate::web_server::services::artifact_cache::ArtifactCache;
+use crate::web_server::services::hls_segment_service::HlsSegmentGenerator;
+use crate::web_server::services::thumbnail_service::ThumbnailGenerator;
+use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 use crate::web_server::video_metadata::MediaMetadataCache;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse};
 
@@ -27,6 +28,7 @@ pub struct ServerState {
 	pub thumbnail_generator: ArtifactCache<ThumbnailGenerator>,
 	pub thumbnail_sheet_generator: ArtifactCache<ThumbnailSheetGenerator>,
 	pub hls_segment_generator: ArtifactCache<HlsSegmentGenerator>,
+	pub media_backend_factory: Arc<MediaBackendFactory>,
 }
 
 impl ServerState {
@@ -42,6 +44,8 @@ impl ServerState {
 			.precompressed_br()
 			.fallback(web_ui_index);
 		
+		let media_backend_factory = Arc::new(MediaBackendFactory::new());
+		
 		Ok(Self {
 			server_config,
 			
@@ -49,9 +53,10 @@ impl ServerState {
 			
 			libraries,
 			video_metadata_cache: MediaMetadataCache::new(),
-			thumbnail_generator: thumbnail_service::init_service(PathBuf::from("cache/thumbnail")).await?, // TODO: Add config option for cache path
-			thumbnail_sheet_generator: thumbnail_sheet_service::init_service(PathBuf::from("cache/timeline-thumbnail")).await?,
-			hls_segment_generator: hls_segment_service::init_service(PathBuf::from("/tmp/media-server-segments-cache")).await?,
+			thumbnail_generator: thumbnail_service::init_service(PathBuf::from("cache/thumbnail"), media_backend_factory.clone()).await?, // TODO: Add config option for cache path
+			thumbnail_sheet_generator: thumbnail_sheet_service::init_service(PathBuf::from("cache/timeline-thumbnail"), media_backend_factory.clone()).await?,
+			hls_segment_generator: hls_segment_service::init_service(PathBuf::from("cache/media-server-segments-cache"), media_backend_factory.clone()).await?,
+			media_backend_factory,
 		})
 	}
 }

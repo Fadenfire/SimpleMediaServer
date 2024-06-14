@@ -1,9 +1,9 @@
 use anyhow::{anyhow, Context};
-use ffmpeg_next::{codec, decoder, Dictionary, encoder, Rational};
+use ffmpeg_next::{codec, decoder, encoder, Rational};
 use ffmpeg_next::codec::Parameters;
 use ffmpeg_next::format::Pixel;
 
-use crate::media_manipulation::backends::VideoBackend;
+use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoEncoderParams};
 
 pub struct SoftwareVideoBackend;
 
@@ -14,22 +14,16 @@ impl SoftwareVideoBackend {
 }
 
 impl VideoBackend for SoftwareVideoBackend {
-	fn create_encoder(
-		&mut self,
-		codec: codec::Id,
-		time_base: Rational,
-		width: u32,
-		height: u32,
-		framerate: Option<Rational>,
-		bitrate: usize,
-		global_header: bool,
-		mut encoder_options: Dictionary
-	) -> anyhow::Result<encoder::Video> {
-		let encoder_name = match codec {
+	fn encoder_pixel_format(&self) -> Pixel {
+		Pixel::YUV420P
+	}
+	
+	fn create_encoder(&mut self, mut params: VideoEncoderParams) -> anyhow::Result<encoder::Video> {
+		let encoder_name = match params.codec {
 			codec::Id::H264 => {
-				encoder_options.set("preset", "veryfast");
-				encoder_options.set("profile", "high");
-				encoder_options.set("forced-idr", "1");
+				params.encoder_options.set("preset", "veryfast");
+				params.encoder_options.set("profile", "high");
+				params.encoder_options.set("forced-idr", "1");
 				
 				"libx264"
 			},
@@ -43,18 +37,18 @@ impl VideoBackend for SoftwareVideoBackend {
 			.encoder()
 			.video()?;
 		
-		if global_header {
+		if params.global_header {
 			encoder.set_flags(codec::flag::Flags::GLOBAL_HEADER);
 		}
 		
-		encoder.set_time_base(time_base);
-		encoder.set_width(width);
-		encoder.set_height(height);
+		encoder.set_time_base(params.time_base);
+		encoder.set_width(params.width);
+		encoder.set_height(params.height);
 		encoder.set_format(Pixel::YUV420P);
-		encoder.set_frame_rate(framerate);
-		encoder.set_bit_rate(bitrate);
+		encoder.set_frame_rate(params.framerate);
+		encoder.set_bit_rate(params.bitrate);
 		
-		encoder.open_as_with(encoder_codec, encoder_options).context("Opening encoder")
+		encoder.open_as_with(encoder_codec, params.encoder_options).context("Opening encoder")
 	}
 	
 	fn create_decoder(&mut self, params: Parameters, packet_time_base: Rational) -> anyhow::Result<decoder::Video> {
@@ -64,5 +58,13 @@ impl VideoBackend for SoftwareVideoBackend {
 		decoder.set_packet_time_base(packet_time_base);
 		
 		Ok(decoder)
+	}
+}
+
+pub struct SoftwareBackendFactory;
+
+impl BackendFactory for SoftwareBackendFactory {
+	fn create_video_backend(&self) -> anyhow::Result<Box<impl VideoBackend + 'static>> {
+		Ok(Box::new(SoftwareVideoBackend::new()))
 	}
 }
