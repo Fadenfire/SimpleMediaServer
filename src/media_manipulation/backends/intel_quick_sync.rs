@@ -1,13 +1,13 @@
 use anyhow::{anyhow, Context};
-use ffmpeg_next::{codec, decoder, encoder, Rational};
-use ffmpeg_next::codec::Parameters;
+use ffmpeg_next::{codec, decoder, encoder};
 use ffmpeg_next::format::Pixel;
 use ffmpeg_sys_next::{av_buffer_ref, AVCodecContext, AVPixelFormat};
-use ffmpeg_sys_next::AVHWDeviceType::AV_HWDEVICE_TYPE_QSV;
-use ffmpeg_sys_next::AVPixelFormat::{AV_PIX_FMT_NONE, AV_PIX_FMT_QSV};
+use ffmpeg_sys_next::AVHWDeviceType::AV_HWDEVICE_TYPE_VAAPI;
+use ffmpeg_sys_next::AVPixelFormat::{AV_PIX_FMT_NONE, AV_PIX_FMT_VAAPI};
 
-use crate::media_manipulation::backends::{VideoBackend, VideoEncoderParams};
-use crate::media_manipulation::utils::hardware_device::HardwareDeviceContext;
+use crate::media_manipulation::backends::{VideoBackend, VideoDecoderParams, VideoEncoderParams};
+use crate::media_manipulation::media_utils::check_alloc;
+use crate::media_manipulation::media_utils::hardware_device::HardwareDeviceContext;
 
 pub struct QuickSyncVideoBackend {
 	hw_context: HardwareDeviceContext,
@@ -15,8 +15,8 @@ pub struct QuickSyncVideoBackend {
 
 impl QuickSyncVideoBackend {
 	pub fn new() -> anyhow::Result<Self> {
-		let hw_context = HardwareDeviceContext::create(AV_HWDEVICE_TYPE_QSV)
-			.context("Creating QS device")?;
+		let hw_context = HardwareDeviceContext::create(AV_HWDEVICE_TYPE_VAAPI)
+			.context("Creating VA API device")?;
 		
 		Ok(Self {
 			hw_context
@@ -38,14 +38,14 @@ impl QuickSyncVideoBackend {
 	
 	unsafe extern "C" fn get_format(_ctx: *mut AVCodecContext, mut formats: *const AVPixelFormat) -> AVPixelFormat {
 		while *formats != AV_PIX_FMT_NONE {
-			if *formats == AV_PIX_FMT_QSV {
-				return AV_PIX_FMT_QSV;
+			if *formats == AV_PIX_FMT_VAAPI {
+				return AV_PIX_FMT_VAAPI;
 			}
 			
 			formats = formats.add(1);
 		}
 		
-		tracing::error!("The QSV pixel format is not offered in get_format()");
+		tracing::error!("The VA API pixel format is not offered in get_format()");
 		
 		return AV_PIX_FMT_NONE;
 	}
@@ -71,10 +71,11 @@ impl VideoBackend for QuickSyncVideoBackend {
 			.video()?;
 		
 		unsafe {
-			let hw_ctx = av_buffer_ref(params.input_hw_ctx.expect("Backend requires input HW context"));
-			if hw_ctx.is_null() { return Err(anyhow!("Couldn't duplicate HW context")); }
+			let hw_frames_ctx = params.input_hw_ctx
+				.filter(|p| !p.is_null())
+				.expect("Backend requires input HW context");
 			
-			(*encoder.as_mut_ptr()).hw_frames_ctx = hw_ctx;
+			(*encoder.as_mut_ptr()).hw_frames_ctx = check_alloc(av_buffer_ref(hw_frames_ctx))?;
 		}
 		
 		if params.global_header {
@@ -91,22 +92,14 @@ impl VideoBackend for QuickSyncVideoBackend {
 		encoder.open_as_with(encoder_codec, params.encoder_options).context("Opening encoder")
 	}
 	
-	fn create_decoder(&mut self, params: Parameters, packet_time_base: Rational) -> anyhow::Result<decoder::Video> {
-		let decoder_name = Self::get_codec_name(params.id());
-		
-		let decoder_codec = decoder_name
-			.and_then(|name| decoder::find_by_name(name))
-			.or_else(|| decoder::find(params.id()))
-			.ok_or_else(|| anyhow!("Unable to find decoder"))?;
-		
-		let mut decoder_context = codec::context::Context::new_with_codec(decoder_codec);
-		decoder_context.set_parameters(params)?;
+	fn create_decoder(&mut self, params: VideoDecoderParams) -> anyhow::Result<decoder::Video> {
+		let mut decoder_context = codec::context::Context::from_parameters(params.stream_params)?;
 		
 		unsafe {
 			let ctx = decoder_context.as_mut_ptr();
 			(*ctx).hw_device_ctx = self.hw_context.add_ref()?;
 			(*ctx).get_format = Some(Self::get_format);
-			(*ctx).pkt_timebase = packet_time_base.into();
+			(*ctx).pkt_timebase = params.packet_time_base.into();
 		}
 		
 		let decoder = decoder_context.decoder().video().context("Opening decoder")?;
@@ -114,11 +107,7 @@ impl VideoBackend for QuickSyncVideoBackend {
 		Ok(decoder)
 	}
 	
-	fn create_framerate_filter(&self, framerate: u32) -> String {
-		format!("vpp_qsv=framerate={}", framerate)
-	}
-	
-	fn create_scaling_filter(&self, width: u32, height: u32) -> String {
-		format!("vpp_qsv=w={}:h={}", width, height)
+	fn create_filter_chain(&self, width: u32, height: u32) -> String {
+		format!("scale_vaapi=w={}:h={}:format=nv12:extra_hw_frames=24,hwmap=derive_device=qsv,format=qsv", width, height)
 	}
 }

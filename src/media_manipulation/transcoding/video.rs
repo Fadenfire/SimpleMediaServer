@@ -6,10 +6,10 @@ use ffmpeg_next::{codec, Dictionary, filter, format, frame, Packet, picture, Rat
 use ffmpeg_sys_next::{av_buffer_ref, av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVPixelFormat};
 use tracing::debug;
 
-use crate::media_manipulation::backends::{VideoBackend, VideoEncoderParams};
+use crate::media_manipulation::backends::{VideoBackend, VideoDecoderParams, VideoEncoderParams};
 use crate::media_manipulation::media_utils;
-use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;
-use crate::media_manipulation::utils::av_error;
+use crate::media_manipulation::media_utils::{check_alloc, SECONDS_TIME_BASE};
+use crate::media_manipulation::media_utils::av_error;
 
 pub struct VideoTranscoder {
 	decoder: codec::decoder::Video,
@@ -25,7 +25,7 @@ pub struct VideoTranscoder {
 	output_codec: codec::Id,
 	output_width: u32,
 	output_height: u32,
-	output_framerate: u32,
+	output_framerate: Rational,
 	bit_rate: usize,
 	encoder_options: Dictionary<'static>,
 	
@@ -39,24 +39,26 @@ pub struct VideoTranscoderParams<'a> {
 	pub backend: Box<dyn VideoBackend>,
 	pub output_codec: codec::Id,
 	pub target_height: u32,
-	pub target_framerate: u32,
 	pub bit_rate: usize,
 	pub encoder_options: Dictionary<'static>,
 }
 
 impl VideoTranscoder {
 	pub fn new(mut params: VideoTranscoderParams) -> anyhow::Result<Self> {
-		let decoder = params.backend.create_decoder(params.in_stream.parameters(), params.in_stream.time_base())?;
+		let decoder = params.backend.create_decoder(VideoDecoderParams {
+			stream_params: params.in_stream.parameters(),
+			packet_time_base: params.in_stream.time_base(),
+		})?;
 		
 		let framerate = decoder.frame_rate().unwrap_or(Rational(60, 1));
 		let rate_time_base = framerate.invert() * Rational(1, 10);
 		
-		let output_height = decoder.height().min(params.target_height) / 16 * 16;
-		let output_width = decoder.width() * output_height / decoder.height() / 16 * 16;
+		let output_height = decoder.height().min(params.target_height);
+		let output_width = decoder.width() * output_height / decoder.height() / 2 * 2;
 		
 		let has_global_header = params.muxer.format().flags().contains(format::flag::Flags::GLOBAL_HEADER);
 		
-		println!("Video decoder: {}, format: {:?}", decoder.codec().unwrap().description(), decoder.format());
+		// println!("Video decoder: {}, format: {:?}", decoder.codec().unwrap().description(), decoder.format());
 		
 		Ok(Self {
 			decoder,
@@ -72,7 +74,7 @@ impl VideoTranscoder {
 			output_codec: params.output_codec,
 			output_width,
 			output_height,
-			output_framerate: params.target_framerate,
+			output_framerate: framerate,
 			bit_rate: params.bit_rate,
 			encoder_options: params.encoder_options.to_owned(),
 			
@@ -135,18 +137,17 @@ impl VideoTranscoder {
 					
 					unsafe {
 						let mut in_filter = filter.add(&filter::find("buffer").unwrap(), "in", &in_params)?;
-						
 						let hw_frames_ctx = (*self.decoder.as_ptr()).hw_frames_ctx;
-						let par = av_buffersrc_parameters_alloc();
+						
+						let par = check_alloc(av_buffersrc_parameters_alloc())?;
+						let mut par = scopeguard::guard(par, |ptr| av_free(ptr.cast()));
 						
 						if !hw_frames_ctx.is_null() {
-							(*par).hw_frames_ctx = av_buffer_ref(hw_frames_ctx);
+							(**par).hw_frames_ctx = check_alloc(av_buffer_ref(hw_frames_ctx))?;
 						}
 						
-						let result = av_error(av_buffersrc_parameters_set(in_filter.as_mut_ptr(), par));
-						av_free(par.cast());
-						
-						result?;
+						av_error(av_buffersrc_parameters_set(in_filter.as_mut_ptr(), *par))
+							.context("Setting buffersrc filter params")?;
 					}
 					
 					{
@@ -154,22 +155,10 @@ impl VideoTranscoder {
 						out_filter.set_pixel_format(self.backend.encoder_pixel_format());
 					}
 					
-					// let filter_spec = format!("{},{}",
-					// 	self.backend.create_framerate_filter(self.output_framerate),
-					// 	self.backend.create_scaling_filter(self.output_width, self.output_height),
-					// );
-					
-					let filter_spec = self.backend.create_scaling_filter(self.output_width, self.output_height);
+					let filter_spec = self.backend.create_filter_chain(self.output_width, self.output_height);
 					
 					filter.output("in", 0)?.input("out", 0)?.parse(&filter_spec)?;
 					filter.validate()?;
-					
-					// unsafe {
-					// 	let hw_frames_ctx = (*self.decoder.as_ptr()).hw_frames_ctx;
-					// 	
-					// 	let in_filter = filter.get("in").unwrap();
-					// 	(*(*(*(*in_filter.as_ptr()).outputs)).dst).hw_device_ctx = av_buffer_ref(hw_frames_ctx);
-					// }
 					
 					self.filter = Some(filter);
 				}
@@ -196,7 +185,7 @@ impl VideoTranscoder {
 					time_base: self.rate_time_base,
 					width: self.output_width,
 					height: self.output_height,
-					framerate: Some(Rational(self.output_framerate as i32, 1)),
+					framerate: Some(self.output_framerate),
 					bitrate: self.bit_rate,
 					encoder_options: self.encoder_options.clone(),
 					input_hw_ctx: Some(hw_ctx),
@@ -264,7 +253,7 @@ impl VideoTranscoder {
 	}
 	
 	pub fn write_output_packets(&mut self, muxer: &mut format::context::Output) -> anyhow::Result<()> {
-		let out_stream_index = self.out_stream_index.expect("Output stream hasn't been added yet");
+		let Some(out_stream_index) = self.out_stream_index else { return Ok(()); };
 		let stream_time_base = muxer.stream(out_stream_index).expect("Unknown stream").time_base();
 		
 		for mut out_packet in self.output_packet_queue.drain(..) {

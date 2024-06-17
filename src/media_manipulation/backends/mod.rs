@@ -18,22 +18,19 @@ pub struct VideoEncoderParams<'a> {
 	pub input_hw_ctx: Option<*const AVBufferRef>,
 }
 
+pub struct VideoDecoderParams {
+	pub stream_params: codec::Parameters,
+	pub packet_time_base: Rational,
+}
+
 pub trait VideoBackend {
 	fn encoder_pixel_format(&self) -> Pixel;
 	
 	fn create_encoder(&mut self, params: VideoEncoderParams) -> anyhow::Result<codec::encoder::Video>;
 	
-	fn create_decoder(
-		&mut self,
-		params: codec::Parameters,
-		packet_time_base: Rational,
-	) -> anyhow::Result<codec::decoder::Video>;
+	fn create_decoder(&mut self, params: VideoDecoderParams) -> anyhow::Result<codec::decoder::Video>;
 	
-	fn create_framerate_filter(&self, framerate: u32) -> String {
-		format!("framerate=fps={}", framerate)
-	}
-	
-	fn create_scaling_filter(&self, width: u32, height: u32) -> String {
+	fn create_filter_chain(&self, width: u32, height: u32) -> String {
 		format!("scale=w={}:h={}", width, height)
 	}
 }

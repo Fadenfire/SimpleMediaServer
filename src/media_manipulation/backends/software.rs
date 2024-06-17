@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Context};
-use ffmpeg_next::{codec, decoder, encoder, Rational};
-use ffmpeg_next::codec::Parameters;
+use ffmpeg_next::{codec, decoder, encoder};
 use ffmpeg_next::format::Pixel;
 
-use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoEncoderParams};
+use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 
 pub struct SoftwareVideoBackend;
 
@@ -51,11 +50,11 @@ impl VideoBackend for SoftwareVideoBackend {
 		encoder.open_as_with(encoder_codec, params.encoder_options).context("Opening encoder")
 	}
 	
-	fn create_decoder(&mut self, params: Parameters, packet_time_base: Rational) -> anyhow::Result<decoder::Video> {
-		let decoder_context = codec::context::Context::from_parameters(params)?;
+	fn create_decoder(&mut self, params: VideoDecoderParams) -> anyhow::Result<decoder::Video> {
+		let decoder_context = codec::context::Context::from_parameters(params.stream_params)?;
 		let mut decoder = decoder_context.decoder().video().context("Opening decoder")?;
 		
-		decoder.set_packet_time_base(packet_time_base);
+		decoder.set_packet_time_base(params.packet_time_base);
 		
 		Ok(decoder)
 	}

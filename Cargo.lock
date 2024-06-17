@@ -617,6 +617,7 @@ dependencies = [
  "percent-encoding",
  "rand",
  "rand_chacha",
+ "scopeguard",
  "serde",
  "serde_json",
  "serde_yaml",

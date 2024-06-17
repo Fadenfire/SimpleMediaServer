@@ -1,9 +1,15 @@
+use std::ffi::c_int;
 use std::ops::Range;
 
 use anyhow::Context;
 use ffmpeg_next::{decoder, Discard, format, frame, Rational, Rescale};
+use ffmpeg_sys_next::{AVERROR, ENOMEM};
 use image::flat::SampleLayout;
 use image::FlatSamples;
+
+pub mod in_memory_muxer;
+pub mod hardware_device;
+pub mod frame_scaler;
 
 pub const SECONDS_TIME_BASE: Rational = Rational(1, 1);
 pub const MILLIS_TIME_BASE: Rational = Rational(1, 1_000);
@@ -57,4 +63,19 @@ pub fn frame_image_sample_rgb(frame: &frame::Video) -> FlatSamples<&[u8]> {
 	};
 	
 	samples
+}
+
+pub fn av_error(code: c_int) -> Result<c_int, ffmpeg_next::Error> {
+	match code {
+		0.. => Ok(code),
+		_ => Err(ffmpeg_next::Error::from(code)),
+	}
+}
+
+pub fn check_alloc<T>(ptr: *mut T) -> Result<*mut T, ffmpeg_next::Error> {
+	if ptr.is_null() {
+		Err(ffmpeg_next::Error::from(AVERROR(ENOMEM)))
+	} else {
+		Ok(ptr)
+	}
 }

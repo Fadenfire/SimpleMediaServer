@@ -7,9 +7,9 @@ use image::{GenericImage, Rgb, RgbImage};
 use serde::{Deserialize, Serialize};
 use turbojpeg::Subsamp;
 
-use crate::media_manipulation::backends::{BackendFactory, VideoBackend};
-use crate::media_manipulation::frame_scaler::FrameScaler;
+use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams};
 use crate::media_manipulation::media_utils;
+use crate::media_manipulation::media_utils::frame_scaler::FrameScaler;
 use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 120;
@@ -49,7 +49,11 @@ pub fn generate_sheet(backend_factory: &impl BackendFactory, media_path: PathBuf
 	let video_stream_index = video_stream.index();
 	
 	let mut video_backend = backend_factory.create_video_backend().context("Creating video backend")?;
-	let mut decoder = video_backend.create_decoder(video_stream.parameters(), video_stream.time_base())?;
+	
+	let mut decoder = video_backend.create_decoder(VideoDecoderParams {
+		stream_params: video_stream.parameters(),
+		packet_time_base: video_stream.time_base(),
+	})?;
 	
 	media_utils::discard_all_but_keyframes(&mut demuxer, video_stream_index);
 	

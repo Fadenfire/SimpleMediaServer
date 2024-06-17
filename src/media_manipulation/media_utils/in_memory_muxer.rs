@@ -2,22 +2,12 @@ use std::ffi::CString;
 use std::ops::{Deref, DerefMut};
 use std::ptr::{null_mut, slice_from_raw_parts};
 use std::ptr;
-use cfg_if::cfg_if;
 
 use ffmpeg_next::format;
 use ffmpeg_sys_next::{av_free, av_malloc, AVERROR_EOF, AVFMT_FLAG_CUSTOM_IO, avformat_alloc_output_context2, avio_alloc_context};
 use turbojpeg::libc;
 
-use crate::media_manipulation::utils::av_error;
-
-// Why are these different?!
-cfg_if! {
-	if #[cfg(target_os = "macos")] {
-		type BufferPointerType = *const u8;
-	} else {
-		type BufferPointerType = *mut u8;
-	}
-}
+use crate::media_manipulation::media_utils::av_error;
 
 pub struct InMemoryMuxer {
 	output: format::context::Output,
@@ -64,7 +54,7 @@ impl InMemoryMuxer {
 		self.boxed_buffer.take().expect("Already taken")
 	}
 	
-	unsafe extern "C" fn write_packet(opaque: *mut libc::c_void, buf_ptr: BufferPointerType, buf_size: libc::c_int) -> libc::c_int {
+	unsafe extern "C" fn write_packet(opaque: *mut libc::c_void, buf_ptr: *const u8, buf_size: libc::c_int) -> libc::c_int {
 		let output_buffer_ref: *mut Option<Vec<u8>> = opaque.cast();
 		
 		if let Some(ref mut output_buffer) = *output_buffer_ref {

@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Context};
-use ffmpeg_next::{codec, decoder, encoder, Rational};
-use ffmpeg_next::codec::Parameters;
+use ffmpeg_next::{codec, decoder, encoder};
 use ffmpeg_next::format::Pixel;
 
-use crate::media_manipulation::backends::{VideoBackend, VideoEncoderParams};
+use crate::media_manipulation::backends::{VideoBackend, VideoDecoderParams, VideoEncoderParams};
 
 pub struct VideoToolboxVideoBackend;
 
@@ -45,8 +44,8 @@ impl VideoBackend for VideoToolboxVideoBackend {
 		encoder.open_as_with(encoder_codec, params.encoder_options).context("Opening encoder")
 	}
 	
-	fn create_decoder(&mut self, params: Parameters, packet_time_base: Rational) -> anyhow::Result<decoder::Video> {
-		let decoder_name = match params.id() {
+	fn create_decoder(&mut self, params: VideoDecoderParams) -> anyhow::Result<decoder::Video> {
+		let decoder_name = match params.stream_params.id() {
 			codec::Id::H264 => Some("h264_videotoolbox"),
 			codec::Id::HEVC => Some("hevc_videotoolbox"),
 			codec::Id::VP9 => Some("vp9_videotoolbox"),
@@ -55,15 +54,15 @@ impl VideoBackend for VideoToolboxVideoBackend {
 		
 		let decoder_codec = decoder_name
 			.and_then(|name| decoder::find_by_name(name))
-			.or_else(|| decoder::find(params.id()))
+			.or_else(|| decoder::find(params.stream_params.id()))
 			.ok_or_else(|| anyhow!("Unable to find decoder"))?;
 		
 		let mut decoder_context = codec::context::Context::new_with_codec(decoder_codec);
-		decoder_context.set_parameters(params)?;
+		decoder_context.set_parameters(params.stream_params)?;
 		
 		let mut decoder = decoder_context.decoder().video().context("Opening decoder")?;
 		
-		decoder.set_packet_time_base(packet_time_base);
+		decoder.set_packet_time_base(params.packet_time_base);
 		
 		Ok(decoder)
 	}

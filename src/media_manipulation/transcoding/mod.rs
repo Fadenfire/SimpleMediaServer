@@ -12,8 +12,8 @@ use crate::media_manipulation::backends::BackendFactory;
 use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;
 use crate::media_manipulation::transcoding::audio::{AudioTranscoder, AudioTranscoderParams};
 use crate::media_manipulation::transcoding::video::{VideoTranscoder, VideoTranscoderParams};
-use crate::media_manipulation::utils::av_error;
-use crate::media_manipulation::utils::in_memory_muxer::InMemoryMuxer;
+use crate::media_manipulation::media_utils::av_error;
+use crate::media_manipulation::media_utils::in_memory_muxer::InMemoryMuxer;
 
 mod audio;
 mod video;
@@ -25,7 +25,7 @@ pub struct TranscodingOptions<'a, B: BackendFactory> {
 	pub media_path: PathBuf,
 	pub time_range: Range<i64>,
 	pub target_video_height: u32,
-	pub target_video_framerate: u32,
+	// pub target_video_framerate: u32,
 	pub video_bitrate: usize,
 	pub audio_bitrate: usize,
 }
@@ -49,7 +49,6 @@ pub fn transcode_segment(opts: TranscodingOptions<'_, impl BackendFactory>) -> a
 			backend: video_backend,
 			output_codec: Id::H264,
 			target_height: opts.target_video_height,
-			target_framerate: opts.target_video_framerate,
 			bit_rate: opts.video_bitrate,
 			encoder_options: Dictionary::new(),
 		};

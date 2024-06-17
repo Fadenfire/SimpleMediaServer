@@ -4,7 +4,7 @@ use ffmpeg_next::frame;
 use ffmpeg_next::software::scaling;
 use ffmpeg_sys_next::av_hwframe_transfer_data;
 
-use crate::media_manipulation::utils::av_error;
+use crate::media_manipulation::media_utils::av_error;
 
 pub struct FrameScaler {
 	scaler: Option<scaling::Context>,

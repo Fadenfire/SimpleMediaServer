@@ -26,7 +26,7 @@ async fn main() {
 	let args: Args = argh::from_env();
 	
 	setup_logging();
-	ffmpeg_next::log::set_level(ffmpeg_next::log::Level::Debug);
+	ffmpeg_next::log::set_level(ffmpeg_next::log::Level::Verbose);
 	
 	// let data = transcode_segment(TranscodingOptions {
 	// 	backend_factory: &MediaBackendFactory::new(),
@@ -37,7 +37,7 @@ async fn main() {
 	// 	video_bitrate: 12_000_000,
 	// 	audio_bitrate: 160_000,
 	// }).unwrap();
-	// 
+	//
 	// tokio::fs::write("output.ts", &data).await.unwrap();
 	
 	info!("Starting server");

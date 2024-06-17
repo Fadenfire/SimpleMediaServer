@@ -45,7 +45,7 @@ impl ArtifactGenerator for HlsSegmentGenerator {
 				media_path: input.media_path,
 				time_range,
 				target_video_height: 1080,
-				target_video_framerate: 60,
+				// target_video_framerate: 60,
 				video_bitrate: 12_000_000,
 				audio_bitrate: 160_000,
 			})
