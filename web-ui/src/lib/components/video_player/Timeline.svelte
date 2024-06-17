@@ -19,6 +19,7 @@
 	export let mobile: boolean;
 	
 	export let videoElement: HTMLVideoElement;
+	export let videoPaused: boolean;
 	export let videoCurrentTime: number;
 	export let videoDuration: number;
 	export let videoBuffered: SvelteMediaTimeRange[];
@@ -56,9 +57,9 @@
 	
 	function onTimelinePointerDown(event: PointerEvent) {
 		if (event.button == 0) {
-			wasPaused = videoElement.paused || videoElement.ended;
+			wasPaused = videoPaused;
+			videoPaused = true;
 			
-			if (!wasPaused) videoElement.pause();
 			updateScrub(event.clientX);
 			
 			event.preventDefault();
@@ -76,7 +77,7 @@
 			videoElement.currentTime = scrubbingTime;
 			scrubbingTime = null;
 			
-			if (!wasPaused) videoElement.play();
+			videoPaused = wasPaused;
 		}
 	}
 	

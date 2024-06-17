@@ -10,6 +10,7 @@
     import { goto } from "$app/navigation";
     import { onMount } from "svelte";
     import Spinner from "./Spinner.svelte";
+    import { VideoBackend } from "./video_backend";
 
 	export let mediaInfo: MediaInfo;
 	
@@ -30,6 +31,17 @@
 	const mobile = window.matchMedia("(pointer: coarse)").matches;
 	
 	$: videoInfo = mediaInfo.video_info;
+	
+	// Player Backend
+	
+	let playerBackend: VideoBackend | undefined;
+	
+	$: if (videoElement) {
+		playerBackend?.detach();
+		
+		playerBackend = new VideoBackend(videoElement, mediaInfo);
+		playerBackend.attachHls();
+	}
 	
 	// Thumbnail Sheet
 	
@@ -55,7 +67,9 @@
 	onMount(() => {
 		return () => {
 			mounted = false;
+			
 			if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
+			playerBackend?.detach();
 		}
 	});
 	
@@ -83,11 +97,7 @@
 	// Player Actions
 	
 	function playPause() {
-		if (videoElement.paused || videoElement.ended) {
-			videoElement.play();
-		} else {
-			videoElement.pause();
-		}
+		videoPaused = !videoPaused;
 	}
 	
 	function gotoPrevVideo() {
@@ -100,9 +110,13 @@
 	
 	function jump(amount: number) {
 		const newTime = Math.max(0, Math.min(videoDuration, videoCurrentTime + amount));
+		videoCurrentTime = newTime;
 		
-		videoCurrentTime = newTime
-		videoElement.currentTime = newTime
+		if (videoElement.fastSeek) {
+			videoElement.fastSeek(newTime);
+		} else {
+			videoElement.currentTime = newTime;
+		}
 	}
 	
 	// Fullscreen
@@ -246,7 +260,6 @@
 			on:playing={onVideoPlaying}
 			
 			autoplay
-			src="{`/api/media/source/${escapePath(mediaInfo.path)}`}"
 		></video>
 	{/key}
 	
@@ -318,6 +331,7 @@
 				mobile={false}
 				
 				videoElement={videoElement}
+				bind:videoPaused={videoPaused}
 				videoCurrentTime={videoCurrentTime}
 				videoDuration={videoDuration}
 				videoBuffered={videoBuffered}
@@ -345,7 +359,7 @@
 				<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
 				
 				<div class="spacer"></div>
-				
+
 				<button class="control-button" on:click={toggleFullscreen}>
 					{#if isFullscreen}
 						<FeatherIcon name="minimize" size="1em"/>
@@ -375,6 +389,7 @@
 				mobile={true}
 				
 				videoElement={videoElement}
+				bind:videoPaused={videoPaused}
 				videoCurrentTime={videoCurrentTime}
 				videoDuration={videoDuration}
 				videoBuffered={videoBuffered}

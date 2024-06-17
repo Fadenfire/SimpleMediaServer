@@ -20,6 +20,9 @@ importers:
       feather-icons:
         specifier: ^4.29.2
         version: 4.29.2
+      hls.js:
+        specifier: ^1.5.9
+        version: 1.5.9
       sass:
         specifier: ^1.77.1
         version: 1.77.1
@@ -469,6 +472,9 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  hls.js@1.5.9:
+    resolution: {integrity: sha512-CZBc086Ljw7Ie1IGOGUPLiINBPuJcv53O3jPRjH9aJJcbaOxAm7+jf3/TKpNZlCjCjXIz0GhmQCVAyraF7/SkA==}
 
   immutable@4.3.6:
     resolution: {integrity: sha512-Ju0+lEMyzMVZarkTn/gqRpdqd5dOPaz1mCZ0SH3JV6iFw81PldE/PEB1hWVEA288HPt4WXW8O7AWxB10M+03QQ==}
@@ -1115,6 +1121,8 @@ snapshots:
   globrex@0.1.2: {}
 
   graceful-fs@4.2.11: {}
+
+  hls.js@1.5.9: {}
 
   immutable@4.3.6: {}
 

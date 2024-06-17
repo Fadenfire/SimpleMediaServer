@@ -14,6 +14,7 @@ use crate::media_manipulation::media_utils::MICRO_TIME_BASE;
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 720;
 const JPEG_QUALITY: i32 = 90;
+const CANDIDATE_COUNT: usize = 5;
 
 pub fn extract_thumbnail(backend_factory: &impl BackendFactory, media_path: PathBuf) -> anyhow::Result<Bytes> {
 	let mut demuxer = format::input(&media_path).context("Opening video file")?;
@@ -66,7 +67,7 @@ pub fn extract_thumbnail(backend_factory: &impl BackendFactory, media_path: Path
 		Ok(())
 	};
 	
-	for _ in 0..5 {
+	for _ in 0..CANDIDATE_COUNT {
 		let time = rng.gen_range((video_duration / 10)..(video_duration / 10 * 9))
 			.rescale(MICRO_TIME_BASE, rescale::TIME_BASE);
 		
