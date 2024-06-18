@@ -55,7 +55,7 @@ impl ServerState {
 			video_metadata_cache: MediaMetadataCache::new(),
 			thumbnail_generator: thumbnail_service::init_service(PathBuf::from("cache/thumbnail"), media_backend_factory.clone()).await?, // TODO: Add config option for cache path
 			thumbnail_sheet_generator: thumbnail_sheet_service::init_service(PathBuf::from("cache/timeline-thumbnail"), media_backend_factory.clone()).await?,
-			hls_segment_generator: hls_segment_service::init_service(PathBuf::from("cache/media-server-segments-cache"), media_backend_factory.clone()).await?,
+			hls_segment_generator: hls_segment_service::init_service(PathBuf::from("/tmp/media-server-segments-cache"), media_backend_factory.clone()).await?,
 			media_backend_factory,
 		})
 	}

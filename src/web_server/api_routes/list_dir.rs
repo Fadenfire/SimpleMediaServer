@@ -18,7 +18,7 @@ pub async fn list_dir_route(
 	server_state: &ServerState,
 	request: &HyperRequest,
 	library_id: &str,
-	library_path: &[&str]
+	library_path: &[&str],
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
@@ -46,10 +46,7 @@ pub async fn list_dir_route(
 		if file_type.is_file() {
 			if !video_locator::is_video(&path) { continue; }
 			
-			let path_name = match path.file_stem().and_then(OsStr::to_str) {
-				Some(s) => s,
-				None => continue
-			};
+			let Some(path_name) = path.file_stem().and_then(OsStr::to_str) else { continue };
 			
 			if file_stem_set.contains(path_name) { continue; }
 			file_stem_set.insert(path_name.to_owned());
@@ -66,10 +63,7 @@ pub async fn list_dir_route(
 				duration: media_metadata.duration.as_secs(),
 			});
 		} else if file_type.is_dir() {
-			let path_name = match path.file_name().and_then(OsStr::to_str) {
-				Some(s) => s,
-				None => continue
-			};
+			let Some(path_name) = path.file_name().and_then(OsStr::to_str) else { continue };
 			
 			let mut child_count: u32 = 0;
 			let mut thumbnail_path: Option<String> = None;
@@ -116,20 +110,17 @@ pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>>
 		
 		if !entry.file_type().await?.is_file() || !video_locator::is_video(&path) { continue; }
 		
-		let stem = match path.file_stem().and_then(OsStr::to_str) {
-			Some(s) => s,
-			None => continue
-		};
+		let Some(stem) = path.file_stem().and_then(OsStr::to_str) else { continue };
 		
 		if file_stem_set.contains(stem) { continue; }
-		file_stem_set.insert(stem.to_owned());
 		
+		file_stem_set.insert(stem.to_owned());
 		video_paths.push(path);
 	}
 	
 	video_paths.sort_by(|a, b| natord::compare(
 		a.file_stem().unwrap().to_str().unwrap(), // file_stem must have been Some to be added
-		b.file_stem().unwrap().to_str().unwrap()  //  to the list, so this should be safe
+		b.file_stem().unwrap().to_str().unwrap(), //  to the list, so this should be safe
 	));
 	
 	Ok(video_paths)

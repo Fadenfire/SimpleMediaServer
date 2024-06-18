@@ -19,7 +19,13 @@ pub async fn thumbnail_sheet_route(
 	let media_path = video_locator::locate_video(&resolved_path).await.map_err(|_| ApiError::FileNotFound)?;
 	
 	let generated_sprite_sheet = server_state.thumbnail_sheet_generator.get_or_generate(media_path).await?;
-	let res = serve_file_basic(&generated_sprite_sheet.cache_file, generated_sprite_sheet.mod_time, mime::IMAGE_JPEG, request.headers()).await?;
+	
+	let res = serve_file_basic(
+		generated_sprite_sheet.entry_data,
+		generated_sprite_sheet.creation_date,
+		mime::IMAGE_JPEG,
+		request.headers()
+	).await?;
 	
 	Ok(res)
 }

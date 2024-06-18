@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use http::Method;
 use tracing::instrument;
 
@@ -32,14 +33,22 @@ pub async fn thumbnail_route(
 			let mod_time = thumbnail_metadata.modified()?;
 			
 			let mime_type = mime_guess::from_path(&thumbnail_path).first_or_octet_stream();
-			let res = serve_file_basic(&thumbnail_path, mod_time, mime_type, request.headers()).await?;
+			let data = tokio::fs::read(&thumbnail_path).await?;
+			
+			let res = serve_file_basic(data, mod_time, mime_type, request.headers()).await?;
 			
 			return Ok(res);
 		}
 	}
 	
 	let generated_thumbnail = server_state.thumbnail_generator.get_or_generate(media_path).await?;
-	let res = serve_file_basic(&generated_thumbnail.cache_file, generated_thumbnail.mod_time, mime::IMAGE_JPEG, request.headers()).await?;
+	
+	let res = serve_file_basic(
+		generated_thumbnail.entry_data,
+		generated_thumbnail.creation_date,
+		mime::IMAGE_JPEG,
+		request.headers()
+	).await?;
 	
 	Ok(res)
 }

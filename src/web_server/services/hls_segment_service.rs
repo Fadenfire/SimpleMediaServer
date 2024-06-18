@@ -64,7 +64,8 @@ pub async fn init_service(
 	};
 	
 	let service = ArtifactCache::new(generator, cache_dir).await?
-		.with_task_limit(2);
+		.with_task_limit(2)
+		.with_file_size_limit(300_000_000);
 	
 	Ok(service)
 }

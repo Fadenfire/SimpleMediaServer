@@ -47,7 +47,12 @@ pub fn restrict_method(request: &HyperRequest, allowed_methods: &[Method]) -> Re
 	}
 }
 
-pub async fn serve_file_basic(file_path: &Path, mod_time: SystemTime, mime_type: Mime, request_headers: &HeaderMap) -> anyhow::Result<HyperResponse> {
+pub async fn serve_file_basic(
+	file_data: impl Into<Bytes>,
+	mod_time: SystemTime,
+	mime_type: Mime,
+	request_headers: &HeaderMap
+) -> anyhow::Result<HyperResponse> {
 	let if_modified_since: Option<IfModifiedSince> = request_headers.typed_get();
 	
 	if let Some(if_modified_since) = if_modified_since {
@@ -63,11 +68,9 @@ pub async fn serve_file_basic(file_path: &Path, mod_time: SystemTime, mime_type:
 		}
 	}
 	
-	let data = tokio::fs::read(file_path).await?;
-	
 	let res = Response::builder()
 		.header(CONTENT_TYPE, mime_type.essence_str())
-		.body(full_body(data))
+		.body(full_body(file_data))
 		.unwrap();
 	
 	Ok(res)

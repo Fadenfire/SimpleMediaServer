@@ -27,7 +27,12 @@ pub async fn hls_segment_route(
 		segment_index,
 	}).await?;
 	
-	let res = serve_file_basic(&generated_segment.cache_file, generated_segment.mod_time, mime::Mime::from_str("video/MP2T").unwrap(), request.headers()).await?;
+	let res = serve_file_basic(
+		generated_segment.entry_data,
+		generated_segment.creation_date,
+		mime::Mime::from_str("video/MP2T").unwrap(),
+		request.headers()
+	).await?;
 	
 	Ok(res)
 }

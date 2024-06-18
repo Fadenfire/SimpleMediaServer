@@ -32,6 +32,5 @@ pub fn is_video(path: &Path) -> bool {
 	path
 		.extension()
 		.and_then(OsStr::to_str)
-		.filter(|ext| MEDIA_EXTENSIONS.contains(ext))
-		.is_some()
+		.is_some_and(|ext| MEDIA_EXTENSIONS.contains(&ext))
 }

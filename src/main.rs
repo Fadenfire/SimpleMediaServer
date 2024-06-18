@@ -54,7 +54,7 @@ async fn main() {
 
 fn setup_logging() {
 	let subscriber = FmtSubscriber::builder()
-		.with_max_level(Level::INFO)
+		.with_max_level(Level::DEBUG)
 		.finish();
 	
 	tracing::subscriber::set_global_default(subscriber)
