@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
-pub fn add_extension(path: &mut PathBuf, extension: impl AsRef<Path>) {
+pub fn add_extension(path: &Path, extension: impl AsRef<Path>) -> PathBuf {
+	let mut path = path.to_owned();
+	
 	match path.extension() {
 		Some(ext) => {
 			let mut ext = ext.to_os_string();
@@ -10,4 +12,6 @@ pub fn add_extension(path: &mut PathBuf, extension: impl AsRef<Path>) {
 		}
 		None => path.set_extension(extension.as_ref()),
 	};
+	
+	path
 }

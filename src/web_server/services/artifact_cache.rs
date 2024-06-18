@@ -12,6 +12,8 @@ use serde::de::DeserializeOwned;
 use tokio::sync::Semaphore;
 use tracing::debug;
 
+use crate::utils;
+
 pub trait ArtifactGenerator {
 	type Input;
 	type ValidityKey: Eq + Serialize + DeserializeOwned;
@@ -24,9 +26,46 @@ pub trait ArtifactGenerator {
 	async fn generate_artifact(&self, input: Self::Input) -> anyhow::Result<(Bytes, Self::Metadata)>;
 }
 
+pub struct ArtifactCacheBuilder {
+	cache_dir: Option<PathBuf>,
+	task_limit: usize,
+	file_size_limit: u64,
+}
+
+impl Default for ArtifactCacheBuilder {
+	fn default() -> Self {
+		Self {
+			cache_dir: None,
+			task_limit: 4,
+			file_size_limit: u64::MAX,
+		}
+	}
+}
+
+impl ArtifactCacheBuilder {
+	pub fn cache_dir(mut self, cache_dir: PathBuf) -> Self {
+		self.cache_dir = Some(cache_dir);
+		self
+	}
+	
+	pub fn task_limit(mut self, limit: usize) -> Self {
+		self.task_limit = limit;
+		self
+	}
+	
+	pub fn file_size_limit(mut self, limit: u64) -> Self {
+		self.file_size_limit = limit;
+		self
+	}
+	
+	pub async fn build<G: ArtifactGenerator>(self, generator: G) -> Result<ArtifactCache<G>, io::Error> {
+		ArtifactCache::init(generator, self.cache_dir.expect("No cache dir set"), self.task_limit, self.file_size_limit).await
+	}
+}
+
 const ENTRY_METADATA_EXTENSION: &str = "meta.json";
 
-pub struct ArtifactCache<G: ArtifactGenerator> {
+pub struct ArtifactCache<G> {
 	generator: G,
 	cache_dir: PathBuf,
 	locks: LockPool<CacheEntry>,
@@ -34,8 +73,14 @@ pub struct ArtifactCache<G: ArtifactGenerator> {
 	generation_limiter: Semaphore,
 }
 
+impl ArtifactCache<()> {
+	pub fn builder() -> ArtifactCacheBuilder {
+		ArtifactCacheBuilder::default()
+	}
+}
+
 impl<G: ArtifactGenerator> ArtifactCache<G> {
-	pub async fn new(generator: G, cache_dir: PathBuf) -> Result<Self, io::Error> {
+	async fn init(generator: G, cache_dir: PathBuf, task_limit: usize, file_size_limit: u64) -> Result<Self, io::Error> {
 		tokio::fs::create_dir_all(&cache_dir).await?;
 		
 		let mut read_dir = tokio::fs::read_dir(&cache_dir).await?;
@@ -44,19 +89,29 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 		while let Some(dir_entry) = read_dir.next_entry().await? {
 			let path = dir_entry.path();
 			
-			if path.file_name().and_then(OsStr::to_str).is_some_and(|name| name.ends_with(ENTRY_METADATA_EXTENSION)) {
-				let entry_metadata = tokio::fs::read(&path).await.ok()
-					.and_then(|data| serde_json::from_slice::<CacheEntryMetadata<G::ValidityKey, G::Metadata>>(&data).ok());
-				
-				if let Some(entry_metadata) = entry_metadata {
-					if tokio::fs::try_exists(cache_dir.join(&entry_metadata.cache_key)).await.unwrap_or(false) {
-						entries.push(LruEntry {
-							key: entry_metadata.cache_key,
-							entry_size: entry_metadata.entry_size,
-							last_accessed: entry_metadata.last_accessed,
-						})
-					}
+			let Some(cache_key) = path.file_name()
+				.and_then(OsStr::to_str)
+				.and_then(|name| name.strip_suffix(".meta.json"))
+			else { continue };
+			
+			let cache_entry_path = cache_dir.join(cache_key);
+			
+			let entry_metadata = tokio::fs::read(&path).await.ok()
+				.and_then(|data| serde_json::from_slice::<CacheEntryMetadata<G::ValidityKey, G::Metadata>>(&data).ok());
+			
+			if let Some(entry_metadata) = entry_metadata {
+				if tokio::fs::try_exists(&cache_entry_path).await.unwrap_or(false) {
+					entries.push(LruEntry {
+						key: cache_key.to_owned(),
+						entry_size: entry_metadata.entry_size,
+						last_accessed: entry_metadata.last_accessed,
+					})
 				}
+			} else {
+				// If the metadata is invalid then remove the cache entry
+				// Otherwise it'll go untracked forever
+				let _ = tokio::fs::remove_file(&path).await;
+				let _ = tokio::fs::remove_file(&cache_entry_path).await;
 			}
 		}
 		
@@ -64,19 +119,9 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			generator,
 			cache_dir,
 			locks: LockPool::new(),
-			lru_state: Mutex::new(LruState::new(entries)),
-			generation_limiter: Semaphore::new(64),
+			lru_state: Mutex::new(LruState::new(entries, file_size_limit)),
+			generation_limiter: Semaphore::new(task_limit),
 		})
-	}
-	
-	pub fn with_task_limit(mut self, limit: usize) -> Self {
-		self.generation_limiter = Semaphore::new(limit);
-		self
-	}
-	
-	pub fn with_file_size_limit(mut self, limit: u64) -> Self {
-		self.lru_state.get_mut().unwrap().set_size_limit(limit);
-		self
 	}
 	
 	pub async fn get(&self, input: &G::Input) -> anyhow::Result<Option<CacheQuery<G::Metadata>>> {
@@ -138,7 +183,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 				Ok(CacheQuery {
 					entry_data: artifact_data,
 					creation_date: now,
-					metadata: entry_metadata.extra_metadata
+					metadata: entry_metadata.extra_metadata,
 				})
 			}
 		}
@@ -161,7 +206,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 					let cache_query = CacheQuery {
 						entry_data: Bytes::from(entry_data),
 						creation_date: entry_metadata.creation_date,
-						metadata: entry_metadata.extra_metadata
+						metadata: entry_metadata.extra_metadata,
 					};
 					
 					return Ok(QueryResult::Valid(cache_query));
@@ -169,13 +214,13 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			}
 		}
 		
-		return Ok(QueryResult::Invalid)
+		return Ok(QueryResult::Invalid);
 	}
 	
 	fn get_entry_lock(&self, cache_key: &str) -> Arc<tokio::sync::Mutex<CacheEntry>> {
 		self.locks.get_lock(cache_key, || {
 			let cache_file_path = self.cache_dir.join(cache_key);
-			let cache_metadata_path = cache_file_path.with_extension(ENTRY_METADATA_EXTENSION);
+			let cache_metadata_path = utils::add_extension(&cache_file_path, ENTRY_METADATA_EXTENSION);
 			
 			CacheEntry {
 				cache_key: cache_key.to_owned(),
@@ -203,7 +248,7 @@ struct CacheEntry {
 #[derive(Debug, Eq, PartialEq)]
 enum QueryResult<M> {
 	Valid(CacheQuery<M>),
-	Invalid
+	Invalid,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
@@ -259,7 +304,7 @@ struct LruEntry {
 }
 
 impl LruState {
-	pub fn new(mut entries: Vec<LruEntry>) -> Self {
+	pub fn new(mut entries: Vec<LruEntry>, size_limit: u64) -> Self {
 		let mut lru = LruCache::unbounded();
 		let mut total_size = 0;
 		
@@ -275,12 +320,8 @@ impl LruState {
 		Self {
 			lru,
 			total_size,
-			size_limit: u64::MAX,
+			size_limit,
 		}
-	}
-	
-	pub fn set_size_limit(&mut self, limit: u64) {
-		self.size_limit = limit;
 	}
 	
 	pub fn promote(&mut self, key: &str) {
@@ -343,7 +384,7 @@ mod tests {
 			LruEntry {
 				key: "key1".to_owned(),
 				entry_size: 10,
-				last_accessed: SystemTime::UNIX_EPOCH + Duration::from_secs(1),	
+				last_accessed: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
 			},
 			LruEntry {
 				key: "key3".to_owned(),
@@ -362,7 +403,7 @@ mod tests {
 			},
 		];
 		
-		let mut lru_state = LruState::new(lru_entries);
+		let mut lru_state = LruState::new(lru_entries, u64::MAX);
 		
 		assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key4", "key3", "key2", "key1"]);
 		assert_eq!(lru_state.total_size, 50);
@@ -386,7 +427,7 @@ mod tests {
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
-		lru_state.set_size_limit(90);
+		lru_state.size_limit = 90;
 		
 		assert_eq!(lru_state.size_limit, 90);
 		
@@ -493,7 +534,10 @@ mod tests {
 		write_entry(&temp_dir, 3, 30).await;
 		write_entry(&temp_dir, 2, 20).await;
 		
-		let mut artifact_cache = ArtifactCache::new(TestGenerator, temp_dir.path().to_owned()).await.unwrap();
+		let mut artifact_cache = ArtifactCache::builder()
+			.cache_dir(temp_dir.path().to_owned())
+			.build(TestGenerator)
+			.await.unwrap();
 		
 		{
 			let lru_state = artifact_cache.lru_state.get_mut().unwrap();
@@ -533,7 +577,10 @@ mod tests {
 		
 		assert_eq!(tokio::fs::read(temp_dir.path().join("key44")).await.unwrap(), "stuff44".as_bytes());
 		
-		let mut artifact_cache = ArtifactCache::new(TestGenerator, temp_dir.path().to_owned()).await.unwrap();
+		let mut artifact_cache = ArtifactCache::builder()
+			.cache_dir(temp_dir.path().to_owned())
+			.build(TestGenerator)
+			.await.unwrap();
 		
 		let query = artifact_cache.get(&44).await.unwrap().unwrap();
 		
@@ -548,7 +595,7 @@ mod tests {
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
 		
-		artifact_cache = artifact_cache.with_file_size_limit(20);
+		artifact_cache.lru_state.get_mut().unwrap().size_limit = 20;
 		
 		assert!(tokio::fs::try_exists(temp_dir.path().join("key2")).await.unwrap());
 		assert!(tokio::fs::try_exists(temp_dir.path().join("key2").with_extension(ENTRY_METADATA_EXTENSION)).await.unwrap());

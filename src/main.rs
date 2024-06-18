@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use argh::FromArgs;
 use tracing::{info, Level};
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::config::ServerConfig;
 use crate::media_manipulation::transcoding::{transcode_segment, TranscodingOptions};
@@ -18,7 +18,7 @@ mod media_manipulation;
 struct Args {
 	/// path to config directory
 	#[argh(option)]
-	config_dir: PathBuf,
+	config: PathBuf,
 }
 
 #[tokio::main]
@@ -26,7 +26,7 @@ async fn main() {
 	let args: Args = argh::from_env();
 	
 	setup_logging();
-	ffmpeg_next::log::set_level(ffmpeg_next::log::Level::Verbose);
+	ffmpeg_next::log::set_level(ffmpeg_next::log::Level::Warning);
 	
 	// let data = transcode_segment(TranscodingOptions {
 	// 	backend_factory: &MediaBackendFactory::new(),
@@ -42,7 +42,7 @@ async fn main() {
 	
 	info!("Starting server");
 	
-	let config = ServerConfig::load(args.config_dir).await.expect("Loading config");
+	let config = ServerConfig::load(args.config).await.expect("Loading config");
 	let web_ui_dir = get_web_ui_assets_dir();
 	
 	if !tokio::fs::try_exists(&web_ui_dir).await.unwrap_or(false) {
@@ -53,8 +53,14 @@ async fn main() {
 }
 
 fn setup_logging() {
+	let filter = EnvFilter::builder()
+		.with_default_directive(Level::INFO.into())
+		.with_env_var("SERVER_LOG")
+		.from_env_lossy();
+	
 	let subscriber = FmtSubscriber::builder()
 		.with_max_level(Level::DEBUG)
+		.with_env_filter(filter)
 		.finish();
 	
 	tracing::subscriber::set_global_default(subscriber)

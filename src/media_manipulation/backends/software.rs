@@ -63,7 +63,7 @@ impl VideoBackend for SoftwareVideoBackend {
 pub struct SoftwareBackendFactory;
 
 impl BackendFactory for SoftwareBackendFactory {
-	fn create_video_backend(&self) -> anyhow::Result<Box<impl VideoBackend + 'static>> {
+	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
 		Ok(Box::new(SoftwareVideoBackend::new()))
 	}
 }

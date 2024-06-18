@@ -7,7 +7,7 @@ use image::{GenericImage, Rgb, RgbImage};
 use serde::{Deserialize, Serialize};
 use turbojpeg::Subsamp;
 
-use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams};
+use crate::media_manipulation::backends::{BackendFactory, VideoDecoderParams};
 use crate::media_manipulation::media_utils;
 use crate::media_manipulation::media_utils::frame_scaler::FrameScaler;
 use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;

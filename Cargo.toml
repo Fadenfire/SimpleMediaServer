@@ -9,6 +9,9 @@ tokio-stream = "0.1"
 futures-util = "0.3"
 hyper = { version = "1.0", features = ["http1", "http2", "server"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto"] }
+tokio-rustls = "0.26"
+rustls-pemfile = "2.0"
+rcgen = "0.13"
 tower-service = "0.3"
 tower-http = { version = "0.5", features = ["fs"] }
 http = "1.0"
@@ -17,6 +20,7 @@ headers = "0.4"
 bytes = "1.0"
 mime = "0.3"
 mime_guess = "2.0"
+figment = { version = "0.10", features = ["yaml", "env"] }
 anyhow = "1.0"
 argh = "0.1"
 ffmpeg-next = "7.0"
@@ -25,13 +29,12 @@ image = { version = "^0.24", default-features = false }
 turbojpeg = { version = "1.0", features = ["image"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
 blake3 = "1.0"
 rand = "0.8"
 rand_chacha = "0.3"
 natord = "1.0"
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 percent-encoding = "2.3.1"
 cfg-if = "1.0"
 scopeguard = "1.0"

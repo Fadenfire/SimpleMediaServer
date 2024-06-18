@@ -7,7 +7,7 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use turbojpeg::Subsamp;
 
-use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams};
+use crate::media_manipulation::backends::{BackendFactory, VideoDecoderParams};
 use crate::media_manipulation::media_utils::frame_scaler::FrameScaler;
 use crate::media_manipulation::media_utils;
 use crate::media_manipulation::media_utils::MICRO_TIME_BASE;

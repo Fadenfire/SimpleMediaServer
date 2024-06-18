@@ -1,28 +1,29 @@
-use cfg_if::cfg_if;
-
+use crate::config::TranscodingBackend;
 use crate::media_manipulation::backends::{BackendFactory, VideoBackend};
-use crate::media_manipulation::backends;
+use crate::media_manipulation::backends::intel_quick_sync::QuickSyncVideoBackend;
+use crate::media_manipulation::backends::software::SoftwareVideoBackend;
+use crate::media_manipulation::backends::video_toolbox::VideoToolboxVideoBackend;
 
-pub struct MediaBackendFactory;
+pub struct MediaBackendFactory {
+	backend_type: TranscodingBackend,
+}
 
 impl MediaBackendFactory {
-	pub fn new() -> Self {
-		Self
+	pub fn new(backend_type: TranscodingBackend) -> anyhow::Result<Self> {
+		Ok(Self {
+			backend_type,
+		})
 	}
 }
 
 impl BackendFactory for MediaBackendFactory {
-	fn create_video_backend(&self) -> anyhow::Result<Box<impl VideoBackend + 'static>> {
-		cfg_if! {
-			if #[cfg(target_os = "macos")] {
-				let video_backend = backends::video_toolbox::VideoToolboxVideoBackend::new();
-			} else if #[cfg(target_os = "linux")] {
-				let video_backend = backends::intel_quick_sync::QuickSyncVideoBackend::new()?;
-			} else {
-				let video_backend = backends::software::SoftwareVideoBackend::new();
-			}
-		}
+	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
+		let video_backend: Box<dyn VideoBackend> = match self.backend_type {
+			TranscodingBackend::Software => Box::new(SoftwareVideoBackend::new()),
+			TranscodingBackend::VideoToolbox => Box::new(VideoToolboxVideoBackend::new()),
+			TranscodingBackend::IntelQuickSync => Box::new(QuickSyncVideoBackend::new()?),
+		};
 		
-		Ok(Box::new(video_backend))
+		Ok(video_backend)
 	}
 }

@@ -36,5 +36,5 @@ pub trait VideoBackend {
 }
 
 pub trait BackendFactory {
-	fn create_video_backend(&self) -> anyhow::Result<Box<impl VideoBackend + 'static>>;
+	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>>;
 }

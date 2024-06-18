@@ -17,8 +17,7 @@ pub async fn locate_video(path: &Path) -> io::Result<PathBuf> {
 	}
 	
 	for ext in MEDIA_EXTENSIONS {
-		let mut ext_path = path.to_owned();
-		utils::add_extension(&mut ext_path, ext);
+		let ext_path = utils::add_extension(&path, ext);
 		
 		if tokio::fs::try_exists(&ext_path).await? {
 			return Ok(ext_path);

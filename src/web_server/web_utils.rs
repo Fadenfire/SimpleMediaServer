@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::SystemTime;
 
 use anyhow::{anyhow, Context};
@@ -11,6 +11,7 @@ use http_body_util::combinators::UnsyncBoxBody;
 use hyper::body::Incoming;
 use mime::Mime;
 use serde::Serialize;
+
 use crate::web_server::api_routes::error::ApiError;
 
 pub type HyperRequest = Request<Incoming>;

@@ -9,10 +9,18 @@ use tracing::info;
 use crate::media_manipulation::thumbnail_sheet;
 use crate::media_manipulation::thumbnail_sheet::ThumbnailSheetParams;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
-use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, FileValidityKey};
+use crate::web_server::services::artifact_cache::{ArtifactGenerator, FileValidityKey};
 
 pub struct ThumbnailSheetGenerator {
 	media_backend_factory: Arc<MediaBackendFactory>,
+}
+
+impl ThumbnailSheetGenerator {
+	pub fn new(media_backend_factory: Arc<MediaBackendFactory>) -> Self {
+		Self {
+			media_backend_factory,
+		}
+	}
 }
 
 impl ArtifactGenerator for ThumbnailSheetGenerator {
@@ -42,18 +50,4 @@ impl ArtifactGenerator for ThumbnailSheetGenerator {
 		
 		Ok(result)
 	}
-}
-
-pub async fn init_service(
-	cache_dir: PathBuf,
-	media_backend_factory: Arc<MediaBackendFactory>,
-) -> anyhow::Result<ArtifactCache<ThumbnailSheetGenerator>> {
-	let generator = ThumbnailSheetGenerator {
-		media_backend_factory,
-	};
-	
-	let service = ArtifactCache::new(generator, cache_dir).await?
-		.with_task_limit(2);
-	
-	Ok(service)
 }
