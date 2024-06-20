@@ -57,6 +57,9 @@ impl ServerState {
 			.build(HlsSegmentGenerator::new(media_backend_factory.clone()))
 			.await?;
 		
+		info!("HLS segments cache contains {} bytes, {} bytes max", hls_segment_generator.cache_size(),
+			server_config.main_config.caches.segments_cache_size_limit);
+		
 		let thumbnail_generator = ArtifactCache::builder()
 			.cache_dir(server_config.paths.thumbnail_cache_dir.clone())
 			.task_pool(transcoding_task_pool.clone())
@@ -64,12 +67,18 @@ impl ServerState {
 			.build(ThumbnailGenerator::new(media_backend_factory.clone()))
 			.await?;
 		
+		info!("Thumbnail cache contains {} bytes, {} bytes max", thumbnail_generator.cache_size(),
+			server_config.main_config.caches.thumbnail_cache_size_limit);
+		
 		let thumbnail_sheet_generator = ArtifactCache::builder()
 			.cache_dir(server_config.paths.thumbnail_sheet_cache_dir.clone())
 			.task_pool(transcoding_task_pool.clone())
 			.file_size_limit(server_config.main_config.caches.thumbnail_sheet_cache_size_limit)
 			.build(ThumbnailSheetGenerator::new(media_backend_factory.clone()))
 			.await?;
+		
+		info!("Thumbnail sheet cache contains {} bytes, {} bytes max", thumbnail_sheet_generator.cache_size(),
+			server_config.main_config.caches.thumbnail_sheet_cache_size_limit);
 		
 		let video_metadata_cache = MediaMetadataCache::new();
 		

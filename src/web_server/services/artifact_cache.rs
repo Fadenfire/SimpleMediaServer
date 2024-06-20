@@ -104,15 +104,21 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			let entry_metadata = tokio::fs::read(&path).await.ok()
 				.and_then(|data| serde_json::from_slice::<CacheEntryMetadata<G::ValidityKey, G::Metadata>>(&data).ok());
 			
+			let mut valid = false;
+			
 			if let Some(entry_metadata) = entry_metadata {
 				if tokio::fs::try_exists(&cache_entry_path).await.unwrap_or(false) {
 					entries.push(LruEntry {
 						key: cache_key.to_owned(),
 						entry_size: entry_metadata.entry_size,
 						last_accessed: entry_metadata.last_accessed,
-					})
+					});
+					
+					valid = true;
 				}
-			} else {
+			}
+			
+			if !valid {
 				// If the metadata is invalid then remove the cache entry
 				// Otherwise it'll go untracked forever
 				let _ = tokio::fs::remove_file(&path).await;
@@ -231,6 +237,10 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 				cache_metadata_path,
 			}
 		})
+	}
+	
+	pub fn cache_size(&self) -> u64 {
+		self.lru_state.lock().unwrap().total_size
 	}
 }
 
@@ -380,6 +390,7 @@ mod tests {
 	use tempfile::TempDir;
 	
 	use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, CacheEntryMetadata, CacheQuery, ENTRY_METADATA_EXTENSION, LockPool, LruEntry, LruState};
+	use crate::web_server::services::task_pool::TaskPool;
 	
 	#[test]
 	fn test_lru() {
@@ -537,8 +548,11 @@ mod tests {
 		write_entry(&temp_dir, 3, 30).await;
 		write_entry(&temp_dir, 2, 20).await;
 		
+		let task_pool = Arc::new(TaskPool::new(4));
+		
 		let mut artifact_cache = ArtifactCache::builder()
 			.cache_dir(temp_dir.path().to_owned())
+			.task_pool(task_pool.clone())
 			.build(TestGenerator)
 			.await.unwrap();
 		
@@ -582,6 +596,7 @@ mod tests {
 		
 		let mut artifact_cache = ArtifactCache::builder()
 			.cache_dir(temp_dir.path().to_owned())
+			.task_pool(task_pool.clone())
 			.build(TestGenerator)
 			.await.unwrap();
 		

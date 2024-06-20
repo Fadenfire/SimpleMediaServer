@@ -42,53 +42,10 @@ impl MediaMetadataCache {
 		}
 		
 		let thumbnail_sheet_params = thumbnail_sheet_cache.get(&media_path).await?.map(|entry| entry.metadata);
-		let video_path2 = media_path.clone();
+		let media_path2 = media_path.clone();
 		
-		let media_metadata = tokio::task::spawn_blocking(move || -> anyhow::Result<MediaMetadata> {
-			let demuxer = format::input(&video_path2).context("Opening video file")?;
-			
-			let duration_millis = demuxer.duration()
-				.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)
-				.try_into()
-				.unwrap_or(0);
-			let duration = Duration::from_millis(duration_millis);
-			
-			let title = demuxer.metadata().get("title")
-				.map(ToOwned::to_owned)
-				.or_else(|| video_path2.file_stem().map(OsStr::to_string_lossy).map(Cow::into_owned))
-				.unwrap_or_else(|| "Unknown".to_owned());
-			
-			let artist = demuxer.metadata().get("artist").map(ToOwned::to_owned);
-			
-			let video_metadata = match demuxer.streams().best(Type::Video) {
-				Some(video_stream) => {
-					let decoder = codec::context::Context::from_parameters(video_stream.parameters())?
-						.decoder().video().context("Opening decoder")?;
-					
-					let thumbnail_sheet_params = thumbnail_sheet_params.unwrap_or_else(|| {
-						thumbnail_sheet::calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height())
-					});
-					
-					Some(VideoMetadata {
-						video_size: Dimension {
-							width: decoder.width(),
-							height: decoder.height(),
-						},
-						thumbnail_sheet_params,
-					})
-				}
-				None => None
-			};
-			
-			Ok(MediaMetadata {
-				file_path: video_path2,
-				file_size: file_metadata.len(),
-				mod_time: file_metadata.modified().ok(),
-				duration,
-				title,
-				artist,
-				video_metadata,
-			})
+		let media_metadata = tokio::task::spawn_blocking(move || {
+			extract_media_metadata(media_path2, file_metadata, thumbnail_sheet_params)
 		}).await.unwrap()?;
 		
 		{
@@ -121,4 +78,55 @@ pub struct VideoMetadata {
 pub struct Dimension {
 	pub width: u32,
 	pub height: u32,
+}
+
+fn extract_media_metadata(
+	media_path: PathBuf,
+	file_metadata: std::fs::Metadata,
+	cached_thumbnail_sheet_params: Option<ThumbnailSheetParams>
+) -> anyhow::Result<MediaMetadata> {
+	let demuxer = format::input(&media_path).context("Opening video file")?;
+	
+	let duration_millis = demuxer.duration()
+		.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)
+		.try_into()
+		.unwrap_or(0);
+	let duration = Duration::from_millis(duration_millis);
+	
+	let title = demuxer.metadata().get("title")
+		.map(ToOwned::to_owned)
+		.or_else(|| media_path.file_stem().map(OsStr::to_string_lossy).map(Cow::into_owned))
+		.unwrap_or_else(|| "Unknown".to_owned());
+	
+	let artist = demuxer.metadata().get("artist").map(ToOwned::to_owned);
+	
+	let video_metadata = match demuxer.streams().best(Type::Video) {
+		Some(video_stream) => {
+			let decoder = codec::context::Context::from_parameters(video_stream.parameters())?
+				.decoder().video().context("Opening decoder")?;
+			
+			let thumbnail_sheet_params = cached_thumbnail_sheet_params.unwrap_or_else(|| {
+				thumbnail_sheet::calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height())
+			});
+			
+			Some(VideoMetadata {
+				video_size: Dimension {
+					width: decoder.width(),
+					height: decoder.height(),
+				},
+				thumbnail_sheet_params,
+			})
+		}
+		None => None
+	};
+	
+	Ok(MediaMetadata {
+		file_path: media_path,
+		file_size: file_metadata.len(),
+		mod_time: file_metadata.modified().ok(),
+		duration,
+		title,
+		artist,
+		video_metadata,
+	})
 }

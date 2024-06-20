@@ -5,8 +5,6 @@ use tracing::{info, Level};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 use crate::config::ServerConfig;
-use crate::media_manipulation::transcoding::{transcode_segment, TranscodingOptions};
-use crate::web_server::media_backend_factory::MediaBackendFactory;
 
 mod config;
 mod web_server;
