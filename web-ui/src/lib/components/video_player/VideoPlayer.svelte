@@ -40,7 +40,7 @@
 		playerBackend?.detach();
 		
 		playerBackend = new VideoBackend(videoElement, mediaInfo);
-		playerBackend.attachHls();
+		playerBackend.attachNative();
 	}
 	
 	// Thumbnail Sheet
@@ -265,14 +265,17 @@
 	
 	{#if mobile && scrubbingTime !== null && videoInfo !== null && thumbSheetUrl !== undefined}
 		{@const thumbOffset = caclulateThumbnailSheetOffset(scrubbingTime, videoInfo)}
-		<div
-			class="full-thumbnail"
-			style="
-				background-image: url({thumbSheetUrl});
-				background-position: -{thumbOffset.spriteX * 100}% -{thumbOffset.spriteY * 100}%;
-				background-size: {videoInfo.thumbnail_sheet_cols * 100}% {videoInfo.thumbnail_sheet_rows * 100}%;
-			"
-		></div>
+		<div class="full-thumbnail-container">
+			<div
+				class="full-thumbnail"
+				style="
+					background-image: url({thumbSheetUrl});
+					background-position: -{thumbOffset.spriteX * 100}% -{thumbOffset.spriteY * 100}%;
+					background-size: {videoInfo.thumbnail_sheet_cols * 100}% {videoInfo.thumbnail_sheet_rows * 100}%;
+					aspect-ratio: {videoInfo.sheet_thumbnail_size.width} / {videoInfo.sheet_thumbnail_size.height};
+				"
+			></div>
+		</div>
 	{/if}
 	
 	{#if isBuffering}
@@ -442,12 +445,19 @@
 		cursor: pointer;
 	}
 	
-	.full-thumbnail {
+	.full-thumbnail-container {
 		position: absolute;
 		top: 0;
 		left: 0;
 		width: 100%;
 		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		
+		.full-thumbnail {
+			flex: 1;
+		}
 	}
 	
 	.spinner-container {

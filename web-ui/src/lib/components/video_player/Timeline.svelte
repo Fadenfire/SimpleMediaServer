@@ -162,6 +162,10 @@
 		cursor: pointer;
 		touch-action: none;
 		@include no-select;
+		
+		&.mobile {
+			height: var(--video-player-timeline-mobile-width);
+		}
 	}
 	
 	.bars {
