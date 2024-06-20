@@ -6,6 +6,8 @@ use figment::providers::{Env, Format, Serialized, Yaml};
 use figment::value::magic::RelativePathBuf;
 use serde::{Deserialize, Serialize};
 
+use crate::utils;
+
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
 	pub main_config: GeneralConfig,
@@ -34,9 +36,9 @@ impl ServerConfig {
 			data_dir: general_config.data_dir.clone(),
 			cache_dir: general_config.cache_dir.clone(),
 			
-			transcoded_segments_cache_dir: general_config.cache_dir.join(&general_config.transcoding.segments_cache_dir),
-			thumbnail_cache_dir: general_config.cache_dir.join(&general_config.thumbnail_generation.cache_dir),
-			thumbnail_sheet_cache_dir:  general_config.cache_dir.join(&general_config.thumbnail_sheet_generation.cache_dir),
+			transcoded_segments_cache_dir: general_config.cache_dir.join(&general_config.caches.segments_cache_dir),
+			thumbnail_cache_dir: general_config.cache_dir.join(&general_config.caches.thumbnail_cache_dir),
+			thumbnail_sheet_cache_dir:  general_config.cache_dir.join(&general_config.caches.thumbnail_sheet_cache_dir),
 		};
 		
 		Ok(Self {
@@ -58,6 +60,7 @@ pub struct ServerPaths {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GeneralConfig {
 	pub libraries_config: Option<RelativePathBuf>,
 	pub data_dir: PathBuf,
@@ -65,8 +68,7 @@ pub struct GeneralConfig {
 	
 	pub server: WebServerConfig,
 	pub transcoding: TranscodingConfig,
-	pub thumbnail_generation: ThumbnailGenerationConfig,
-	pub thumbnail_sheet_generation: ThumbnailSheetGenerationConfig,
+	pub caches: CachesConfig,
 }
 
 impl Default for GeneralConfig {
@@ -78,25 +80,27 @@ impl Default for GeneralConfig {
 			
 			server: WebServerConfig::default(),
 			transcoding: TranscodingConfig::default(),
-			thumbnail_generation: ThumbnailGenerationConfig::default(),
-			thumbnail_sheet_generation: ThumbnailSheetGenerationConfig::default(),
+			caches: CachesConfig::default(),
 		}
 	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WebServerConfig {
+	pub enable_http: bool,
+	pub enable_https: bool,
 	pub http_port: u16,
 	pub https_port: u16,
-	pub enable_https: bool,
 }
 
 impl Default for WebServerConfig {
 	fn default() -> Self {
 		Self {
+			enable_http: true,
+			enable_https: false,
 			http_port: 8000,
 			https_port: 8001,
-			enable_https: true,
 		}
 	}
 }
@@ -110,10 +114,9 @@ pub enum TranscodingBackend {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TranscodingConfig {
 	pub backend: TranscodingBackend,
-	pub segments_cache_dir: PathBuf,
-	pub segments_cache_size_limit: u64,
 	pub concurrent_tasks: usize,
 }
 
@@ -121,43 +124,38 @@ impl Default for TranscodingConfig {
 	fn default() -> Self {
 		Self {
 			backend: TranscodingBackend::Software,
+			concurrent_tasks: 2,
+		}
+	}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CachesConfig {
+	pub segments_cache_dir: PathBuf,
+	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
+	pub segments_cache_size_limit: u64,
+	
+	pub thumbnail_cache_dir: PathBuf,
+	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
+	pub thumbnail_cache_size_limit: u64,
+	
+	pub thumbnail_sheet_cache_dir: PathBuf,
+	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
+	pub thumbnail_sheet_cache_size_limit: u64,
+}
+
+impl Default for CachesConfig {
+	fn default() -> Self {
+		Self {
 			segments_cache_dir: PathBuf::from("transcoded-segments"),
 			segments_cache_size_limit: u64::MAX,
-			concurrent_tasks: 2,
-		}
-	}
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ThumbnailGenerationConfig {
-	pub cache_dir: PathBuf,
-	pub cache_size_limit: u64,
-	pub concurrent_tasks: usize,
-}
-
-impl Default for ThumbnailGenerationConfig {
-	fn default() -> Self {
-		Self {
-			cache_dir: PathBuf::from("thumbnails"),
-			cache_size_limit: u64::MAX,
-			concurrent_tasks: 4,
-		}
-	}
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ThumbnailSheetGenerationConfig {
-	pub cache_dir: PathBuf,
-	pub cache_size_limit: u64,
-	pub concurrent_tasks: usize,
-}
-
-impl Default for ThumbnailSheetGenerationConfig {
-	fn default() -> Self {
-		Self {
-			cache_dir: PathBuf::from("thumbnail-sheets"),
-			cache_size_limit: u64::MAX,
-			concurrent_tasks: 2,
+			
+			thumbnail_cache_dir: PathBuf::from("thumbnails"),
+			thumbnail_cache_size_limit: u64::MAX,
+			
+			thumbnail_sheet_cache_dir: PathBuf::from("thumbnail-sheets"),
+			thumbnail_sheet_cache_size_limit: u64::MAX,
 		}
 	}
 }

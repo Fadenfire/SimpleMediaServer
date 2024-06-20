@@ -1,20 +1,20 @@
 use std::convert::Infallible;
 use std::fs::Permissions;
 use std::io::Cursor;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
 use anyhow::anyhow;
 use futures_util::future::join_all;
-
 use http::{Response, StatusCode};
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn;
 use tokio::net::TcpListener;
 use tokio_rustls::{rustls, TlsAcceptor};
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::config::ServerConfig;
 use crate::web_server::router::ServerState;
@@ -37,15 +37,21 @@ pub async fn run(server_config: ServerConfig, web_ui_dir: PathBuf) {
 	
 	let mut servers = Vec::new();
 	
-	let http_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), server_config2.main_config.server.http_port);
-	servers.push(serve(http_addr, server_state.clone(), None));
+	if server_config2.main_config.server.enable_http {
+		let http_addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), server_config2.main_config.server.http_port);
+		servers.push(serve(http_addr, server_state.clone(), None));
+	}
 	
 	if server_config2.main_config.server.enable_https {
 		let tls_acceptor = create_tls_acceptor(&server_config2.paths.data_dir).await.expect("Creating TLS");
-		let http_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), server_config2.main_config.server.https_port);
+		let http_addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), server_config2.main_config.server.https_port);
 		
 		servers.push(serve(http_addr, server_state.clone(), Some(tls_acceptor)));
 	}
+	
+	assert!(!servers.is_empty(), "Neither http nor https is enabled");
+	
+	info!("Started server");
 	
 	join_all(servers).await
 		.into_iter()
@@ -68,6 +74,8 @@ async fn handle_request(request: HyperRequest, server_state: Arc<ServerState>) -
 }
 
 async fn serve(socket_addr: SocketAddr, server_state: Arc<ServerState>, tls_acceptor: Option<TlsAcceptor>) -> anyhow::Result<()> {
+	info!("Listening on {}", socket_addr);
+	
 	let listener = TcpListener::bind(socket_addr).await?;
 	
 	loop {

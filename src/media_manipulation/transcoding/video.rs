@@ -3,7 +3,7 @@ use std::ops::Range;
 use anyhow::{anyhow, Context};
 use ffmpeg_next as ffmpeg;
 use ffmpeg_next::{codec, Dictionary, filter, format, frame, Packet, picture, Rational, Rescale};
-use ffmpeg_sys_next::{av_buffer_ref, av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVPixelFormat};
+use ffmpeg_sys_next::{av_buffer_ref, av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVColorRange, AVColorSpace, AVPixelFormat};
 use tracing::debug;
 
 use crate::media_manipulation::backends::{VideoBackend, VideoDecoderParams, VideoEncoderParams};
@@ -122,17 +122,17 @@ impl VideoTranscoder {
 			if scaled_time_bounds.contains(&timestamp) {
 				if self.filter.is_none() {
 					let pixel_format: AVPixelFormat = in_frame.format().into();
-					// let color_space: AVColorSpace = self.decoder.color_space().into();
-					// let color_range: AVColorRange = self.decoder.color_range().into();
+					let color_space: AVColorSpace = self.decoder.color_space().into();
+					let color_range: AVColorRange = self.decoder.color_range().into();
 					
 					let mut filter = filter::graph::Graph::new();
 					
-					let in_params = format!("width={}:height={}:pix_fmt={}:time_base={}/{}:sar=1",
+					let in_params = format!("width={}:height={}:pix_fmt={}:time_base={}/{}:sar=1:colorspace={}:range={}",
 						self.decoder.width(), self.decoder.height(),
 						pixel_format as u32,
 						self.rate_time_base.numerator(), self.rate_time_base.denominator(),
-						// color_space as u32,
-						// color_range as u32,
+						color_space as u32,
+						color_range as u32,
 					);
 					
 					unsafe {

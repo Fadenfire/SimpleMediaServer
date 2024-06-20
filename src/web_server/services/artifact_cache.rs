@@ -9,10 +9,10 @@ use bytes::Bytes;
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
-use tokio::sync::Semaphore;
 use tracing::debug;
 
 use crate::utils;
+use crate::web_server::services::task_pool::TaskPool;
 
 pub trait ArtifactGenerator {
 	type Input;
@@ -28,7 +28,7 @@ pub trait ArtifactGenerator {
 
 pub struct ArtifactCacheBuilder {
 	cache_dir: Option<PathBuf>,
-	task_limit: usize,
+	task_pool: Option<Arc<TaskPool>>,
 	file_size_limit: u64,
 }
 
@@ -36,7 +36,7 @@ impl Default for ArtifactCacheBuilder {
 	fn default() -> Self {
 		Self {
 			cache_dir: None,
-			task_limit: 4,
+			task_pool: None,
 			file_size_limit: u64::MAX,
 		}
 	}
@@ -48,8 +48,8 @@ impl ArtifactCacheBuilder {
 		self
 	}
 	
-	pub fn task_limit(mut self, limit: usize) -> Self {
-		self.task_limit = limit;
+	pub fn task_pool(mut self, task_pool: Arc<TaskPool>) -> Self {
+		self.task_pool = Some(task_pool);
 		self
 	}
 	
@@ -59,7 +59,12 @@ impl ArtifactCacheBuilder {
 	}
 	
 	pub async fn build<G: ArtifactGenerator>(self, generator: G) -> Result<ArtifactCache<G>, io::Error> {
-		ArtifactCache::init(generator, self.cache_dir.expect("No cache dir set"), self.task_limit, self.file_size_limit).await
+		ArtifactCache::init(
+			generator,
+			self.cache_dir.expect("No cache dir set"),
+			self.task_pool.expect("No task pool set"),
+			self.file_size_limit
+		).await
 	}
 }
 
@@ -70,7 +75,7 @@ pub struct ArtifactCache<G> {
 	cache_dir: PathBuf,
 	locks: LockPool<CacheEntry>,
 	lru_state: Mutex<LruState>,
-	generation_limiter: Semaphore,
+	task_pool: Arc<TaskPool>,
 }
 
 impl ArtifactCache<()> {
@@ -80,7 +85,7 @@ impl ArtifactCache<()> {
 }
 
 impl<G: ArtifactGenerator> ArtifactCache<G> {
-	async fn init(generator: G, cache_dir: PathBuf, task_limit: usize, file_size_limit: u64) -> Result<Self, io::Error> {
+	async fn init(generator: G, cache_dir: PathBuf, task_pool: Arc<TaskPool>, file_size_limit: u64) -> Result<Self, io::Error> {
 		tokio::fs::create_dir_all(&cache_dir).await?;
 		
 		let mut read_dir = tokio::fs::read_dir(&cache_dir).await?;
@@ -120,7 +125,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			cache_dir,
 			locks: LockPool::new(),
 			lru_state: Mutex::new(LruState::new(entries, file_size_limit)),
-			generation_limiter: Semaphore::new(task_limit),
+			task_pool,
 		})
 	}
 	
@@ -147,10 +152,8 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 		match self.get_inner(&entry, &validity_key).await? {
 			QueryResult::Valid(cache_query) => Ok(cache_query),
 			QueryResult::Invalid => {
-				let (artifact_data, metadata) = {
-					let _permit = self.generation_limiter.acquire().await.unwrap();
-					self.generator.generate_artifact(input).await?
-				};
+				let (artifact_data, metadata) =
+					self.task_pool.execute_task(self.generator.generate_artifact(input)).await?;
 				
 				let now = SystemTime::now();
 				

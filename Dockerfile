@@ -8,7 +8,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /app
 
-ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.0-latest-linux64-gpl-shared-7.0.tar.xz ffmpeg.tar.xz
+ADD 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2024-06-19-12-50/ffmpeg-n7.0.1-6-gf0b747ef1a-linux64-gpl-shared-7.0.tar.xz' ffmpeg.tar.xz
 RUN mkdir ffmpeg &&  \
     tar -xvf ffmpeg.tar.xz -C ffmpeg --strip-components=1 && \
     mv ffmpeg/bin/* /usr/local/bin && \
@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /app
 
-ADD https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.0-latest-linux64-gpl-shared-7.0.tar.xz ffmpeg.tar.xz
+ADD 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2024-06-19-12-50/ffmpeg-n7.0.1-6-gf0b747ef1a-linux64-gpl-shared-7.0.tar.xz' ffmpeg.tar.xz
 RUN mkdir ffmpeg &&  \
     tar -xvf ffmpeg.tar.xz -C ffmpeg --strip-components=1 && \
     mv ffmpeg/bin/* /usr/local/bin && \
