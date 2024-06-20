@@ -30,7 +30,7 @@ pub async fn route_request(request: HyperRequest, path: &[&str], server_state: A
 		["thumbnail_sheet", library_id, library_path @ ..] =>
 			thumbnail_sheet::thumbnail_sheet_route(&server_state, &request, *library_id, library_path).await,
 		
-		["media", "source", library_id, library_path @ ..] =>
+		["media", "native", library_id, library_path @ ..] =>
 			native_video::native_video_route(&server_state, request, *library_id, library_path).await,
 		
 		["media", "hls", library_id, library_path @ .., "manifest"] =>
