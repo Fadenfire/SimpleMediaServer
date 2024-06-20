@@ -4,7 +4,7 @@ use tracing::instrument;
 
 use crate::web_server::services::hls_segment_service::SEGMENT_DURATION;
 use crate::web_server::api_routes::error::ApiError;
-use crate::web_server::router::ServerState;
+use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator;
 use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse, restrict_method};
 

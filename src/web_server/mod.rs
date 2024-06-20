@@ -1,5 +1,6 @@
 use std::convert::Infallible;
 use std::fs::Permissions;
+use std::future::Future;
 use std::io::Cursor;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::os::unix::fs::PermissionsExt;
@@ -9,15 +10,18 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use futures_util::future::join_all;
 use http::{Response, StatusCode};
+use http_body_util::BodyExt;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn;
 use tokio::net::TcpListener;
 use tokio_rustls::{rustls, TlsAcceptor};
-use tracing::{debug, info};
+use tower_service::Service;
+use tracing::{debug, info, instrument};
+
+use server_state::ServerState;
 
 use crate::config::ServerConfig;
-use crate::web_server::router::ServerState;
 use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse};
 
 mod api_routes;
@@ -25,9 +29,24 @@ mod video_metadata;
 mod video_locator;
 mod libraries;
 mod web_utils;
-mod router;
 pub(crate) mod media_backend_factory;
 mod services;
+mod server_state;
+
+#[instrument(skip_all)]
+async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
+	info!("Request for {}", request.uri().path());
+	
+	match path {
+		["api", tail @ ..] => api_routes::route_request(request, tail, server_state).await,
+		
+		_ => {
+			server_state.serve_web_ui.clone().call(request).await
+				.unwrap()
+				.map(|body| body.map_err(anyhow::Error::new).boxed_unsync())
+		}
+	}
+}
 
 pub async fn run(server_config: ServerConfig, web_ui_dir: PathBuf) {
 	let server_config2 = server_config.clone();
@@ -70,40 +89,7 @@ async fn handle_request(request: HyperRequest, server_state: Arc<ServerState>) -
 	
 	let path: Vec<&str> = path_owned.iter().map(String::as_str).collect();
 	
-	Ok(router::route_request(request, &path, server_state).await)
-}
-
-async fn serve(socket_addr: SocketAddr, server_state: Arc<ServerState>, tls_acceptor: Option<TlsAcceptor>) -> anyhow::Result<()> {
-	info!("Listening on {}", socket_addr);
-	
-	let listener = TcpListener::bind(socket_addr).await?;
-	
-	loop {
-		let (socket, _remote_addr) = listener.accept().await?;
-		let server_state = server_state.clone();
-		let tls_acceptor = tls_acceptor.clone();
-		
-		tokio::spawn(async move {
-			let connection_builder = conn::auto::Builder::new(TokioExecutor::new());
-			let service = service_fn(move |request| handle_request(request, server_state.clone()));
-			
-			let result = if let Some(tls_acceptor) = tls_acceptor {
-				match tls_acceptor.accept(socket).await {
-					Ok(tls_stream) => connection_builder.serve_connection(TokioIo::new(tls_stream), service).await,
-					Err(err) => {
-						debug!("Error completing TLS handshake: {:?}", err);
-						return;
-					}
-				}
-			} else {
-				connection_builder.serve_connection(TokioIo::new(socket), service).await
-			};
-			
-			if let Err(err) = result {
-				debug!("Error serving connection: {:?}", err);
-			}
-		});
-	}
+	Ok(route_request(request, &path, server_state).await)
 }
 
 async fn create_tls_acceptor(data_dir: &Path) -> anyhow::Result<TlsAcceptor> {
@@ -136,4 +122,37 @@ async fn create_tls_acceptor(data_dir: &Path) -> anyhow::Result<TlsAcceptor> {
 		.with_single_cert(certs, private_key)?;
 	
 	Ok(TlsAcceptor::from(Arc::new(tls_config)))
+}
+
+async fn serve<F, Fut>(socket_addr: SocketAddr, server_state: Arc<ServerState>, tls_acceptor: Option<TlsAcceptor>) -> anyhow::Result<()> {
+	info!("Listening on {}", socket_addr);
+	
+	let listener = TcpListener::bind(socket_addr).await?;
+	
+	loop {
+		let (socket, _remote_addr) = listener.accept().await?;
+		let server_state = server_state.clone();
+		let tls_acceptor = tls_acceptor.clone();
+		
+		tokio::spawn(async move {
+			let connection_builder = conn::auto::Builder::new(TokioExecutor::new());
+			let service = service_fn(move |request| handle_request(request, server_state.clone()));
+			
+			let result = if let Some(tls_acceptor) = tls_acceptor {
+				match tls_acceptor.accept(socket).await {
+					Ok(tls_stream) => connection_builder.serve_connection(TokioIo::new(tls_stream), service).await,
+					Err(err) => {
+						debug!("Error completing TLS handshake: {:?}", err);
+						return;
+					}
+				}
+			} else {
+				connection_builder.serve_connection(TokioIo::new(socket), service).await
+			};
+			
+			if let Err(err) = result {
+				debug!("Error serving connection: {:?}", err);
+			}
+		});
+	}
 }

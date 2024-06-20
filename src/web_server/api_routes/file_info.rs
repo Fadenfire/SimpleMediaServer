@@ -9,7 +9,7 @@ use tracing::instrument;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::api_routes::list_dir;
 use crate::web_server::libraries::reconstruct_library_path;
-use crate::web_server::router::ServerState;
+use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator;
 use crate::web_server::video_metadata::Dimension;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};

@@ -1,13 +1,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use http_body_util::BodyExt;
 use tower_http::services::{ServeDir, ServeFile};
-use tower_service::Service;
-use tracing::{info, instrument};
+use tracing::info;
 
 use crate::config::ServerConfig;
-use crate::web_server::api_routes;
 use crate::web_server::libraries::Libraries;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
 use crate::web_server::services::artifact_cache::ArtifactCache;
@@ -16,12 +13,11 @@ use crate::web_server::services::task_pool::TaskPool;
 use crate::web_server::services::thumbnail_service::ThumbnailGenerator;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 use crate::web_server::video_metadata::MediaMetadataCache;
-use crate::web_server::web_utils::{HyperRequest, HyperResponse};
 
 pub struct ServerState {
 	pub server_config: ServerConfig,
 	
-	serve_web_ui: ServeDir<ServeFile>,
+	pub serve_web_ui: ServeDir<ServeFile>,
 	
 	pub libraries: Libraries,
 	pub video_metadata_cache: MediaMetadataCache,
@@ -36,7 +32,7 @@ pub struct ServerState {
 
 impl ServerState {
 	pub async fn init(server_config: ServerConfig, web_ui_dir: PathBuf) -> anyhow::Result<Self> {
-		let libraries = Libraries::new(&server_config.libraries_config);
+		let libraries = Libraries::load(&server_config).await?;
 		
 		let web_ui_index = ServeFile::new(web_ui_dir.join("index.html"))
 			.precompressed_gzip()
@@ -97,20 +93,5 @@ impl ServerState {
 			thumbnail_generator,
 			thumbnail_sheet_generator,
 		})
-	}
-}
-
-#[instrument(skip_all)]
-pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
-	info!("Request for {}", request.uri().path());
-	
-	match path {
-		["api", tail @ ..] => api_routes::route_request(request, tail, server_state).await,
-		
-		_ => {
-			server_state.serve_web_ui.clone().call(request).await
-				.unwrap()
-				.map(|body| body.map_err(anyhow::Error::new).boxed_unsync())
-		}
 	}
 }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::config::LibrariesConfig;
+use crate::config::ServerConfig;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::web_utils;
 
@@ -10,7 +10,9 @@ pub struct Libraries {
 }
 
 impl Libraries {
-	pub fn new(libraries_config: &LibrariesConfig) -> Self {
+	pub async fn load(server_config: &ServerConfig) -> anyhow::Result<Self> {
+		let libraries_config = server_config.load_libraries_config().await?;
+		
 		let library_table = libraries_config.libraries.iter()
 			.map(Clone::clone)
 			.map(|lib| (lib.id.clone(), Library {
@@ -20,9 +22,9 @@ impl Libraries {
 			}))
 			.collect();
 		
-		Self {
+		Ok(Self {
 			library_table
-		}
+		})
 	}
 	
 	pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {

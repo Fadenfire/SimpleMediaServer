@@ -11,7 +11,6 @@ use crate::utils;
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
 	pub main_config: GeneralConfig,
-	pub libraries_config: LibrariesConfig,
 	pub paths: ServerPaths,
 }
 
@@ -24,14 +23,6 @@ impl ServerConfig {
 			.extract()
 			.context("Loading general config")?;
 		
-		let libraries_config: LibrariesConfig = match general_config.libraries_config {
-			Some(ref path) => Figment::new()
-				.merge(Yaml::file_exact(path.relative()))
-				.extract()
-				.context("Loading libraries config")?,
-			None => LibrariesConfig::default(),
-		};
-		
 		let paths = ServerPaths {
 			data_dir: general_config.data_dir.clone(),
 			cache_dir: general_config.cache_dir.clone(),
@@ -43,9 +34,32 @@ impl ServerConfig {
 		
 		Ok(Self {
 			main_config: general_config,
-			libraries_config,
 			paths,
 		})
+	}
+	
+	pub async fn load_libraries_config(&self) -> anyhow::Result<LibrariesConfig> {
+		let config = match self.main_config.libraries_config {
+			Some(ref path) => Figment::new()
+				.merge(Yaml::file_exact(path.relative()))
+				.extract()
+				.context("Loading libraries config")?,
+			None => LibrariesConfig::default(),
+		};
+		
+		Ok(config)
+	}
+	
+	pub async fn load_users_config(&self) -> anyhow::Result<UsersConfig> {
+		let config = match self.main_config.users_config {
+			Some(ref path) => Figment::new()
+				.merge(Yaml::file_exact(path.relative()))
+				.extract()
+				.context("Loading users config")?,
+			None => UsersConfig::default(),
+		};
+		
+		Ok(config)
 	}
 }
 
@@ -63,6 +77,7 @@ pub struct ServerPaths {
 #[serde(deny_unknown_fields)]
 pub struct GeneralConfig {
 	pub libraries_config: Option<RelativePathBuf>,
+	pub users_config: Option<RelativePathBuf>,
 	pub data_dir: PathBuf,
 	pub cache_dir: PathBuf,
 	
@@ -75,6 +90,7 @@ impl Default for GeneralConfig {
 	fn default() -> Self {
 		Self {
 			libraries_config: None,
+			users_config: None,
 			data_dir: PathBuf::from("data"),
 			cache_dir: PathBuf::from("cache"),
 			
@@ -161,13 +177,31 @@ impl Default for CachesConfig {
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LibrariesConfig {
-	pub libraries: Vec<Library>
+	pub libraries: Vec<LibraryConfig>
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
-pub struct Library {
+#[serde(deny_unknown_fields)]
+pub struct LibraryConfig {
 	pub id: String,
 	pub display_name: String,
 	pub path: PathBuf
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UsersConfig {
+	pub users: Vec<UserConfig>
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UserConfig {
+	pub id: String,
+	pub display_name: String,
+	pub login_name: String,
+	pub password: String,
+	pub allowed_libraries: Vec<String>,
 }
