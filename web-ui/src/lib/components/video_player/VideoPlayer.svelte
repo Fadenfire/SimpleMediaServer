@@ -11,15 +11,18 @@
     import { onMount } from "svelte";
     import Spinner from "./Spinner.svelte";
     import { VideoBackend } from "./video_backend";
+    import VideoElement from "./VideoElement.svelte";
 
 	export let mediaInfo: MediaInfo;
 	
+	let playerBackend: VideoBackend | undefined;
 	let videoElement: HTMLVideoElement;
 	let videoPaused = true;
 	let videoEnded = false;
 	let videoDuration = mediaInfo.duration;
 	let videoCurrentTime = 0;
 	let videoBuffered: SvelteMediaTimeRange[] = [];
+	let videoBuffering = true;
 	
 	let playerElement: HTMLElement;
 	let bottomControlsElement: HTMLElement;
@@ -31,17 +34,6 @@
 	const mobile = window.matchMedia("(pointer: coarse)").matches;
 	
 	$: videoInfo = mediaInfo.video_info;
-	
-	// Player Backend
-	
-	let playerBackend: VideoBackend | undefined;
-	
-	$: if (videoElement) {
-		playerBackend?.detach();
-		
-		playerBackend = new VideoBackend(videoElement, mediaInfo);
-		playerBackend.attachNative();
-	}
 	
 	// Thumbnail Sheet
 	
@@ -69,7 +61,6 @@
 			mounted = false;
 			
 			if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
-			playerBackend?.detach();
 		}
 	});
 	
@@ -97,7 +88,13 @@
 	// Player Actions
 	
 	function playPause() {
-		videoPaused = !videoPaused;
+		if (videoPaused || videoEnded) {
+			videoElement.play();
+			videoPaused = false;
+		} else {
+			videoElement.pause();
+			videoPaused = true;
+		}
 	}
 	
 	function gotoPrevVideo() {
@@ -223,45 +220,27 @@
 		event.stopPropagation();
 		event.preventDefault();
 	}
-	
-	// Buffering
-	
-	let isBuffering = true;
-	
-	function onVideoLoadedData() {
-		isBuffering = false;
-	}
-	
-	function onVideoWaiting() {
-		isBuffering = true;
-	}
-	
-	function onVideoPlaying() {
-		isBuffering = false;
-	}
 </script>
 
 <svelte:window on:keydown={onWindowKeyPressed} />
 
 <figure class="player-container" class:fullscreen={isFullscreen} bind:this={playerElement} on:pointermove={resetIdleness} on:pointerdown={resetIdleness} on:fullscreenchange={onFullscreenChange}>
-	{#key mediaInfo}
-		<!-- svelte-ignore a11y-media-has-caption -->
-		<video
-			bind:this={videoElement}
-			bind:paused={videoPaused}
-			bind:ended={videoEnded}
-			bind:duration={videoDuration}
-			bind:currentTime={videoCurrentTime}
-			bind:buffered={videoBuffered}
-			
-			on:pointerdown={playerClick}
-			on:loadeddata|once={onVideoLoadedData}
-			on:waiting={onVideoWaiting}
-			on:playing={onVideoPlaying}
-			
-			autoplay
-		></video>
-	{/key}
+	<div on:pointerdown={playerClick}>
+		{#key mediaInfo.path}
+			<VideoElement
+				mediaInfo={mediaInfo}
+				
+				bind:playerBackend={playerBackend}
+				bind:videoElement={videoElement}
+				bind:videoPaused={videoPaused}
+				bind:videoEnded={videoEnded}
+				bind:videoDuration={videoDuration}
+				bind:videoCurrentTime={videoCurrentTime}
+				bind:videoBuffered={videoBuffered}
+				bind:videoBuffering={videoBuffering}
+			/>
+		{/key}
+	</div>
 	
 	{#if mobile && scrubbingTime !== null && videoInfo !== null && thumbSheetUrl !== undefined}
 		{@const thumbOffset = caclulateThumbnailSheetOffset(scrubbingTime, videoInfo)}
@@ -278,7 +257,7 @@
 		</div>
 	{/if}
 	
-	{#if isBuffering}
+	{#if videoBuffering}
 		<div class="spinner-container">
 			<Spinner/>
 		</div>
@@ -414,11 +393,6 @@
 		&.fullscreen {
 			touch-action: none;
 		}
-	}
-	
-	video {
-		width: 100%;
-		height: 100%;
 	}
 	
 	.hideable {

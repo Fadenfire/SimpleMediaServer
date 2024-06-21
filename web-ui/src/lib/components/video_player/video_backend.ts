@@ -1,5 +1,5 @@
 import { escapePath } from "$lib/utils";
-import Hls from "hls.js";
+import Hls, { Events } from "hls.js";
 
 export enum SourceType {
 	Native,
@@ -23,7 +23,8 @@ export class VideoBackend {
 			this.hls.loadSource(`/api/media/hls/${escapePath(this.mediaInfo.path)}/manifest`);
 		}
 		
-		this.videoElement.addEventListener("error", () => this.#videoErrorHandler());
+		this.videoElement.addEventListener("error", () => this.#onVideoError());
+		this.videoElement.addEventListener("loadeddata", () => this.#onVideoLoadedData());
 	}
 	
 	attachNative() {
@@ -77,10 +78,22 @@ export class VideoBackend {
 		// this.videoElement.removeEventListener("error", this.#videoErrorHandler);
 	}
 	
-	#videoErrorHandler() {
+	#onVideoError() {
 		const errorCode = this.videoElement.error?.code;
 		
 		if (this.currentSource === SourceType.Native && errorCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+			this.attachHls();
+		}
+	}
+	
+	#onVideoLoadedData() {
+		if (
+			this.currentSource === SourceType.Native &&
+			this.mediaInfo.video_info !== null &&
+			(this.videoElement.videoWidth === 0 || this.videoElement.videoHeight === 0)
+		) {
+			// If there's supposed to be a video stream, but the video has no size then
+			// it must have failed to decode so fallback to HLS.
 			this.attachHls();
 		}
 	}

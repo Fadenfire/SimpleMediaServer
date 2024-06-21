@@ -58,7 +58,7 @@
 	function onTimelinePointerDown(event: PointerEvent) {
 		if (event.button == 0) {
 			wasPaused = videoPaused;
-			videoPaused = true;
+			videoElement.pause();
 			
 			updateScrub(event.clientX);
 			
@@ -77,7 +77,11 @@
 			videoElement.currentTime = scrubbingTime;
 			scrubbingTime = null;
 			
-			videoPaused = wasPaused;
+			if (wasPaused) {
+				videoElement.pause();
+			} else {
+				videoElement.play();
+			}
 		}
 	}
 	
