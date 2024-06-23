@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_routes::login::login_route;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse};
 
@@ -13,10 +14,22 @@ mod thumbnail_sheet;
 mod native_video;
 mod hls_manifest;
 mod hls_segment;
+mod login;
+mod get_user;
 
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
+	if let ["login"] = path {
+		return login_route(request, &server_state.auth_manager).await.unwrap_or_else(ApiError::into_response);
+	}
+	
+	if server_state.auth_manager.lookup_from_headers(request.headers()).is_err() {
+		return ApiError::Unauthorized.into_response();
+	}
+	
 	let result = match path {
-		["libraries"] => list_libraries::list_libraries_route(&request, &server_state.libraries).await,
+		["get_user"] => get_user::get_user_route(&request, &server_state.auth_manager).await,
+		
+		["libraries"] => list_libraries::list_libraries_route(&server_state, &request).await,
 		
 		["file_info", library_id, library_path @ ..] =>
 			file_info::file_info_route(&server_state, &request, *library_id, library_path).await,

@@ -201,7 +201,7 @@ pub struct UsersConfig {
 pub struct UserConfig {
 	pub id: String,
 	pub display_name: String,
-	pub login_name: String,
+	pub username: String,
 	pub password: String,
 	pub allowed_libraries: Vec<String>,
 }

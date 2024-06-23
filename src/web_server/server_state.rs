@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
 
 use crate::config::ServerConfig;
+use crate::web_server::auth::AuthManager;
 use crate::web_server::libraries::Libraries;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
 use crate::web_server::services::artifact_cache::ArtifactCache;
@@ -16,10 +16,10 @@ use crate::web_server::video_metadata::MediaMetadataCache;
 
 pub struct ServerState {
 	pub server_config: ServerConfig,
-	
-	pub serve_web_ui: ServeDir<ServeFile>,
+	pub web_ui_dir: PathBuf,
 	
 	pub libraries: Libraries,
+	pub auth_manager: AuthManager,
 	pub video_metadata_cache: MediaMetadataCache,
 	
 	pub media_backend_factory: Arc<MediaBackendFactory>,
@@ -32,16 +32,8 @@ pub struct ServerState {
 
 impl ServerState {
 	pub async fn init(server_config: ServerConfig, web_ui_dir: PathBuf) -> anyhow::Result<Self> {
-		let libraries = Libraries::load(&server_config).await?;
-		
-		let web_ui_index = ServeFile::new(web_ui_dir.join("index.html"))
-			.precompressed_gzip()
-			.precompressed_br();
-		
-		let serve_web_ui = ServeDir::new(&web_ui_dir)
-			.precompressed_gzip()
-			.precompressed_br()
-			.fallback(web_ui_index);
+		let libraries = Libraries::from_config(server_config.load_libraries_config().await?);
+		let auth_manager = AuthManager::from_config(server_config.load_users_config().await?);
 		
 		let media_backend_factory = Arc::new(MediaBackendFactory::new(server_config.main_config.transcoding.backend)?);
 		let transcoding_task_pool = Arc::new(TaskPool::new(server_config.main_config.transcoding.concurrent_tasks));
@@ -80,10 +72,10 @@ impl ServerState {
 		
 		Ok(Self {
 			server_config,
-			
-			serve_web_ui,
+			web_ui_dir,
 			
 			libraries,
+			auth_manager,
 			video_metadata_cache,
 			
 			media_backend_factory,

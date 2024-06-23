@@ -13,7 +13,7 @@
     import { VideoBackend } from "./video_backend";
     import VideoElement from "./VideoElement.svelte";
 
-	export let mediaInfo: MediaInfo;
+	export let mediaInfo: ApiMediaInfo;
 	
 	let playerBackend: VideoBackend | undefined;
 	let videoElement: HTMLVideoElement;

@@ -8,13 +8,13 @@ export enum SourceType {
 
 export class VideoBackend {
 	videoElement: HTMLVideoElement;
-	mediaInfo: MediaInfo;
+	mediaInfo: ApiMediaInfo;
 	
 	hls: Hls | undefined = undefined;
 	
 	currentSource: SourceType | undefined = undefined;
 	
-	constructor(videoElement: HTMLVideoElement, mediaInfo: MediaInfo) {
+	constructor(videoElement: HTMLVideoElement, mediaInfo: ApiMediaInfo) {
 		this.videoElement = videoElement;
 		this.mediaInfo = mediaInfo;
 		

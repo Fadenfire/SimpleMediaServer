@@ -10,7 +10,7 @@ use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::api_routes::list_dir;
 use crate::web_server::libraries::reconstruct_library_path;
 use crate::web_server::server_state::ServerState;
-use crate::web_server::video_locator;
+use crate::web_server::{libraries, video_locator};
 use crate::web_server::video_metadata::Dimension;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
@@ -23,7 +23,8 @@ pub async fn file_info_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
-	let (library, resolved_path) = server_state.libraries.resolve_library_and_path(library_id, library_path)?;
+	let (library, resolved_path) = libraries::resolve_library_and_path_with_auth(
+		server_state, library_id, library_path, request.headers())?;
 	let resolved_path = video_locator::locate_video(&resolved_path).await.map_err(|_| ApiError::FileNotFound)?;
 	
 	let file_metadata = tokio::fs::metadata(&resolved_path).await?;
@@ -92,13 +93,13 @@ pub async fn file_info_route(
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum FileInfoResponse {
+enum FileInfoResponse {
 	File(MediaInfo),
 	Directory(DirectoryInfo),
 }
 
 #[derive(Debug, Serialize)]
-pub struct MediaInfo {
+struct MediaInfo {
 	path: String,
 	display_name: String,
 	file_size: u64,
@@ -110,7 +111,7 @@ pub struct MediaInfo {
 }
 
 #[derive(Debug, Serialize)]
-pub struct VideoInfo {
+struct VideoInfo {
 	video_size: Dimension,
 	sheet_thumbnail_size: Dimension,
 	thumbnail_sheet_rows: u32,
@@ -119,6 +120,6 @@ pub struct VideoInfo {
 }
 
 #[derive(Debug, Serialize)]
-pub struct DirectoryInfo {
+struct DirectoryInfo {
 	display_name: String,
 }

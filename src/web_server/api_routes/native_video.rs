@@ -5,7 +5,7 @@ use tracing::instrument;
 
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::server_state::ServerState;
-use crate::web_server::video_locator;
+use crate::web_server::{libraries, video_locator};
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, restrict_method};
 
 #[instrument(skip(server_state, request))]
@@ -17,7 +17,8 @@ pub async fn native_video_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(&request, &[Method::GET, Method::HEAD])?;
 	
-	let resolved_path = server_state.libraries.resolve_path(library_id, library_path)?;
+	let resolved_path = libraries::resolve_path_with_auth(
+		server_state, library_id, library_path, request.headers())?;
 	let media_path = video_locator::locate_video(&resolved_path).await.map_err(|_| ApiError::FileNotFound)?;
 	
 	ServeFile::new(&media_path).try_call(request).await

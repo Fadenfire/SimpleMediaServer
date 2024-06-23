@@ -10,6 +10,7 @@ use http_body_util::{BodyExt, Empty, Full};
 use http_body_util::combinators::UnsyncBoxBody;
 use hyper::body::Incoming;
 use mime::Mime;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use crate::web_server::api_routes::error::ApiError;
@@ -46,6 +47,16 @@ pub fn restrict_method(request: &HyperRequest, allowed_methods: &[Method]) -> Re
 	} else {
 		Err(ApiError::MethodNotAllowed(allowed_methods.to_vec()))
 	}
+}
+
+pub async fn parse_form_body<T: DeserializeOwned>(request: HyperRequest) -> Result<T, ApiError> {
+	http_body_util::Limited::new(request.into_body(), 1_000_000)
+		.collect()
+		.await
+		.ok()
+		.map(|collected| collected.to_bytes())
+		.and_then(|data| serde_urlencoded::from_bytes(&data).ok())
+		.ok_or(ApiError::InvalidBody)
 }
 
 pub async fn serve_file_basic(

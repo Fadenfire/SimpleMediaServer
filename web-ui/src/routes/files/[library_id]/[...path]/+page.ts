@@ -11,14 +11,14 @@ export const load: PageLoad = async ({ params, fetch }) => {
 		throw error(404);
 	}
 	
-	const file_info: FileInfoResponse = await res.json();
+	const fileInfo: FileInfoResponse = await res.json();
 	
-	let list_dir_promise: Promise<ListDirectoryResponse> | null = null;
+	let listDirPromise: Promise<ListDirectoryResponse> | null = null;
 	
-	if (file_info.type === "directory") {
-		list_dir_promise = fetch(`/api/list_dir/${encodeURIComponent(params.library_id)}/${escapePath(params.path)}`)
+	if (fileInfo.type === "directory") {
+		listDirPromise = fetch(`/api/list_dir/${encodeURIComponent(params.library_id)}/${escapePath(params.path)}`)
 			.then(res => res.json());
 	}
 	
-	return { file_info, list_dir_promise: list_dir_promise! };
+	return { fileInfo, listDirPromise: listDirPromise! };
 }

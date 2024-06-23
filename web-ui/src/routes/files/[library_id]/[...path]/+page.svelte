@@ -7,11 +7,11 @@
 </script>
 
 <svelte:head>
-	<title>{data.file_info.display_name} - Media Server</title>
+	<title>{data.fileInfo.display_name} - Media Server</title>
 </svelte:head>
 
-{#if data.file_info.type === "file"}
-	<FilePage mediaInfo={data.file_info}/>
-{:else if data.file_info.type === "directory"}
-	<DirectoryPage dir_info={data.file_info} list_dir_promise={data.list_dir_promise}/>
+{#if data.fileInfo.type === "file"}
+	<FilePage mediaInfo={data.fileInfo}/>
+{:else if data.fileInfo.type === "directory"}
+	<DirectoryPage dirInfo={data.fileInfo} listDirPromise={data.listDirPromise}/>
 {/if}

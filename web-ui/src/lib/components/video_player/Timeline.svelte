@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-	export function caclulateThumbnailSheetOffset(time: number, videoInfo: VideoInfo) {
+	export function caclulateThumbnailSheetOffset(time: number, videoInfo: ApiVideoInfo) {
 		const offset = Math.floor(time / videoInfo.thumbnail_sheet_interval);
 		
 		return {
@@ -14,7 +14,7 @@
     import Bar from "./Bar.svelte";
     import { formatDuration } from "$lib/utils";
 	
-	export let mediaInfo: MediaInfo;
+	export let mediaInfo: ApiMediaInfo;
 	export let thumbSheetUrl: string | undefined;
 	export let mobile: boolean;
 	

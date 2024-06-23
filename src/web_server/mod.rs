@@ -1,6 +1,5 @@
 use std::convert::Infallible;
 use std::fs::Permissions;
-use std::future::Future;
 use std::io::Cursor;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::os::unix::fs::PermissionsExt;
@@ -16,7 +15,8 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn;
 use tokio::net::TcpListener;
 use tokio_rustls::{rustls, TlsAcceptor};
-use tower_service::Service;
+use tower::Service;
+use tower_http::services::{ServeDir, ServeFile};
 use tracing::{debug, info, instrument};
 
 use server_state::ServerState;
@@ -32,6 +32,7 @@ mod web_utils;
 pub(crate) mod media_backend_factory;
 mod services;
 mod server_state;
+mod auth;
 
 #[instrument(skip_all)]
 async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
@@ -40,8 +41,34 @@ async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<S
 	match path {
 		["api", tail @ ..] => api_routes::route_request(request, tail, server_state).await,
 		
+		["login"] => {
+			ServeFile::new(server_state.web_ui_dir.join("login.html"))
+				.call(request)
+				.await
+				.unwrap()
+				.map(|body| body.map_err(anyhow::Error::new).boxed_unsync())
+		}
+		
 		_ => {
-			server_state.serve_web_ui.clone().call(request).await
+			// if server_state.auth_manager.lookup_from_headers(request.headers()).is_err() {
+			// 	return Response::builder()
+			// 		.status(StatusCode::FOUND)
+			// 		.header(LOCATION, "/login")
+			// 		.body(empty_body())
+			// 		.unwrap();
+			// }
+			
+			let fallback = ServeFile::new(server_state.web_ui_dir.join("index.html"))
+				.precompressed_gzip()
+				.precompressed_br();
+			
+			let mut serve_web_ui = ServeDir::new(&server_state.web_ui_dir)
+				.precompressed_gzip()
+				.precompressed_br()
+				.fallback(fallback);
+			
+			serve_web_ui.call(request)
+				.await
 				.unwrap()
 				.map(|body| body.map_err(anyhow::Error::new).boxed_unsync())
 		}
@@ -124,7 +151,7 @@ async fn create_tls_acceptor(data_dir: &Path) -> anyhow::Result<TlsAcceptor> {
 	Ok(TlsAcceptor::from(Arc::new(tls_config)))
 }
 
-async fn serve<F, Fut>(socket_addr: SocketAddr, server_state: Arc<ServerState>, tls_acceptor: Option<TlsAcceptor>) -> anyhow::Result<()> {
+async fn serve(socket_addr: SocketAddr, server_state: Arc<ServerState>, tls_acceptor: Option<TlsAcceptor>) -> anyhow::Result<()> {
 	info!("Listening on {}", socket_addr);
 	
 	let listener = TcpListener::bind(socket_addr).await?;

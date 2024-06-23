@@ -1,58 +1,63 @@
-type LibrariesResponse = Library[];
+interface ApiUserInfo {
+	display_name: string,
+	username: string,
+}
 
-interface Library {
+type LibrariesResponse = ApiLibrary[];
+
+interface ApiLibrary {
 	id: string,
 	display_name: string,
 }
 
-type FileInfoResponse = MediaInfo | DirectoryInfo;
+type FileInfoResponse = ApiMediaInfo | ApiDirectoryInfo;
 
-interface MediaInfo {
+interface ApiMediaInfo {
 	type: "file",
 	path: string,
 	display_name: String,
 	file_size: number,
 	duration: number,
 	artist: string | null,
-	video_info: VideoInfo | null,
+	video_info: ApiVideoInfo | null,
 	prev_video: string | null,
 	next_video: string | null,
 }
 
-interface VideoInfo {
-	video_size: Dimension,
-	sheet_thumbnail_size: Dimension,
+interface ApiVideoInfo {
+	video_size: ApiDimension,
+	sheet_thumbnail_size: ApiDimension,
 	thumbnail_sheet_rows: number,
 	thumbnail_sheet_cols: number,
 	thumbnail_sheet_interval: number,
 }
 
-interface DirectoryInfo {
+interface ApiDirectoryInfo {
 	type: "directory",
 	display_name: string,
 }
 
 interface ListDirectoryResponse {
-	files: ChildFile[],
-	directories: ChildDirectory[],
+	files: ApiChildFile[],
+	directories: ApiChildDirectory[],
 	total_duration: number,
 }
 
-interface ChildFile {
+interface ApiChildFile {
 	path_name: string,
 	display_name: string,
 	thumbnail_path: string,
 	duration: number,
 }
 
-interface ChildDirectory {
+interface ApiChildDirectory {
 	path_name: string,
 	display_name: string,
 	thumbnail_path?: string,
 	child_count: number,
 }
 
-interface Dimension {
+interface ApiDimension {
 	width: number,
 	height: number,
 }

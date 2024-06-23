@@ -2,12 +2,12 @@
     import { page } from "$app/stores";
     import VideoPlayer from "$lib/components/video_player/VideoPlayer.svelte";
 
-	export let mediaInfo: MediaInfo;
+	export let mediaInfo: ApiMediaInfo;
 	
-	$: video_aspect_radio = mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0;
+	$: videoAspectRadio = mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0;
 </script>
 
-<div class="main-container" style="--video-aspect-radio: {video_aspect_radio}">
+<div class="main-container" style="--video-aspect-radio: {videoAspectRadio}">
 	<main class="main-content">
 		<div class="video-container">
 			<VideoPlayer mediaInfo={mediaInfo}/>

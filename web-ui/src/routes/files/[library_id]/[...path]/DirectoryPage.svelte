@@ -6,25 +6,25 @@
     import TileGrid from "$lib/components/tile_grid/TileGrid.svelte";
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
 	
-	export let dir_info: DirectoryInfo;
-	export let list_dir_promise: Promise<ListDirectoryResponse>;
+	export let dirInfo: ApiDirectoryInfo;
+	export let listDirPromise: Promise<ListDirectoryResponse>;
 </script>
 
 <main class="main-content">
-	<PageSection title="{dir_info.display_name}">
-		{#await list_dir_promise}
+	<PageSection title="{dirInfo.display_name}">
+		{#await listDirPromise}
 			<div class="stripe">
 				Loading
 			</div>
-		{:then dir_list}
-			{#if !dir_list.directories.length && !dir_list.files.length}
+		{:then dirList}
+			{#if !dirList.directories.length && !dirList.files.length}
 				<div class="stripe">
 					<FeatherIcon name="folder" width="3em" height="3em"/>
 					Empty Directory
 				</div>
 			{:else}
 				<TileGrid>
-					{#each dir_list.directories as dir}
+					{#each dirList.directories as dir}
 						<DirectoryTile
 							title="{dir.path_name}"
 							link="{encodeURIComponent(dir.path_name)}/"
@@ -33,7 +33,7 @@
 						/>
 					{/each}
 					
-					{#each dir_list.files as file}
+					{#each dirList.files as file}
 						<VideoTile
 							title="{file.display_name}"
 							link="{encodeURIComponent(file.path_name)}/"

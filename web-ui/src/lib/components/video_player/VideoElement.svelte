@@ -3,7 +3,7 @@
     import { VideoBackend } from './video_backend';
     import { onMount } from 'svelte';
 
-	export let mediaInfo: MediaInfo;
+	export let mediaInfo: ApiMediaInfo;
 	
 	export let playerBackend: VideoBackend | undefined;
 	export let videoElement: HTMLVideoElement | undefined;

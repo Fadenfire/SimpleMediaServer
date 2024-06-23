@@ -10,7 +10,7 @@ use tracing::instrument;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::libraries::reconstruct_library_path;
 use crate::web_server::server_state::ServerState;
-use crate::web_server::video_locator;
+use crate::web_server::{libraries, video_locator};
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
 #[instrument(skip(server_state, request))]
@@ -22,7 +22,8 @@ pub async fn list_dir_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
-	let resolved_path = server_state.libraries.resolve_path(library_id, library_path)?;
+	let resolved_path = libraries::resolve_path_with_auth(
+		server_state, library_id, library_path, request.headers())?;
 	
 	let file_metadata = tokio::fs::metadata(&resolved_path).await?;
 	
@@ -127,14 +128,14 @@ pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>>
 }
 
 #[derive(Debug, Serialize)]
-pub struct ListDirResponse {
+struct ListDirResponse {
 	files: Vec<FileEntry>,
 	directories: Vec<DirectoryEntry>,
 	total_duration: u64,
 }
 
 #[derive(Debug, Serialize)]
-pub struct FileEntry {
+struct FileEntry {
 	path_name: String,
 	display_name: String,
 	thumbnail_path: String,
@@ -142,7 +143,7 @@ pub struct FileEntry {
 }
 
 #[derive(Debug, Serialize)]
-pub struct DirectoryEntry {
+struct DirectoryEntry {
 	path_name: String,
 	display_name: String,
 	thumbnail_path: Option<String>,

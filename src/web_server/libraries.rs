@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::config::ServerConfig;
+use http::HeaderMap;
+
+use crate::config::LibrariesConfig;
 use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils;
 
 pub struct Libraries {
@@ -10,9 +13,7 @@ pub struct Libraries {
 }
 
 impl Libraries {
-	pub async fn load(server_config: &ServerConfig) -> anyhow::Result<Self> {
-		let libraries_config = server_config.load_libraries_config().await?;
-		
+	pub fn from_config(libraries_config: LibrariesConfig) -> Self {
 		let library_table = libraries_config.libraries.iter()
 			.map(Clone::clone)
 			.map(|lib| (lib.id.clone(), Library {
@@ -22,9 +23,9 @@ impl Libraries {
 			}))
 			.collect();
 		
-		Ok(Self {
+		Self {
 			library_table
-		})
+		}
 	}
 	
 	pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {
@@ -41,13 +42,9 @@ impl Libraries {
 		
 		Ok((library, resolved_path))
 	}
-	
-	pub fn resolve_path(&self, library_id: &str, path: &[&str]) -> Result<PathBuf, ApiError> {
-		self.resolve_library_and_path(library_id, path).map(|it| it.1)
-	}
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Default)]
 pub struct Library {
 	pub id: String,
 	pub display_name: String,
@@ -64,4 +61,36 @@ impl Library {
 
 pub fn reconstruct_library_path(library_id: &str, path: &[&str]) -> String {
 	format!("{}/{}", library_id, path.join("/"))
+}
+
+pub fn resolve_library_and_path_with_auth<'a>(
+	server_state: &'a ServerState,
+	library_id: &str,
+	path: &[&str],
+	headers: &HeaderMap
+) -> Result<(&'a Library, PathBuf), ApiError> {
+	let (library, resolved_path) = server_state.libraries.resolve_library_and_path(library_id, path)?;
+	let user = server_state.auth_manager.lookup_from_headers(headers)?;
+	
+	if user.can_see_library(library) {
+		Ok((library, resolved_path))
+	} else {
+		Err(ApiError::LibraryNotFound)
+	}
+}
+
+pub fn resolve_path_with_auth(
+	server_state: &ServerState,
+	library_id: &str,
+	path: &[&str],
+	headers: &HeaderMap
+) -> Result<PathBuf, ApiError> {
+	let (library, resolved_path) = server_state.libraries.resolve_library_and_path(library_id, path)?;
+	let user = server_state.auth_manager.lookup_from_headers(headers)?;
+	
+	if user.can_see_library(library) {
+		Ok(resolved_path)
+	} else {
+		Err(ApiError::LibraryNotFound)
+	}
 }
