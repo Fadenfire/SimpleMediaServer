@@ -10,7 +10,8 @@ use crate::config::UsersConfig;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::libraries::Library;
 
-pub const AUTH_COOKIE_NAME: &str = "auth_token";
+pub const AUTH_COOKIE_NAME: &str = "media_server_access_token";
+pub const AUTH_TOKEN_LENGTH: usize = 32;
 
 pub struct AuthManager {
 	users: HashMap<String, User>,
@@ -23,8 +24,8 @@ impl AuthManager {
 		let users: HashMap<String, User> = users_config.users.iter()
 			.map(Clone::clone)
 			.map(|cfg| {
-				let mut auth_token_bytes = [0u8; 32];
-				pbkdf2_hmac::<Sha256>(format!("{}/{}", cfg.username, cfg.password).as_bytes(), b"isasalt", 50_000, &mut auth_token_bytes);
+				let mut auth_token_bytes = [0u8; AUTH_TOKEN_LENGTH];
+				pbkdf2_hmac::<Sha256>(format!("{}/{}", cfg.username, cfg.password).as_bytes(), b"isasalt", 100_000, &mut auth_token_bytes);
 				let auth_token = auth_token_bytes.encode_hex();
 				
 				let user = User {
@@ -186,23 +187,23 @@ mod tests {
 		
 		assert_eq!(joe.id, "joe");
 		assert_eq!(joe.password, "hunter42");
-		assert_eq!(joe.auth_token, "a219e017e995ccdd04be3fc270c77d6b59415f5a840859c86a83a1da3b06512b");
+		assert_eq!(joe.auth_token, "fb27cd4780b060dfb19ac00d27222fa66d8a30c2eb1841a5b74dbf9f2280d014");
 		
 		assert_eq!(bob.id, "bob");
 		assert_eq!(bob.password, "hfudsfh8ffhuuihufu9");
-		assert_eq!(bob.auth_token, "94c3e3820437b3f50ed0d72c3c1e948fe5cd773d890f786201b2908da32d5c52");
+		assert_eq!(bob.auth_token, "0757dfa7bc5293d296cb48a26df087f9ad1356956d055959e7cbead30b44c18a");
 		
 		assert_eq!(auth_manager.get_user_by_id("joe").unwrap().id, "joe");
 		assert_eq!(auth_manager.get_user_by_id("bob").unwrap().id, "bob");
 		assert!(auth_manager.get_user_by_id("rick").is_none());
 		assert!(auth_manager.get_user_by_id("joe ").is_none());
 		
-		assert_eq!(auth_manager.lookup_token("a219e017e995ccdd04be3fc270c77d6b59415f5a840859c86a83a1da3b06512b").unwrap().id, "joe");
-		assert_eq!(auth_manager.lookup_token("94c3e3820437b3f50ed0d72c3c1e948fe5cd773d890f786201b2908da32d5c52").unwrap().id, "bob");
+		assert_eq!(auth_manager.lookup_token("fb27cd4780b060dfb19ac00d27222fa66d8a30c2eb1841a5b74dbf9f2280d014").unwrap().id, "joe");
+		assert_eq!(auth_manager.lookup_token("0757dfa7bc5293d296cb48a26df087f9ad1356956d055959e7cbead30b44c18a").unwrap().id, "bob");
 		assert!(auth_manager.lookup_token("ababbababababababbabababbbbabababbabababbabbababbabababa").is_none());
 		
 		let mut headers = HeaderMap::new();
-		headers.insert(COOKIE, "auth_token=a219e017e995ccdd04be3fc270c77d6b59415f5a840859c86a83a1da3b06512b".parse().unwrap());
+		headers.insert(COOKIE, "media_server_access_token=fb27cd4780b060dfb19ac00d27222fa66d8a30c2eb1841a5b74dbf9f2280d014".parse().unwrap());
 		
 		assert_eq!(auth_manager.lookup_from_headers(&headers).unwrap().id, "joe");
 	}

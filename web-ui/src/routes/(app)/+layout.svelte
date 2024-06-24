@@ -1,6 +1,6 @@
 <script lang="ts">
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
-    import { isStandalone } from "$lib/utils";
+    // import { isStandalone } from "$lib/utils";
     import type { PageData } from "./$types";
 	
 	export let data: PageData;
@@ -8,9 +8,9 @@
 <nav>
 	<a class="nav-item" href="/"><FeatherIcon name="home" size="100%"/></a>
 	
-	{#if isStandalone()}
+	<!-- {#if isStandalone()}
 		<a class="nav-item" href="javascript:window.history.back()"><FeatherIcon name="arrow-left" size="100%"/></a>
-	{/if}
+	{/if} -->
 	
 	<div style="flex: 1;"></div>
 	

@@ -6,7 +6,7 @@ use tracing::instrument;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::auth::{AUTH_COOKIE_NAME, AuthManager};
 use crate::web_server::web_utils;
-use crate::web_server::web_utils::{empty_body, full_body, HyperRequest, HyperResponse, restrict_method};
+use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse, restrict_method};
 
 #[instrument(skip_all)]
 pub async fn login_route(request: HyperRequest, auth_manager: &AuthManager) -> Result<HyperResponse, ApiError> {
@@ -34,7 +34,7 @@ pub async fn login_route(request: HyperRequest, auth_manager: &AuthManager) -> R
 		.status(StatusCode::SEE_OTHER)
 		.header(SET_COOKIE, cookie)
 		.header(LOCATION, "/")
-		.body(empty_body())
+		.body(full_body("Redirecting"))
 		.unwrap();
 	
 	Ok(res)

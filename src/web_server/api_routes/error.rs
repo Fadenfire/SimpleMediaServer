@@ -25,7 +25,7 @@ impl ApiError {
 			Self::LibraryNotFound => (StatusCode::NOT_FOUND, "library_not_found"),
 			Self::FileNotFound => (StatusCode::NOT_FOUND, "file_not_found"),
 			Self::NotADirectory => (StatusCode::BAD_REQUEST, "not_a_directory"),
-			Self::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
+			Self::Unauthorized => (StatusCode::BAD_REQUEST, "unauthorized"),
 			Self::InvalidBody => (StatusCode::BAD_REQUEST, "invalid_body"),
 			// Self::UnknownLogin => (StatusCode::BAD_REQUEST, "unknown_login"),
 			Self::MethodNotAllowed(_) => (StatusCode::METHOD_NOT_ALLOWED, "method_not_allowed"),

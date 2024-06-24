@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	const res = await fetch(`/api/file_info/${encodeURIComponent(params.library_id)}/${escapePath(params.path)}`);
 	
 	if (res.status != 200) {
-		throw error(404);
+		error(404);
 	}
 	
 	const fileInfo: FileInfoResponse = await res.json();

@@ -41,23 +41,7 @@ async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<S
 	match path {
 		["api", tail @ ..] => api_routes::route_request(request, tail, server_state).await,
 		
-		["login"] => {
-			ServeFile::new(server_state.web_ui_dir.join("login.html"))
-				.call(request)
-				.await
-				.unwrap()
-				.map(|body| body.map_err(anyhow::Error::new).boxed_unsync())
-		}
-		
 		_ => {
-			// if server_state.auth_manager.lookup_from_headers(request.headers()).is_err() {
-			// 	return Response::builder()
-			// 		.status(StatusCode::FOUND)
-			// 		.header(LOCATION, "/login")
-			// 		.body(empty_body())
-			// 		.unwrap();
-			// }
-			
 			let fallback = ServeFile::new(server_state.web_ui_dir.join("index.html"))
 				.precompressed_gzip()
 				.precompressed_br();
