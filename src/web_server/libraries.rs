@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use http::HeaderMap;
+use relative_path::{RelativePath, RelativePathBuf};
 
 use crate::config::LibrariesConfig;
 use crate::web_server::api_routes::error::ApiError;
@@ -36,9 +37,9 @@ impl Libraries {
 		self.library_table.get(library_id)
 	}
 	
-	pub fn resolve_library_and_path(&self, library_id: &str, path: &[&str]) -> Result<(&Library, PathBuf), ApiError> {
+	pub fn resolve_library_and_path(&self, library_id: &str, path: RelativePathBuf) -> Result<(&Library, PathBuf), ApiError> {
 		let library = self.get_library(library_id).ok_or(ApiError::LibraryNotFound)?;
-		let resolved_path = library.resolve_path(path).ok_or(ApiError::FileNotFound)?;
+		let resolved_path = library.resolve_path(&path).ok_or(ApiError::FileNotFound)?;
 		
 		Ok((library, resolved_path))
 	}
@@ -52,21 +53,17 @@ pub struct Library {
 }
 
 impl Library {
-	pub fn resolve_path(&self, path: &[&str]) -> Option<PathBuf> {
-		let sanitized_path = web_utils::sanitize_path(path)?;
+	pub fn resolve_path(&self, path: &RelativePath) -> Option<PathBuf> {
+		let sanitized_path = web_utils::sanitize_path(&path)?;
 		
 		Some(self.root_path.join(sanitized_path))
 	}
 }
 
-pub fn reconstruct_library_path(library_id: &str, path: &[&str]) -> String {
-	format!("{}/{}", library_id, path.join("/"))
-}
-
 pub fn resolve_library_and_path_with_auth<'a>(
 	server_state: &'a ServerState,
 	library_id: &str,
-	path: &[&str],
+	path: RelativePathBuf,
 	headers: &HeaderMap
 ) -> Result<(&'a Library, PathBuf), ApiError> {
 	let (library, resolved_path) = server_state.libraries.resolve_library_and_path(library_id, path)?;
@@ -82,7 +79,7 @@ pub fn resolve_library_and_path_with_auth<'a>(
 pub fn resolve_path_with_auth(
 	server_state: &ServerState,
 	library_id: &str,
-	path: &[&str],
+	path: RelativePathBuf,
 	headers: &HeaderMap
 ) -> Result<PathBuf, ApiError> {
 	let (library, resolved_path) = server_state.libraries.resolve_library_and_path(library_id, path)?;

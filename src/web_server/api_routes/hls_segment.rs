@@ -21,7 +21,7 @@ pub async fn hls_segment_route(
 	let segment_index: usize = segment_index.parse().map_err(|_| ApiError::NotFound)?;
 	
 	let resolved_path = libraries::resolve_path_with_auth(
-		server_state, library_id, library_path, request.headers())?;
+		server_state, library_id, library_path.iter().collect(), request.headers())?;
 	let media_path = video_locator::locate_video(&resolved_path).await.map_err(|_| ApiError::FileNotFound)?;
 	
 	let generated_segment = server_state.hls_segment_generator.get_or_generate(SegmentParams {

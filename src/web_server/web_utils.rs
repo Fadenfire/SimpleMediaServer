@@ -10,6 +10,7 @@ use http_body_util::{BodyExt, Empty, Full};
 use http_body_util::combinators::UnsyncBoxBody;
 use hyper::body::Incoming;
 use mime::Mime;
+use relative_path::RelativePath;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -115,10 +116,12 @@ pub fn split_path(path: &str) -> anyhow::Result<Vec<String>> {
 	Ok(components)
 }
 
-pub fn sanitize_path(path: &[&str]) -> Option<PathBuf> {
+pub fn sanitize_path(path: &RelativePath) -> Option<PathBuf> {
 	let mut out_path = PathBuf::new();
 	
-	for &component in path {
+	for component in path.components() {
+		let relative_path::Component::Normal(component) = component else { return None };
+		
 		if component.starts_with("..") || component.contains(['\\', '/']) {
 			return None;
 		}

@@ -3,14 +3,14 @@ use std::ffi::OsStr;
 
 use anyhow::Context;
 use http::{Method, StatusCode};
+use relative_path::{RelativePath, RelativePathBuf};
 use serde::Serialize;
 use tracing::instrument;
 
+use crate::web_server::{libraries, video_locator};
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::api_routes::list_dir;
-use crate::web_server::libraries::reconstruct_library_path;
 use crate::web_server::server_state::ServerState;
-use crate::web_server::{libraries, video_locator};
 use crate::web_server::video_metadata::Dimension;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
@@ -23,8 +23,9 @@ pub async fn file_info_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
+	let library_path: RelativePathBuf = library_path.iter().collect();
 	let (library, resolved_path) = libraries::resolve_library_and_path_with_auth(
-		server_state, library_id, library_path, request.headers())?;
+		server_state, library_id, library_path.clone(), request.headers())?;
 	let resolved_path = video_locator::locate_video(&resolved_path).await.map_err(|_| ApiError::FileNotFound)?;
 	
 	let file_metadata = tokio::fs::metadata(&resolved_path).await?;
@@ -60,7 +61,7 @@ pub async fn file_info_route(
 			.map(ToOwned::to_owned);
 		
 		let file_info = MediaInfo {
-			path: reconstruct_library_path(library_id, library_path),
+			path: RelativePath::new(library_id).join(&library_path),
 			display_name: media_metadata.title,
 			file_size: file_metadata.len(),
 			duration: media_metadata.duration.as_secs(),
@@ -72,7 +73,7 @@ pub async fn file_info_route(
 		
 		Ok(json_response(StatusCode::OK, &FileInfoResponse::File(file_info)))
 	} else if file_metadata.is_dir() {
-		let display_name = if library_path.is_empty() {
+		let display_name = if library_path.as_str().is_empty() {
 			library.display_name.clone()
 		} else {
 			resolved_path.file_name()
@@ -100,7 +101,7 @@ enum FileInfoResponse {
 
 #[derive(Debug, Serialize)]
 struct MediaInfo {
-	path: String,
+	path: RelativePathBuf,
 	display_name: String,
 	file_size: u64,
 	duration: u64,
