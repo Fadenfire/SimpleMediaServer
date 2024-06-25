@@ -22,6 +22,8 @@ pub async fn list_dir_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
+	let user = server_state.auth_manager.lookup_from_headers(request.headers())?;
+	
 	let library_path: RelativePathBuf = library_path.iter().collect();
 	let resolved_path = libraries::resolve_path_with_auth(
 		server_state, library_id, library_path.clone(), request.headers())?;
@@ -58,11 +60,17 @@ pub async fn list_dir_route(
 			
 			total_time += media_metadata.duration;
 			
+			let watch_progress = server_state.user_watch_histories.lock().unwrap()
+				.get_watch_history(&user.id)
+				.get_entry(library_id, &library_path.join(path_name))
+				.map(|entry| entry.progress);
+			
 			files.push(FileEntry {
 				path_name: path_name.to_owned(),
 				display_name: media_metadata.title,
 				thumbnail_path,
 				duration: media_metadata.duration.as_secs(),
+				watch_progress,
 			});
 		} else if file_type.is_dir() {
 			let Some(path_name) = path.file_name().and_then(OsStr::to_str) else { continue };
@@ -141,6 +149,7 @@ struct FileEntry {
 	display_name: String,
 	thumbnail_path: String,
 	duration: u64,
+	watch_progress: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]

@@ -6,12 +6,19 @@
 	export let duration: number;
 	export let link: string;
 	export let thumbnailPath: string;
+	export let progress: number | null = null;
 </script>
 
 <BaseTile title="{title}" link="{link}">
 	<svelte:fragment slot="card">
 		<img class="thumbnail" src="{thumbnailPath}" alt="{title}">
 		<div class="duration-container">{formatDuration(duration)}</div>
+		
+		{#if progress}
+			<div class="bar-container">
+				<div class="bar" style="width: calc(max(10px, {progress / duration * 100}%));"></div>
+			</div>
+		{/if}
 	</svelte:fragment>
 </BaseTile>
 
@@ -31,5 +38,19 @@
 		padding: 3px 5px;
 		border-radius: 4px;
 		font-weight: 500;
+	}
+	
+	.bar-container {
+		position: absolute;
+		left: 0px;
+		bottom: 0px;
+		width: 100%;
+		height: 3px;
+		background-color: #DDD9;
+		
+		.bar {
+			height: 100%;
+			background-color: red;
+		}
 	}
 </style>

@@ -16,6 +16,7 @@ mod hls_manifest;
 mod hls_segment;
 mod login;
 mod get_user;
+mod update_watch_progress;
 
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
 	if let ["login"] = path {
@@ -30,6 +31,8 @@ pub async fn route_request(request: HyperRequest, path: &[&str], server_state: A
 		["get_user"] => get_user::get_user_route(&request, &server_state.auth_manager).await,
 		
 		["libraries"] => list_libraries::list_libraries_route(&server_state, &request).await,
+		
+		["update_watch_progress"] => update_watch_progress::update_watch_progress_route(&server_state, request).await,
 		
 		["file_info", library_id, library_path @ ..] =>
 			file_info::file_info_route(&server_state, &request, *library_id, library_path).await,

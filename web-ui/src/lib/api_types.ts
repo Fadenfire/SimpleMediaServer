@@ -22,6 +22,7 @@ interface ApiMediaInfo {
 	video_info: ApiVideoInfo | null,
 	prev_video: string | null,
 	next_video: string | null,
+	watch_progress: number | null,
 }
 
 interface ApiVideoInfo {
@@ -48,16 +49,23 @@ interface ApiChildFile {
 	display_name: string,
 	thumbnail_path: string,
 	duration: number,
+	watch_progress: number | null,
 }
 
 interface ApiChildDirectory {
 	path_name: string,
 	display_name: string,
-	thumbnail_path?: string,
+	thumbnail_path: string | null,
 	child_count: number,
 }
 
 interface ApiDimension {
 	width: number,
 	height: number,
+}
+
+interface UpdateWatchProgressParams {
+	library_id: string,
+	media_path: string,
+	new_watch_progress: number,
 }

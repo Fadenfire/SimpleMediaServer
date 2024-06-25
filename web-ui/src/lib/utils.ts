@@ -24,6 +24,12 @@ export function escapePath(path: string): string {
 	return path.split("/").map(encodeURIComponent).join("/");
 }
 
+export function splitLibraryPath(libraryPath: string): [string, string] {
+	const slashPos = libraryPath.indexOf("/");
+	
+	return slashPos == -1 ? [libraryPath, ""] : [libraryPath.slice(0, slashPos), libraryPath.slice(slashPos + 1)];
+}
+
 export function isStandalone(): boolean {
 	return window.matchMedia("(display-mode: standalone)").matches;
 }

@@ -39,6 +39,7 @@
 							link="{encodeURIComponent(file.path_name)}/"
 							duration="{file.duration}"
 							thumbnailPath="{escapePath(file.thumbnail_path)}"
+							progress={file.watch_progress}
 						/>
 					{/each}
 				</TileGrid>

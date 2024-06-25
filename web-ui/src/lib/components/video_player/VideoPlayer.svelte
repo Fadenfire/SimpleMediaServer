@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-    import { escapePath, formatDuration, replayAnimations } from "$lib/utils";
+    import { escapePath, formatDuration, replayAnimations, splitLibraryPath } from "$lib/utils";
     import type { SvelteMediaTimeRange } from "svelte/elements";
     import Timeline, { caclulateThumbnailSheetOffset } from "./Timeline.svelte";
     import FeatherIcon from "../FeatherIcon.svelte";
@@ -35,6 +35,27 @@
 	
 	$: videoInfo = mediaInfo.video_info;
 	
+	// Watch Progress
+	
+	function updateWatchProgress() {
+		if (!playerBackend) return;
+		
+		const [library_id, media_path] = splitLibraryPath(mediaInfo.path);
+		
+		const msg: UpdateWatchProgressParams = {
+			library_id,
+			media_path,
+			new_watch_progress: Math.floor(videoCurrentTime),
+		};
+		
+		fetch("/api/update_watch_progress", {
+			method: "POST",
+			body: JSON.stringify(msg)
+		});
+	}
+	
+	const updateWatchProgressInterval = setInterval(updateWatchProgress, 60 * 1000);
+	
 	// Thumbnail Sheet
 	
 	let mounted = true;
@@ -60,7 +81,10 @@
 		return () => {
 			mounted = false;
 			
+			clearInterval(updateWatchProgressInterval);
 			if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
+			
+			updateWatchProgress();
 		}
 	});
 	

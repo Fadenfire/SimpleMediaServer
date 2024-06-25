@@ -45,7 +45,7 @@ pub async fn thumbnail_route(
 	
 	let res = serve_file_basic(
 		generated_thumbnail.entry_data,
-		generated_thumbnail.creation_date,
+		generated_thumbnail.creation_date.into(),
 		mime::IMAGE_JPEG,
 		request.headers()
 	).await?;

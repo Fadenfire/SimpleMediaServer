@@ -23,6 +23,8 @@ pub async fn file_info_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
+	let user = server_state.auth_manager.lookup_from_headers(request.headers())?;
+	
 	let library_path: RelativePathBuf = library_path.iter().collect();
 	let (library, resolved_path) = libraries::resolve_library_and_path_with_auth(
 		server_state, library_id, library_path.clone(), request.headers())?;
@@ -60,6 +62,11 @@ pub async fn file_info_route(
 			.and_then(OsStr::to_str)
 			.map(ToOwned::to_owned);
 		
+		let watch_progress = server_state.user_watch_histories.lock().unwrap()
+			.get_watch_history(&user.id)
+			.get_entry(library_id, &library_path)
+			.map(|entry| entry.progress);
+		
 		let file_info = MediaInfo {
 			path: RelativePath::new(library_id).join(&library_path),
 			display_name: media_metadata.title,
@@ -69,6 +76,7 @@ pub async fn file_info_route(
 			video_info,
 			prev_video,
 			next_video,
+			watch_progress,
 		};
 		
 		Ok(json_response(StatusCode::OK, &FileInfoResponse::File(file_info)))
@@ -109,6 +117,7 @@ struct MediaInfo {
 	video_info: Option<VideoInfo>,
 	prev_video: Option<String>,
 	next_video: Option<String>,
+	watch_progress: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]

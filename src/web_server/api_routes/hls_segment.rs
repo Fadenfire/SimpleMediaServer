@@ -31,7 +31,7 @@ pub async fn hls_segment_route(
 	
 	let res = serve_file_basic(
 		generated_segment.entry_data,
-		generated_segment.creation_date,
+		generated_segment.creation_date.into(),
 		mime::Mime::from_str("video/MP2T").unwrap(),
 		request.headers()
 	).await?;

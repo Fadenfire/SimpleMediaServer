@@ -33,6 +33,7 @@ pub(crate) mod media_backend_factory;
 mod services;
 mod server_state;
 mod auth;
+mod watch_history;
 
 #[instrument(skip_all)]
 async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {

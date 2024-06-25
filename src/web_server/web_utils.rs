@@ -50,14 +50,22 @@ pub fn restrict_method(request: &HyperRequest, allowed_methods: &[Method]) -> Re
 	}
 }
 
-pub async fn parse_form_body<T: DeserializeOwned>(request: HyperRequest) -> Result<T, ApiError> {
-	http_body_util::Limited::new(request.into_body(), 1_000_000)
+pub async fn collect_body(body: Incoming) -> Result<Bytes, ApiError> {
+	http_body_util::Limited::new(body, 1_000_000)
 		.collect()
 		.await
-		.ok()
 		.map(|collected| collected.to_bytes())
-		.and_then(|data| serde_urlencoded::from_bytes(&data).ok())
-		.ok_or(ApiError::InvalidBody)
+		.map_err(|_| ApiError::InvalidBody)
+}
+
+pub async fn parse_json_body<T: DeserializeOwned>(body: Incoming) -> Result<T, ApiError> {
+	collect_body(body).await
+		.and_then(|data| serde_json::from_slice(&data).map_err(|_| ApiError::InvalidBody))
+}
+
+pub async fn parse_form_body<T: DeserializeOwned>(body: Incoming) -> Result<T, ApiError> {
+	collect_body(body).await
+		.and_then(|data| serde_urlencoded::from_bytes(&data).map_err(|_| ApiError::InvalidBody))
 }
 
 pub async fn serve_file_basic(

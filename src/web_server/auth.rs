@@ -57,6 +57,10 @@ impl AuthManager {
 		}
 	}
 	
+	pub fn iter_users(&self) -> impl Iterator<Item = &User> {
+		self.users.values()
+	}
+	
 	pub fn get_user_by_id(&self, id: &str) -> Option<&User> {
 		self.users.get(id)
 	}

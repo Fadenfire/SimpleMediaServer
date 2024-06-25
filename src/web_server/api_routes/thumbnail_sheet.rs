@@ -23,7 +23,7 @@ pub async fn thumbnail_sheet_route(
 	
 	let res = serve_file_basic(
 		generated_sprite_sheet.entry_data,
-		generated_sprite_sheet.creation_date,
+		generated_sprite_sheet.creation_date.into(),
 		mime::IMAGE_JPEG,
 		request.headers()
 	).await?;

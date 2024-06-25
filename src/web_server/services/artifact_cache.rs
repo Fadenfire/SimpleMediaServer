@@ -3,12 +3,13 @@ use std::ffi::OsStr;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
-use std::time::SystemTime;
 
+use anyhow::Context;
 use bytes::Bytes;
-use lru::LruCache;
+use hashlink::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use time::OffsetDateTime;
 use tracing::debug;
 
 use crate::utils;
@@ -74,7 +75,7 @@ pub struct ArtifactCache<G> {
 	generator: G,
 	cache_dir: PathBuf,
 	locks: LockPool<CacheEntry>,
-	lru_state: Mutex<LruState>,
+	entry_tracker: Mutex<EntryTracker>,
 	task_pool: Arc<TaskPool>,
 }
 
@@ -108,7 +109,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			
 			if let Some(entry_metadata) = entry_metadata {
 				if tokio::fs::try_exists(&cache_entry_path).await.unwrap_or(false) {
-					entries.push(LruEntry {
+					entries.push(EntryDesc {
 						key: cache_key.to_owned(),
 						entry_size: entry_metadata.entry_size,
 						last_accessed: entry_metadata.last_accessed,
@@ -130,7 +131,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			generator,
 			cache_dir,
 			locks: LockPool::new(),
-			lru_state: Mutex::new(LruState::new(entries, file_size_limit)),
+			entry_tracker: Mutex::new(EntryTracker::new(entries, file_size_limit)),
 			task_pool,
 		})
 	}
@@ -161,7 +162,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 				let (artifact_data, metadata) =
 					self.task_pool.execute_task(self.generator.generate_artifact(input)).await?;
 				
-				let now = SystemTime::now();
+				let now = OffsetDateTime::now_utc();
 				
 				let entry_metadata = CacheEntryMetadata {
 					cache_key: cache_key.clone(),
@@ -175,7 +176,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 				tokio::fs::write(&entry.cache_file_path, &artifact_data).await?;
 				tokio::fs::write(&entry.cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
 				
-				let evicted = self.lru_state.lock().unwrap().insert(entry.cache_key.clone(), artifact_data.len() as u64);
+				let evicted = self.entry_tracker.lock().unwrap().insert(entry.cache_key.clone(), artifact_data.len() as u64);
 				
 				drop(entry);
 				
@@ -205,9 +206,9 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			
 			if let Some(mut entry_metadata) = entry_metadata {
 				if &entry_metadata.validity_key == validity_key {
-					self.lru_state.lock().unwrap().promote(&entry.cache_key);
+					self.entry_tracker.lock().unwrap().promote(&entry.cache_key);
 					
-					entry_metadata.last_accessed = SystemTime::now();
+					entry_metadata.last_accessed = OffsetDateTime::now_utc();
 					tokio::fs::write(&entry.cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
 					
 					let entry_data = tokio::fs::read(&entry.cache_file_path).await?;
@@ -240,14 +241,14 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 	}
 	
 	pub fn cache_size(&self) -> u64 {
-		self.lru_state.lock().unwrap().total_size
+		self.entry_tracker.lock().unwrap().total_size
 	}
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct CacheQuery<M = ()> {
 	pub entry_data: Bytes,
-	pub creation_date: SystemTime,
+	pub creation_date: OffsetDateTime,
 	pub metadata: M,
 }
 
@@ -267,8 +268,10 @@ enum QueryResult<M> {
 #[derive(Eq, PartialEq, Serialize, Deserialize)]
 struct CacheEntryMetadata<V, M> {
 	cache_key: String,
-	creation_date: SystemTime,
-	last_accessed: SystemTime,
+	#[serde(with = "time::serde::iso8601")]
+	creation_date: OffsetDateTime,
+	#[serde(with = "time::serde::iso8601")]
+	last_accessed: OffsetDateTime,
 	entry_size: u64,
 	validity_key: V,
 	extra_metadata: M,
@@ -303,46 +306,46 @@ impl<T> LockPool<T> {
 	}
 }
 
-struct LruState {
-	lru: LruCache<String, u64>,
+struct EntryTracker {
+	entry_sizes: LinkedHashMap<String, u64>,
 	total_size: u64,
 	size_limit: u64,
 }
 
 #[derive(Debug, Eq, PartialEq)]
-struct LruEntry {
+struct EntryDesc {
 	key: String,
 	entry_size: u64,
-	last_accessed: SystemTime,
+	last_accessed: OffsetDateTime,
 }
 
-impl LruState {
-	pub fn new(mut entries: Vec<LruEntry>, size_limit: u64) -> Self {
-		let mut lru = LruCache::unbounded();
+impl EntryTracker {
+	pub fn new(mut entries: Vec<EntryDesc>, size_limit: u64) -> Self {
+		let mut entry_sizes = LinkedHashMap::new();
 		let mut total_size = 0;
 		
 		// Sort from oldest to newest
 		entries.sort_by_key(|entry| entry.last_accessed);
 		
 		for entry in entries {
-			lru.put(entry.key, entry.entry_size);
+			entry_sizes.insert(entry.key, entry.entry_size);
 			
 			total_size += entry.entry_size;
 		}
 		
 		Self {
-			lru,
+			entry_sizes,
 			total_size,
 			size_limit,
 		}
 	}
 	
 	pub fn promote(&mut self, key: &str) {
-		self.lru.promote(key);
+		self.entry_sizes.to_back(key);
 	}
 	
 	pub fn insert(&mut self, key: String, entry_size: u64) -> Vec<String> {
-		let old_entry_size = self.lru.put(key, entry_size).unwrap_or(0);
+		let old_entry_size = self.entry_sizes.insert(key, entry_size).unwrap_or(0);
 		
 		self.total_size -= old_entry_size;
 		self.total_size += entry_size;
@@ -350,7 +353,7 @@ impl LruState {
 		let mut removed = Vec::new();
 		
 		while self.total_size > self.size_limit {
-			let (removed_key, removed_size) = self.lru.pop_lru().expect("Not entries left but total size is non zero");
+			let (removed_key, removed_size) = self.entry_sizes.pop_front().expect("Not entries left but total size is non zero");
 			
 			removed.push(removed_key);
 			self.total_size -= removed_size;
@@ -364,7 +367,8 @@ impl LruState {
 pub struct FileValidityKey {
 	source_path: PathBuf,
 	file_size: u64,
-	mod_time: Option<SystemTime>,
+	#[serde(with = "time::serde::iso8601")]
+	mod_time: OffsetDateTime,
 }
 
 impl FileValidityKey {
@@ -374,7 +378,7 @@ impl FileValidityKey {
 		Ok(Self {
 			source_path: source_path.as_ref().to_owned(),
 			file_size: metadata.len(),
-			mod_time: metadata.modified().ok(),
+			mod_time: metadata.modified().context("FS doesn't support mod time")?.into(),
 		})
 	}
 }
@@ -388,56 +392,57 @@ mod tests {
 	use bytes::Bytes;
 	use futures_util::poll;
 	use tempfile::TempDir;
+	use time::macros::datetime;
 	
-	use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, CacheEntryMetadata, CacheQuery, ENTRY_METADATA_EXTENSION, LockPool, LruEntry, LruState};
+	use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, CacheEntryMetadata, CacheQuery, ENTRY_METADATA_EXTENSION, EntryTracker, LockPool, EntryDesc};
 	use crate::web_server::services::task_pool::TaskPool;
 	
 	#[test]
 	fn test_lru() {
 		let lru_entries = vec![
-			LruEntry {
+			EntryDesc {
 				key: "key1".to_owned(),
 				entry_size: 10,
-				last_accessed: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+				last_accessed: datetime!(2020-01-01 00:00:01 UTC),
 			},
-			LruEntry {
+			EntryDesc {
 				key: "key3".to_owned(),
 				entry_size: 10,
-				last_accessed: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
+				last_accessed: datetime!(2020-01-01 00:00:03 UTC),
 			},
-			LruEntry {
+			EntryDesc {
 				key: "key2".to_owned(),
 				entry_size: 20,
-				last_accessed: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
+				last_accessed: datetime!(2020-01-01 00:00:02 UTC),
 			},
-			LruEntry {
+			EntryDesc {
 				key: "key4".to_owned(),
 				entry_size: 10,
-				last_accessed: SystemTime::UNIX_EPOCH + Duration::from_secs(4),
+				last_accessed: datetime!(2020-01-01 00:00:04 UTC),
 			},
 		];
 		
-		let mut lru_state = LruState::new(lru_entries, u64::MAX);
+		let mut lru_state = EntryTracker::new(lru_entries, u64::MAX);
 		
-		assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key4", "key3", "key2", "key1"]);
+		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key4"]);
 		assert_eq!(lru_state.total_size, 50);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
 		assert!(lru_state.insert("key5".to_owned(), 50).is_empty());
 		
-		assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key5", "key4", "key3", "key2", "key1"]);
+		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key4", "key5"]);
 		assert_eq!(lru_state.total_size, 100);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
 		assert!(lru_state.insert("key4".to_owned(), 30).is_empty());
 		
-		assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key4", "key5", "key3", "key2", "key1"]);
+		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key5", "key4"]);
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
 		lru_state.promote("key3");
 		
-		assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key3", "key4", "key5", "key2", "key1"]);
+		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key5", "key4", "key3"]);
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
@@ -447,17 +452,17 @@ mod tests {
 		
 		lru_state.promote("key5");
 		
-		assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key5", "key3", "key4", "key2", "key1"]);
+		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key4", "key3", "key5"]);
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, 90);
 		
 		assert_eq!(lru_state.insert("key6".to_owned(), 10), &["key1", "key2", "key4"]);
 		
-		assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key6", "key5", "key3"]);
+		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key3", "key5", "key6"]);
 		assert_eq!(lru_state.total_size, 70);
 		assert_eq!(lru_state.size_limit, 90);
 		
-		assert_eq!(lru_state.lru.iter().map(|e| e.1).sum::<u64>(), lru_state.total_size);
+		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.1).sum::<u64>(), lru_state.total_size);
 	}
 	
 	#[tokio::test]
@@ -536,8 +541,8 @@ mod tests {
 			
 			tokio::fs::write(temp_dir.path().join(&key).with_extension(ENTRY_METADATA_EXTENSION), serde_json::to_vec_pretty(&CacheEntryMetadata {
 				cache_key: key.clone(),
-				creation_date: SystemTime::UNIX_EPOCH + Duration::from_secs(time / 10),
-				last_accessed: SystemTime::UNIX_EPOCH + Duration::from_secs(time),
+				creation_date: datetime!(2020-01-01 00:00:00 UTC) + Duration::from_secs(time / 10),
+				last_accessed: datetime!(2020-01-01 00:00:00 UTC) + Duration::from_secs(time),
 				entry_size: content.len() as u64,
 				validity_key: (),
 				extra_metadata: format!("meta{}", id),
@@ -557,8 +562,8 @@ mod tests {
 			.await.unwrap();
 		
 		{
-			let lru_state = artifact_cache.lru_state.get_mut().unwrap();
-			assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key3", "key2", "key1"]);
+			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
+			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3"]);
 			assert_eq!(lru_state.total_size, 18);
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
@@ -567,13 +572,13 @@ mod tests {
 		
 		assert_eq!(artifact_cache.get(&1).await.unwrap(), Some(CacheQuery {
 			entry_data: "stuff1".into(),
-			creation_date: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+			creation_date: datetime!(2020-01-01 00:00:00 UTC) + Duration::from_secs(1),
 			metadata: "meta1".into(),
 		}));
 		
 		{
-			let lru_state = artifact_cache.lru_state.get_mut().unwrap();
-			assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key3", "key2"]);
+			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
+			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1"]);
 			assert_eq!(lru_state.total_size, 18);
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
@@ -586,8 +591,8 @@ mod tests {
 		assert!(query.creation_date > now);
 		
 		{
-			let lru_state = artifact_cache.lru_state.get_mut().unwrap();
-			assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key44", "key1", "key3", "key2"]);
+			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
+			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1", "key44"]);
 			assert_eq!(lru_state.total_size, 25);
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
@@ -607,13 +612,13 @@ mod tests {
 		assert!(query.creation_date > now);
 		
 		{
-			let lru_state = artifact_cache.lru_state.get_mut().unwrap();
-			assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key44", "key1", "key3", "key2"]);
+			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
+			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1", "key44"]);
 			assert_eq!(lru_state.total_size, 25);
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
 		
-		artifact_cache.lru_state.get_mut().unwrap().size_limit = 20;
+		artifact_cache.entry_tracker.get_mut().unwrap().size_limit = 20;
 		
 		assert!(tokio::fs::try_exists(temp_dir.path().join("key2")).await.unwrap());
 		assert!(tokio::fs::try_exists(temp_dir.path().join("key2").with_extension(ENTRY_METADATA_EXTENSION)).await.unwrap());
@@ -628,8 +633,8 @@ mod tests {
 		assert!(query.creation_date > now);
 		
 		{
-			let lru_state = artifact_cache.lru_state.get_mut().unwrap();
-			assert_eq!(lru_state.lru.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key5", "key44", "key1"]);
+			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
+			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key44", "key5"]);
 			assert_eq!(lru_state.total_size, 19);
 			assert_eq!(lru_state.size_limit, 20);
 		}

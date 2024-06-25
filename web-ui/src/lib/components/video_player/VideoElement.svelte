@@ -49,6 +49,8 @@
 		innerPlayerBackend = new VideoBackend(innerVideoElement, mediaInfo);
 		innerPlayerBackend.attachNative();
 		
+		innerVideoElement.currentTime = mediaInfo.watch_progress ?? 0;
+		
 		console.log("Attached player backend");
 	}
 	
