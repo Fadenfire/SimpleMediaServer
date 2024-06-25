@@ -13,7 +13,7 @@ pub async fn list_libraries_route(server_state: &ServerState, request: &HyperReq
 	let user = server_state.auth_manager.lookup_from_headers(request.headers())?;
 	
 	let libraries: Vec<LibraryResponse> = server_state.libraries.iter_libraries()
-		.filter(|lib| user.can_see_library(lib))
+		.filter(|lib| user.can_see_library(&lib.id))
 		.map(|lib| LibraryResponse {
 			id: lib.id.clone(),
 			display_name: lib.display_name.clone(),

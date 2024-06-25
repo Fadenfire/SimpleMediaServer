@@ -1,11 +1,10 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use ffmpeg_next::{codec, format, Rescale, rescale};
 use ffmpeg_next::media::Type;
 use serde::{Deserialize, Serialize};
@@ -62,6 +61,7 @@ pub struct MediaMetadata {
 	pub file_path: PathBuf,
 	pub file_size: u64,
 	pub mod_time: Option<SystemTime>,
+	pub path_name: String,
 	pub duration: Duration,
 	pub title: String,
 	pub artist: Option<String>,
@@ -93,10 +93,14 @@ fn extract_media_metadata(
 		.unwrap_or(0);
 	let duration = Duration::from_millis(duration_millis);
 	
+	let path_name = media_path.file_stem()
+		.and_then(OsStr::to_str)
+		.ok_or_else(|| anyhow!("Path name is invalid"))?
+		.to_owned();
+	
 	let title = demuxer.metadata().get("title")
 		.map(ToOwned::to_owned)
-		.or_else(|| media_path.file_stem().map(OsStr::to_string_lossy).map(Cow::into_owned))
-		.unwrap_or_else(|| "Unknown".to_owned());
+		.unwrap_or_else(|| path_name.clone());
 	
 	let artist = demuxer.metadata().get("artist").map(ToOwned::to_owned);
 	
@@ -124,6 +128,7 @@ fn extract_media_metadata(
 		file_path: media_path,
 		file_size: file_metadata.len(),
 		mod_time: file_metadata.modified().ok(),
+		path_name,
 		duration,
 		title,
 		artist,

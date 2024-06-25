@@ -4,7 +4,7 @@ use std::time::SystemTime;
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use headers::{HeaderMap, HeaderMapExt, IfModifiedSince, LastModified};
-use http::{Method, Request, Response, StatusCode};
+use http::{Method, Request, Response, StatusCode, Uri};
 use http::header::CONTENT_TYPE;
 use http_body_util::{BodyExt, Empty, Full};
 use http_body_util::combinators::UnsyncBoxBody;
@@ -66,6 +66,12 @@ pub async fn parse_json_body<T: DeserializeOwned>(body: Incoming) -> Result<T, A
 pub async fn parse_form_body<T: DeserializeOwned>(body: Incoming) -> Result<T, ApiError> {
 	collect_body(body).await
 		.and_then(|data| serde_urlencoded::from_bytes(&data).map_err(|_| ApiError::InvalidBody))
+}
+
+pub fn parse_query<T: DeserializeOwned>(uri: &Uri) -> Result<T, ApiError> {
+	uri.query()
+		.and_then(|query| serde_urlencoded::from_str(query).ok())
+		.ok_or(ApiError::InvalidQuery)
 }
 
 pub async fn serve_file_basic(

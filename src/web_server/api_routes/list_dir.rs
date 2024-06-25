@@ -1,15 +1,15 @@
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use http::{Method, StatusCode};
 use relative_path::{RelativePath, RelativePathBuf};
 use serde::Serialize;
-use tracing::instrument;
+use tracing::{error, instrument};
 
 use crate::web_server::{libraries, video_locator};
 use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::auth::User;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
@@ -39,7 +39,7 @@ pub async fn list_dir_route(
 	let mut files: Vec<FileEntry> = Vec::new();
 	let mut directories: Vec<DirectoryEntry> = Vec::new();
 	
-	let mut total_time = Duration::from_millis(0);
+	let mut total_time = 0;
 	
 	let mut file_stem_set: HashSet<String> = HashSet::new();
 	
@@ -55,23 +55,16 @@ pub async fn list_dir_route(
 			if file_stem_set.contains(path_name) { continue; }
 			file_stem_set.insert(path_name.to_owned());
 			
-			let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&path, &server_state.thumbnail_sheet_generator).await?;
-			let thumbnail_path = format!("/api/thumbnail/{}", RelativePath::new(library_id).join(&library_path).join(path_name));
+			let file_library_path = library_path.join(&path_name);
 			
-			total_time += media_metadata.duration;
-			
-			let watch_progress = server_state.user_watch_histories.lock().unwrap()
-				.get_watch_history(&user.id)
-				.get_entry(library_id, &library_path.join(path_name))
-				.map(|entry| entry.progress);
-			
-			files.push(FileEntry {
-				path_name: path_name.to_owned(),
-				display_name: media_metadata.title,
-				thumbnail_path,
-				duration: media_metadata.duration.as_secs(),
-				watch_progress,
-			});
+			match create_file_entry(server_state, user, library_id, &file_library_path, &path).await {
+				Ok(file_entry) => {
+					total_time += file_entry.duration;
+					
+					files.push(file_entry);
+				}
+				Err(err) => error!("Error collecting file metadata for {:?}: {:?}", &path, err),
+			}
 		} else if file_type.is_dir() {
 			let Some(path_name) = path.file_name().and_then(OsStr::to_str) else { continue };
 			
@@ -104,10 +97,38 @@ pub async fn list_dir_route(
 	let res = ListDirResponse {
 		files,
 		directories,
-		total_duration: total_time.as_secs(),
+		total_duration: total_time,
 	};
 	
 	Ok(json_response(StatusCode::OK, &res))
+}
+
+pub async fn create_file_entry(
+	server_state: &ServerState,
+	user: &User,
+	library_id: &str,
+	library_path: &RelativePath,
+	media_path: &Path
+) -> anyhow::Result<FileEntry> {
+	let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(media_path,
+		&server_state.thumbnail_sheet_generator).await?;
+	
+	let full_path = RelativePath::new(library_id).join(&library_path);
+	let thumbnail_path = format!("/api/thumbnail/{}", &full_path);
+	
+	let watch_progress = server_state.user_watch_histories.lock().unwrap()
+		.get_watch_history(&user.id)
+		.get_entry(library_id, &library_path)
+		.map(|entry| entry.progress);
+	
+	Ok(FileEntry {
+		path_name: media_metadata.path_name,
+		full_path,
+		display_name: media_metadata.title,
+		thumbnail_path,
+		duration: media_metadata.duration.as_secs(),
+		watch_progress,
+	})
 }
 
 pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>> {
@@ -144,8 +165,9 @@ struct ListDirResponse {
 }
 
 #[derive(Debug, Serialize)]
-struct FileEntry {
+pub struct FileEntry {
 	path_name: String,
+	full_path: RelativePathBuf,
 	display_name: String,
 	thumbnail_path: String,
 	duration: u64,
@@ -153,7 +175,7 @@ struct FileEntry {
 }
 
 #[derive(Debug, Serialize)]
-struct DirectoryEntry {
+pub struct DirectoryEntry {
 	path_name: String,
 	display_name: String,
 	thumbnail_path: Option<String>,

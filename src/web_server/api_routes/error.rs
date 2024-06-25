@@ -13,6 +13,7 @@ pub enum ApiError {
 	NotADirectory,
 	Unauthorized,
 	InvalidBody,
+	InvalidQuery,
 	// UnknownLogin,
 	MethodNotAllowed(Vec<Method>),
 	UnexpectedError(anyhow::Error),
@@ -27,6 +28,7 @@ impl ApiError {
 			Self::NotADirectory => (StatusCode::BAD_REQUEST, "not_a_directory"),
 			Self::Unauthorized => (StatusCode::BAD_REQUEST, "unauthorized"),
 			Self::InvalidBody => (StatusCode::BAD_REQUEST, "invalid_body"),
+			Self::InvalidQuery => (StatusCode::BAD_REQUEST, "invalid_query"),
 			// Self::UnknownLogin => (StatusCode::BAD_REQUEST, "unknown_login"),
 			Self::MethodNotAllowed(_) => (StatusCode::METHOD_NOT_ALLOWED, "method_not_allowed"),
 			Self::UnexpectedError(err) => {

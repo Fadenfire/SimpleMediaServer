@@ -123,7 +123,7 @@ impl WatchHistory {
 		}
 	}
 	
-	pub fn iter_entries(&self) -> impl Iterator<Item = &WatchHistoryEntry> {
+	pub fn iter_entries(&self) -> impl DoubleEndedIterator<Item = &WatchHistoryEntry> {
 		self.entries.values()
 	}
 	
@@ -188,7 +188,7 @@ impl MediaKey {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WatchHistoryEntry {
 	pub library_id: String,
 	pub media_path: RelativePathBuf,

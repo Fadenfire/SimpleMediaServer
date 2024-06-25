@@ -8,7 +8,6 @@ use sha2::Sha256;
 
 use crate::config::UsersConfig;
 use crate::web_server::api_routes::error::ApiError;
-use crate::web_server::libraries::Library;
 
 pub const AUTH_COOKIE_NAME: &str = "media_server_access_token";
 pub const AUTH_TOKEN_LENGTH: usize = 32;
@@ -101,8 +100,8 @@ impl User {
 		self.password == password
 	}
 	
-	pub fn can_see_library(&self, library: &Library) -> bool {
-		self.allowed_libraries.contains(&library.id)
+	pub fn can_see_library(&self, library_id: &str) -> bool {
+		self.allowed_libraries.iter().any(|s| s == library_id)
 	}
 }
 
@@ -113,7 +112,6 @@ mod tests {
 	
 	use crate::config::{UserConfig, UsersConfig};
 	use crate::web_server::auth::{AuthManager, User};
-	use crate::web_server::libraries::Library;
 	
 	fn create_test_user() -> User {
 		User {
@@ -142,23 +140,11 @@ mod tests {
 	fn test_can_see_library() {
 		let user = create_test_user();
 		
-		assert!(user.can_see_library(&Library {
-			id: "lib_a".to_string(),
-			display_name: "Lib fds".to_string(),
-			..Default::default()
-		}));
+		assert!(user.can_see_library("lib_a"));
 		
-		assert!(user.can_see_library(&Library {
-			id: "lib_b".to_string(),
-			display_name: "Lib fjgf".to_string(),
-			..Default::default()
-		}));
+		assert!(user.can_see_library("lib_b"));
 		
-		assert!(!user.can_see_library(&Library {
-			id: "lib_c".to_string(),
-			display_name: "lib_b".to_string(),
-			..Default::default()
-		}));
+		assert!(!user.can_see_library("lib_c"));
 	}
 	
 	fn create_test_user_config() -> UsersConfig {

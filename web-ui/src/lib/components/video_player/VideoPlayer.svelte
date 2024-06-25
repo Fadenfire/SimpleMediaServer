@@ -249,7 +249,7 @@
 <svelte:window on:keydown={onWindowKeyPressed} />
 
 <figure class="player-container" class:fullscreen={isFullscreen} bind:this={playerElement} on:pointermove={resetIdleness} on:pointerdown={resetIdleness} on:fullscreenchange={onFullscreenChange}>
-	<div on:pointerdown={playerClick}>
+	<div class="video-container" on:pointerdown={playerClick}>
 		{#key mediaInfo.path}
 			<VideoElement
 				mediaInfo={mediaInfo}
@@ -338,7 +338,7 @@
 				
 				videoElement={videoElement}
 				bind:videoPaused={videoPaused}
-				videoCurrentTime={videoCurrentTime}
+				bind:videoCurrentTime={videoCurrentTime}
 				videoDuration={videoDuration}
 				videoBuffered={videoBuffered}
 				
@@ -396,7 +396,7 @@
 				
 				videoElement={videoElement}
 				bind:videoPaused={videoPaused}
-				videoCurrentTime={videoCurrentTime}
+				bind:videoCurrentTime={videoCurrentTime}
 				videoDuration={videoDuration}
 				videoBuffered={videoBuffered}
 				
@@ -417,6 +417,11 @@
 		&.fullscreen {
 			touch-action: none;
 		}
+	}
+	
+	.video-container {
+		width: 100%;
+		height: 100%;
 	}
 	
 	.hideable {

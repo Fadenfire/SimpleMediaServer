@@ -14,7 +14,7 @@
 		<img class="thumbnail" src="{thumbnailPath}" alt="{title}">
 		<div class="duration-container">{formatDuration(duration)}</div>
 		
-		{#if progress}
+		{#if progress !== null}
 			<div class="bar-container">
 				<div class="bar" style="width: calc(max(10px, {progress / duration * 100}%));"></div>
 			</div>

@@ -46,6 +46,7 @@ interface ListDirectoryResponse {
 
 interface ApiChildFile {
 	path_name: string,
+	full_path: string,
 	display_name: string,
 	thumbnail_path: string,
 	duration: number,
@@ -57,6 +58,10 @@ interface ApiChildDirectory {
 	display_name: string,
 	thumbnail_path: string | null,
 	child_count: number,
+}
+
+interface ApiWatchHistoryResponse {
+	entries: ApiChildFile[],
 }
 
 interface ApiDimension {
