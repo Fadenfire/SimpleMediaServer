@@ -50,7 +50,7 @@
 		
 		.bar {
 			height: 100%;
-			background-color: red;
+			background-color: var(--video-player-accent-bar-color);
 		}
 	}
 </style>

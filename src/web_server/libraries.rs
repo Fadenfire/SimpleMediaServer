@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
+use hashlink::LinkedHashMap;
 use http::HeaderMap;
 use relative_path::{RelativePath, RelativePathBuf};
 
@@ -10,7 +10,7 @@ use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils;
 
 pub struct Libraries {
-	library_table: HashMap<String, Library>,
+	library_table: LinkedHashMap<String, Library>,
 }
 
 impl Libraries {

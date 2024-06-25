@@ -3,7 +3,7 @@ use std::fs::Permissions;
 use std::io::Cursor;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -43,11 +43,11 @@ async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<S
 		["api", tail @ ..] => api_routes::route_request(request, tail, server_state).await,
 		
 		_ => {
-			let fallback = ServeFile::new(server_state.web_ui_dir.join("index.html"))
+			let fallback = ServeFile::new(server_state.config.paths.web_ui_dir.join("index.html"))
 				.precompressed_gzip()
 				.precompressed_br();
 			
-			let mut serve_web_ui = ServeDir::new(&server_state.web_ui_dir)
+			let mut serve_web_ui = ServeDir::new(&server_state.config.paths.web_ui_dir)
 				.precompressed_gzip()
 				.precompressed_br()
 				.fallback(fallback);
@@ -60,10 +60,10 @@ async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<S
 	}
 }
 
-pub async fn run(server_config: ServerConfig, web_ui_dir: PathBuf) {
+pub async fn run(server_config: ServerConfig) {
 	let server_config2 = server_config.clone();
 	
-	let server_state = Arc::new(ServerState::init(server_config, web_ui_dir).await
+	let server_state = Arc::new(ServerState::init(server_config).await
 		.expect("Error initializing server state"));
 	
 	let mut servers = Vec::new();

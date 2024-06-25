@@ -3,10 +3,14 @@ use std::path::PathBuf;
 use anyhow::Context;
 use figment::Figment;
 use figment::providers::{Env, Format, Serialized, Yaml};
-use figment::value::magic::RelativePathBuf;
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 
 use crate::utils;
+
+pub const GENERAL_CONFIG_NAME: &str = "general.yml";
+pub const LIBRARIES_CONFIG_NAME: &str = "libraries.yml";
+pub const USERS_CONFIG_NAME: &str = "users.yml";
 
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -15,21 +19,36 @@ pub struct ServerConfig {
 }
 
 impl ServerConfig {
-	pub async fn load(main_config_path: PathBuf) -> anyhow::Result<Self> {
+	pub async fn load(data_dir: PathBuf, cache_dir: PathBuf) -> anyhow::Result<Self> {
+		let web_ui_dir = std::env::var_os("WEB_UI_DIR")
+			.map(PathBuf::from)
+			.unwrap_or_else(|| {
+				let exe_path = std::env::current_exe().expect("Could not get location of current executable");
+				exe_path.parent().unwrap().join("web-ui")
+			});
+		
+		if !tokio::fs::try_exists(&web_ui_dir).await.unwrap_or(false) {
+			panic!("Web UI assets directory does not exist");
+		}
+		
+		let config_dir = data_dir.join("config");
+		
 		let general_config: GeneralConfig = Figment::new()
 			.merge(Serialized::defaults(GeneralConfig::default()))
-			.merge(Yaml::file_exact(&main_config_path))
+			.merge(Yaml::file_exact(&config_dir.join(GENERAL_CONFIG_NAME)))
 			.merge(Env::prefixed("MEDIA_SERVER_"))
 			.extract()
 			.context("Loading general config")?;
 		
 		let paths = ServerPaths {
-			data_dir: general_config.data_dir.clone(),
-			cache_dir: general_config.cache_dir.clone(),
+			data_dir: data_dir.clone(),
+			cache_dir: cache_dir.clone(),
+			web_ui_dir,
+			config_dir,
 			
-			transcoded_segments_cache_dir: general_config.cache_dir.join(&general_config.caches.segments_cache_dir),
-			thumbnail_cache_dir: general_config.cache_dir.join(&general_config.caches.thumbnail_cache_dir),
-			thumbnail_sheet_cache_dir:  general_config.cache_dir.join(&general_config.caches.thumbnail_sheet_cache_dir),
+			transcoded_segments_cache_dir: cache_dir.join(&general_config.caches.segments_cache_dir),
+			thumbnail_cache_dir: cache_dir.join(&general_config.caches.thumbnail_cache_dir),
+			thumbnail_sheet_cache_dir: cache_dir.join(&general_config.caches.thumbnail_sheet_cache_dir),
 		};
 		
 		Ok(Self {
@@ -38,28 +57,23 @@ impl ServerConfig {
 		})
 	}
 	
-	pub async fn load_libraries_config(&self) -> anyhow::Result<LibrariesConfig> {
-		let config = match self.main_config.libraries_config {
-			Some(ref path) => Figment::new()
-				.merge(Yaml::file_exact(path.relative()))
+	async fn load_config<T: DeserializeOwned + Default>(path: PathBuf) -> anyhow::Result<T> {
+		if tokio::fs::try_exists(&path).await? {
+			Figment::new()
+				.merge(Yaml::file_exact(path))
 				.extract()
-				.context("Loading libraries config")?,
-			None => LibrariesConfig::default(),
-		};
-		
-		Ok(config)
+				.context("Loading config")
+		} else {
+			Ok(T::default())
+		}
+	}
+	
+	pub async fn load_libraries_config(&self) -> anyhow::Result<LibrariesConfig> {
+		Self::load_config(self.paths.config_dir.join(LIBRARIES_CONFIG_NAME)).await
 	}
 	
 	pub async fn load_users_config(&self) -> anyhow::Result<UsersConfig> {
-		let config = match self.main_config.users_config {
-			Some(ref path) => Figment::new()
-				.merge(Yaml::file_exact(path.relative()))
-				.extract()
-				.context("Loading users config")?,
-			None => UsersConfig::default(),
-		};
-		
-		Ok(config)
+		Self::load_config(self.paths.config_dir.join(USERS_CONFIG_NAME)).await
 	}
 }
 
@@ -67,6 +81,8 @@ impl ServerConfig {
 pub struct ServerPaths {
 	pub data_dir: PathBuf,
 	pub cache_dir: PathBuf,
+	pub web_ui_dir: PathBuf,
+	pub config_dir: PathBuf,
 	
 	pub transcoded_segments_cache_dir: PathBuf,
 	pub thumbnail_cache_dir: PathBuf,
@@ -76,11 +92,6 @@ pub struct ServerPaths {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GeneralConfig {
-	pub libraries_config: Option<RelativePathBuf>,
-	pub users_config: Option<RelativePathBuf>,
-	pub data_dir: PathBuf,
-	pub cache_dir: PathBuf,
-	
 	pub server: WebServerConfig,
 	pub transcoding: TranscodingConfig,
 	pub caches: CachesConfig,
@@ -89,11 +100,6 @@ pub struct GeneralConfig {
 impl Default for GeneralConfig {
 	fn default() -> Self {
 		Self {
-			libraries_config: None,
-			users_config: None,
-			data_dir: PathBuf::from("data"),
-			cache_dir: PathBuf::from("cache"),
-			
 			server: WebServerConfig::default(),
 			transcoding: TranscodingConfig::default(),
 			caches: CachesConfig::default(),
@@ -179,7 +185,7 @@ impl Default for CachesConfig {
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LibrariesConfig {
-	pub libraries: Vec<LibraryConfig>
+	pub libraries: Vec<LibraryConfig>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
@@ -187,13 +193,13 @@ pub struct LibrariesConfig {
 pub struct LibraryConfig {
 	pub id: String,
 	pub display_name: String,
-	pub path: PathBuf
+	pub path: PathBuf,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct UsersConfig {
-	pub users: Vec<UserConfig>
+	pub users: Vec<UserConfig>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
