@@ -1,3 +1,18 @@
+FROM --platform=$BUILDPLATFORM node:22-alpine as web-builder
+
+ENV COREPACK_HOME="/corepack"
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+COPY web-ui /app
+WORKDIR /app
+
+RUN --mount=type=cache,target=/corepack,sharing=locked \
+    --mount=type=cache,target=/pnpm/store,sharing=locked \
+    pnpm install --frozen-lockfile && \
+    pnpm run build
+
 FROM rust:1.79.0-slim-bookworm as builder
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
@@ -44,6 +59,7 @@ RUN mkdir ffmpeg &&  \
     ldconfig
 
 COPY --from=builder /app/media-server media-server
-COPY web-ui/build/ web-ui
+COPY --from=web-builder /app/build/ web-ui
 
 ENTRYPOINT ["/app/media-server"]
+CMD ["--data-dir", "/data", "--cache-dir", "/cache"]

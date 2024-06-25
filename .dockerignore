@@ -4,4 +4,8 @@
 /target
 /run
 
-.DS_Store
+/web-ui/.svelte-kit
+/web-ui/build
+/web-ui/node_modules
+
+*/.DS_Store
