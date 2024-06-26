@@ -246,7 +246,7 @@
 	}
 </script>
 
-<svelte:window on:keydown={onWindowKeyPressed} />
+<svelte:window on:keydown={onWindowKeyPressed} on:beforeunload={updateWatchProgress} />
 
 <figure class="player-container" class:fullscreen={isFullscreen} bind:this={playerElement} on:pointermove={resetIdleness} on:pointerdown={resetIdleness} on:fullscreenchange={onFullscreenChange}>
 	<div class="video-container" on:pointerdown={playerClick}>

@@ -28,10 +28,11 @@ pub async fn hls_manifest_route(
 	
 	manifest.push_str("#EXTM3U\n");
 	manifest.push_str("#EXT-X-PLAYLIST-TYPE:VOD\n");
-	manifest.push_str("#EXT-X-VERSION:4\n");
 	manifest.push_str(&format!("#EXT-X-TARGETDURATION:{}\n", SEGMENT_DURATION));
+	manifest.push_str("#EXT-X-VERSION:4\n");
+	manifest.push_str("#EXT-X-MEDIA-SEQUENCE:0\n");
 	
-	let segments = (duration / SEGMENT_DURATION as f64) as u32;
+	let segments = (duration / SEGMENT_DURATION as f64).floor() as u32;
 	
 	for i in 0..segments {
 		manifest.push_str(&format!("#EXTINF:{:?},\n", SEGMENT_DURATION as f64));
