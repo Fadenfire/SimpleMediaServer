@@ -143,7 +143,7 @@ impl VideoTranscoder {
 						let mut par = scopeguard::guard(par, |ptr| av_free(ptr.cast()));
 						
 						if !hw_frames_ctx.is_null() {
-							(**par).hw_frames_ctx = check_alloc(av_buffer_ref(hw_frames_ctx))?;
+							(**par).hw_frames_ctx = hw_frames_ctx;
 						}
 						
 						av_error(av_buffersrc_parameters_set(in_filter.as_mut_ptr(), *par))

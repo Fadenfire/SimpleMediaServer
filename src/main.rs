@@ -30,15 +30,14 @@ async fn main() {
 	ffmpeg_next::log::set_level(ffmpeg_next::log::Level::Warning);
 	
 	// let data = transcode_segment(TranscodingOptions {
-	// 	backend_factory: &MediaBackendFactory::new(),
+	// 	backend_factory: &MediaBackendFactory::new(TranscodingBackend::IntelQuickSync).unwrap(),
 	// 	media_path: PathBuf::from(std::env::args().nth(1).unwrap()),
 	// 	time_range: 100..105,
 	// 	target_video_height: 1080,
-	// 	target_video_framerate: 60,
 	// 	video_bitrate: 12_000_000,
 	// 	audio_bitrate: 160_000,
 	// }).unwrap();
-	//
+	// 
 	// tokio::fs::write("output.ts", &data).await.unwrap();
 	
 	info!("Starting server");
