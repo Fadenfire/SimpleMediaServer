@@ -3,7 +3,7 @@ use std::ops::Range;
 use anyhow::{anyhow, Context};
 use ffmpeg_next as ffmpeg;
 use ffmpeg_next::{codec, Dictionary, filter, format, frame, Packet, picture, Rational, Rescale};
-use ffmpeg_sys_next::{av_buffer_ref, av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVColorRange, AVColorSpace, AVPixelFormat};
+use ffmpeg_sys_next::{av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVColorRange, AVColorSpace, AVPixelFormat};
 use tracing::debug;
 
 use crate::media_manipulation::backends::{VideoBackend, VideoDecoderParams, VideoEncoderParams};

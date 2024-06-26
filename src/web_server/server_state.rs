@@ -22,9 +22,6 @@ pub struct ServerState {
 	pub user_watch_histories: Arc<Mutex<UserWatchHistories>>,
 	pub video_metadata_cache: MediaMetadataCache,
 	
-	pub media_backend_factory: Arc<MediaBackendFactory>,
-	pub transcoding_task_pool: Arc<TaskPool>,
-	
 	pub hls_segment_generator: ArtifactCache<HlsSegmentGenerator>,
 	pub thumbnail_generator: ArtifactCache<ThumbnailGenerator>,
 	pub thumbnail_sheet_generator: ArtifactCache<ThumbnailSheetGenerator>,
@@ -80,9 +77,6 @@ impl ServerState {
 			auth_manager,
 			user_watch_histories,
 			video_metadata_cache,
-			
-			media_backend_factory,
-			transcoding_task_pool,
 			
 			hls_segment_generator,
 			thumbnail_generator,

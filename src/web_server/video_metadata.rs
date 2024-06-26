@@ -58,7 +58,6 @@ impl MediaMetadataCache {
 
 #[derive(Clone, Debug)]
 pub struct MediaMetadata {
-	pub file_path: PathBuf,
 	pub file_size: u64,
 	pub mod_time: Option<SystemTime>,
 	pub path_name: String,
@@ -125,7 +124,6 @@ fn extract_media_metadata(
 	};
 	
 	Ok(MediaMetadata {
-		file_path: media_path,
 		file_size: file_metadata.len(),
 		mod_time: file_metadata.modified().ok(),
 		path_name,

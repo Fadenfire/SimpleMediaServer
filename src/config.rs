@@ -42,7 +42,6 @@ impl ServerConfig {
 		
 		let paths = ServerPaths {
 			data_dir: data_dir.clone(),
-			cache_dir: cache_dir.clone(),
 			web_ui_dir,
 			config_dir,
 			
@@ -80,7 +79,6 @@ impl ServerConfig {
 #[derive(Debug, Clone)]
 pub struct ServerPaths {
 	pub data_dir: PathBuf,
-	pub cache_dir: PathBuf,
 	pub web_ui_dir: PathBuf,
 	pub config_dir: PathBuf,
 	
