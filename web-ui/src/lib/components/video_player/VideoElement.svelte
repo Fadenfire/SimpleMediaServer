@@ -2,68 +2,112 @@
     import type { SvelteMediaTimeRange } from 'svelte/elements';
     import { VideoBackend } from './video_backend';
     import { onMount } from 'svelte';
+    import { escapePath, splitLibraryPath } from '$lib/utils';
 
 	export let mediaInfo: ApiMediaInfo;
 	
-	export let playerBackend: VideoBackend | undefined;
-	export let videoElement: HTMLVideoElement | undefined;
+	export let playerBackend: VideoBackend | undefined = undefined;
+	export let thumbSheetUrl: string | undefined = undefined;
+	export let videoBuffering = true;
+	
+	export let videoElement: HTMLVideoElement;
 	export let videoPaused: boolean;
 	export let videoEnded: boolean;
 	export let videoDuration: number;
 	export let videoCurrentTime: number;
 	export let videoBuffered: SvelteMediaTimeRange[];
-	export let videoBuffering: boolean;
 	
-	let innerPlayerBackend: VideoBackend | undefined;
-	
-	let innerVideoElement: HTMLVideoElement | undefined = undefined;
+	let innerVideoElement: HTMLVideoElement;
 	let innerPaused = true;
 	let innerEnded = false;
 	let innerDuration = mediaInfo.duration;
 	let innerCurrentTime = 0;
 	let innerBuffered: SvelteMediaTimeRange[] = [];
-	let innerBuffering = true;
 	
-	$: playerBackend = innerPlayerBackend;
 	$: videoElement = innerVideoElement;
 	$: videoPaused = innerPaused;
 	$: videoEnded = innerEnded;
 	$: videoDuration = innerDuration;
 	$: videoCurrentTime = innerCurrentTime;
 	$: videoBuffered = innerBuffered;
-	$: videoBuffering = innerBuffering;
+	
+	let mounted = false;	
+	
+	// Watch Progress
+	
+	function updateWatchProgress() {
+		if (!playerBackend) return;
+		
+		const [library_id, media_path] = splitLibraryPath(mediaInfo.path);
+		
+		const msg: UpdateWatchProgressParams = {
+			library_id,
+			media_path,
+			new_watch_progress: Math.floor(videoCurrentTime),
+		};
+		
+		fetch("/api/update_watch_progress", {
+			method: "POST",
+			body: JSON.stringify(msg)
+		});
+	}
+	
+	const updateWatchProgressInterval = setInterval(updateWatchProgress, 60 * 1000);
+	
+	// Buffering
 	
 	function onVideoLoadedData() {
-		innerBuffering = false;
+		videoBuffering = false;
 	}
 	
 	function onVideoWaiting() {
-		innerBuffering = true;
+		videoBuffering = true;
 	}
 	
 	function onVideoPlaying() {
-		innerBuffering = false;
+		videoBuffering = false;
 	}
 	
-	$: if (innerVideoElement && !innerPlayerBackend) {
-		innerPlayerBackend = new VideoBackend(innerVideoElement, mediaInfo);
-		innerPlayerBackend.attachNative();
+	onMount(() => {
+		mounted = true;
+		
+		playerBackend = new VideoBackend(innerVideoElement, mediaInfo);
+		playerBackend.attachNative();
 		
 		if (mediaInfo.watch_progress && mediaInfo.watch_progress < mediaInfo.duration - 10) {
 			innerVideoElement.currentTime = mediaInfo.watch_progress;
 		}
 		
+		videoBuffering = true;
 		console.log("Attached player backend");
-	}
-	
-	onMount(() => {
+		
+		if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
+		thumbSheetUrl = undefined;
+		
+		if (mediaInfo.video_info !== null) {
+			fetch(`/api/thumbnail_sheet/${escapePath(mediaInfo.path)}`)
+				.then(res => res.blob())
+				.then(blob => {
+					if (mounted) thumbSheetUrl = URL.createObjectURL(blob);
+				});
+		}
+		
 		return () => {
-			innerPlayerBackend?.detach();
+			mounted = false;
 			
+			if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
+			
+			clearInterval(updateWatchProgressInterval);
+			
+			playerBackend?.detach();
 			console.log("Dettached player backend");
+			
+			updateWatchProgress();
 		};
 	})
 </script>
+
+<svelte:window on:beforeunload={updateWatchProgress}/>
 
 <!-- svelte-ignore a11y-media-has-caption -->
 <video
@@ -79,9 +123,7 @@
 	on:playing={onVideoPlaying}
 
 	autoplay
->
-	
-</video>
+></video>
 
 <style lang="scss">
 	video {

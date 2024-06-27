@@ -1,18 +1,8 @@
-<script lang="ts" context="module">
-	export function caclulateThumbnailSheetOffset(time: number, videoInfo: ApiVideoInfo) {
-		const offset = Math.floor(time / videoInfo.thumbnail_sheet_interval);
-		
-		return {
-			spriteX: Math.floor(offset % videoInfo.thumbnail_sheet_cols),
-			spriteY: Math.floor(offset / videoInfo.thumbnail_sheet_rows)
-		}
-	}
-</script>
-
 <script lang="ts">
     import type { SvelteMediaTimeRange } from "svelte/elements";
     import Bar from "./Bar.svelte";
     import { formatDuration } from "$lib/utils";
+    import PreviewThumbnail from "./PreviewThumbnail.svelte";
 	
 	export let mediaInfo: ApiMediaInfo;
 	export let thumbSheetUrl: string | undefined;
@@ -95,7 +85,14 @@
 <svelte:window on:pointermove={onWindowPointerMove} on:pointerup={onWindowPointerUp} />
 
 <div class="timeline" class:expanded={mobile} bind:this={timelineElement}>
-	<div class="bounding-box" class:mobile={mobile} class:scrubbing={scrubbingTime !== null} on:pointerdown={onTimelinePointerDown} on:pointermove={onTimelinePointerMove} on:pointerleave={onTimelinePointerLeave}>
+	<div
+		class="bounding-box"
+		class:mobile={mobile}
+		class:scrubbing={scrubbingTime !== null}
+		on:pointerdown={onTimelinePointerDown}
+		on:pointermove={onTimelinePointerMove}
+		on:pointerleave={onTimelinePointerLeave}
+	>
 		<div class="bars">
 			<Bar color="var(--video-player-base-bar-color)"/>
 			
@@ -114,18 +111,14 @@
 			</div>
 			
 			{#if !mobile && hoverProgress !== null}
-				<div class="tooltip" style="transform: translateX({(hoverProgress) * 100}cqw) translate(-50%, -12px);">
+				<div class="tooltip" style="transform: translateX({hoverProgress * 100}cqw) translate(-50%, -12px);">
 					{#if videoInfo !== null && thumbSheetUrl !== undefined}
-						{@const thumbOffset = caclulateThumbnailSheetOffset(hoverProgress * videoDuration, videoInfo)}
-						<div
-							class="timeline-thumbnail"
-							style="
-								background-image: url({thumbSheetUrl});
-								background-position: -{thumbOffset.spriteX * 100}% -{thumbOffset.spriteY * 100}%;
-								background-size: {videoInfo.thumbnail_sheet_cols * 100}% {videoInfo.thumbnail_sheet_rows * 100}%;
-								aspect-ratio: {videoInfo.sheet_thumbnail_size.width} / {videoInfo.sheet_thumbnail_size.height};
-							"
-						></div>
+						<PreviewThumbnail
+							{videoInfo}
+							{thumbSheetUrl}
+							currentTime={hoverProgress * videoDuration}
+							extraStyles="height: 72px;"
+						/>
 					{/if}
 					
 					{formatDuration((hoverProgress) * videoDuration)}
@@ -209,10 +202,6 @@
 		text-align: center;
 		background-color: #000C;
 		padding: 4px;
-	}
-	
-	.timeline-thumbnail {
-		height: 72px;
 	}
 	
 	.bounding-box:not(.mobile):hover, .bounding-box.scrubbing {

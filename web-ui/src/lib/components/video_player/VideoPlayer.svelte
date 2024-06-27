@@ -3,18 +3,21 @@
 </script>
 
 <script lang="ts">
-    import { escapePath, formatDuration, replayAnimations, splitLibraryPath } from "$lib/utils";
+    import { formatDuration, replayAnimations } from "$lib/utils";
     import type { SvelteMediaTimeRange } from "svelte/elements";
-    import Timeline, { caclulateThumbnailSheetOffset } from "./Timeline.svelte";
+    import Timeline from "./Timeline.svelte";
     import FeatherIcon from "../FeatherIcon.svelte";
-    import { goto } from "$app/navigation";
-    import { onMount } from "svelte";
     import Spinner from "./Spinner.svelte";
     import { VideoBackend } from "./video_backend";
     import VideoElement from "./VideoElement.svelte";
+    import PlayPauseButton from "./buttons/PlayPauseButton.svelte";
+    import SkipButton from "./buttons/SkipButton.svelte";
+    import FullscreenButton from "./buttons/FullscreenButton.svelte";
+    import PreviewThumbnail from "./PreviewThumbnail.svelte";
 
 	export let mediaInfo: ApiMediaInfo;
 	
+	// Video properties
 	let playerBackend: VideoBackend | undefined;
 	let videoElement: HTMLVideoElement;
 	let videoPaused = true;
@@ -26,7 +29,9 @@
 	
 	let playerElement: HTMLElement;
 	let bottomControlsElement: HTMLElement;
+	let topControlsElement: HTMLElement;
 	let scrubbingTime: number | null = null;
+	let thumbSheetUrl: string | undefined;
 	
 	let tapBackIndicatorElement: HTMLElement | undefined;
 	let tapForwardIndicatorElement: HTMLElement | undefined;
@@ -34,59 +39,6 @@
 	const mobile = window.matchMedia("(pointer: coarse)").matches;
 	
 	$: videoInfo = mediaInfo.video_info;
-	
-	// Watch Progress
-	
-	function updateWatchProgress() {
-		if (!playerBackend) return;
-		
-		const [library_id, media_path] = splitLibraryPath(mediaInfo.path);
-		
-		const msg: UpdateWatchProgressParams = {
-			library_id,
-			media_path,
-			new_watch_progress: Math.floor(videoCurrentTime),
-		};
-		
-		fetch("/api/update_watch_progress", {
-			method: "POST",
-			body: JSON.stringify(msg)
-		});
-	}
-	
-	const updateWatchProgressInterval = setInterval(updateWatchProgress, 60 * 1000);
-	
-	// Thumbnail Sheet
-	
-	let mounted = true;
-	let lastPath: string | undefined;
-	let thumbSheetUrl: string | undefined;
-	
-	$: if (mediaInfo.path != lastPath) {
-		lastPath = mediaInfo.path;
-		
-		if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
-		thumbSheetUrl = undefined;
-		
-		if (mediaInfo.video_info !== null) {
-			fetch(`/api/thumbnail_sheet/${escapePath(mediaInfo.path)}`)
-				.then(res => res.blob())
-				.then(blob => {
-					if (mounted) thumbSheetUrl = URL.createObjectURL(blob);
-				});
-		}
-	}
-	
-	onMount(() => {
-		return () => {
-			mounted = false;
-			
-			clearInterval(updateWatchProgressInterval);
-			if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
-			
-			updateWatchProgress();
-		}
-	});
 	
 	// Idleness
 	
@@ -107,7 +59,7 @@
 	// Show Controls
 	
 	let showControls = false;
-	$: showControls = !isIdle || (!mobile && bottomControlsElement?.matches(":hover"));
+	$: showControls = !isIdle || (!mobile && (bottomControlsElement?.matches(":hover") || topControlsElement?.matches(":hover")));
 	
 	// Player Actions
 	
@@ -119,14 +71,6 @@
 			videoElement.pause();
 			videoPaused = true;
 		}
-	}
-	
-	function gotoPrevVideo() {
-		if (mediaInfo.prev_video !== null) goto(`../${encodeURIComponent(mediaInfo.prev_video)}/`, { replaceState: true });
-	}
-	
-	function gotoNextVideo() {
-		if (mediaInfo.next_video !== null) goto(`../${encodeURIComponent(mediaInfo.next_video)}/`, { replaceState: true });
 	}
 	
 	function jump(amount: number) {
@@ -246,38 +190,38 @@
 	}
 </script>
 
-<svelte:window on:keydown={onWindowKeyPressed} on:beforeunload={updateWatchProgress} />
+<svelte:window on:keydown={onWindowKeyPressed}/>
 
-<figure class="player-container" class:fullscreen={isFullscreen} bind:this={playerElement} on:pointermove={resetIdleness} on:pointerdown={resetIdleness} on:fullscreenchange={onFullscreenChange}>
+<figure
+	class="player-container"
+	class:fullscreen={isFullscreen}
+	bind:this={playerElement}
+	on:pointermove={resetIdleness}
+	on:pointerdown={resetIdleness}
+	on:fullscreenchange={onFullscreenChange}
+>
 	<div class="video-container" on:pointerdown={playerClick}>
 		{#key mediaInfo.path}
 			<VideoElement
-				mediaInfo={mediaInfo}
+				{mediaInfo}
 				
-				bind:playerBackend={playerBackend}
-				bind:videoElement={videoElement}
-				bind:videoPaused={videoPaused}
-				bind:videoEnded={videoEnded}
-				bind:videoDuration={videoDuration}
-				bind:videoCurrentTime={videoCurrentTime}
-				bind:videoBuffered={videoBuffered}
-				bind:videoBuffering={videoBuffering}
+				bind:playerBackend
+				bind:thumbSheetUrl
+				
+				bind:videoElement
+				bind:videoPaused
+				bind:videoEnded
+				bind:videoDuration
+				bind:videoCurrentTime
+				bind:videoBuffered
+				bind:videoBuffering
 			/>
 		{/key}
 	</div>
 	
 	{#if mobile && scrubbingTime !== null && videoInfo !== null && thumbSheetUrl !== undefined}
-		{@const thumbOffset = caclulateThumbnailSheetOffset(scrubbingTime, videoInfo)}
 		<div class="full-thumbnail-container">
-			<div
-				class="full-thumbnail"
-				style="
-					background-image: url({thumbSheetUrl});
-					background-position: -{thumbOffset.spriteX * 100}% -{thumbOffset.spriteY * 100}%;
-					background-size: {videoInfo.thumbnail_sheet_cols * 100}% {videoInfo.thumbnail_sheet_rows * 100}%;
-					aspect-ratio: {videoInfo.sheet_thumbnail_size.width} / {videoInfo.sheet_thumbnail_size.height};
-				"
-			></div>
+			<PreviewThumbnail {videoInfo} {thumbSheetUrl} currentTime={scrubbingTime} extraStyles="flex: 1;"/>
 		</div>
 	{/if}
 	
@@ -287,31 +231,21 @@
 		</div>
 	{/if}
 	
-	{#if mobile || isFullscreen}
-		<div class="top-controls hideable" class:hidden={!showControls}>
-			<div class="control-row">
-				<div class="control-element video-title">{mediaInfo.display_name}</div>
-			</div>
+	<div bind:this={topControlsElement} class="top-controls hideable" class:hidden={!showControls}>
+		<div class="control-row">
+			{#if isFullscreen || true}
+				<div class="control-element"><div class="video-title">{mediaInfo.display_name}</div></div>
+			{/if}
+			
+			<div class="spacer"></div>
 		</div>
-	{/if}
+	</div>
 	
 	{#if mobile}
 		<div class="center-controls hideable" class:hidden={!showControls}>
-			<button class="center-control-button" on:click={gotoPrevVideo} disabled={mediaInfo.prev_video === null}>
-				<FeatherIcon name="skip-back" size="1em"/>
-			</button>
-			
-			<button class="center-control-button play-pause" on:click={playPause}>
-				{#if videoPaused || videoEnded}
-					<FeatherIcon name="play" size="1em" style="transform: translateX(2px);"/>
-				{:else}
-					<FeatherIcon name="pause" size="1em"/>
-				{/if}
-			</button>
-			
-			<button class="center-control-button" on:click={gotoNextVideo} disabled={mediaInfo.next_video === null}>
-				<FeatherIcon name="skip-forward" size="1em"/>
-			</button>
+			<SkipButton floating={true} direction=back {mediaInfo}/>
+			<PlayPauseButton floating={true} {videoPaused} on:click={playPause}/>
+			<SkipButton floating={true} direction=forward {mediaInfo}/>
 		</div>
 		
 		{#if tapSeekBackAmount > 0}
@@ -330,78 +264,41 @@
 	{/if}
 	
 	<div bind:this={bottomControlsElement} class="bottom-controls hideable" class:hidden={!showControls}>
-		{#if !mobile}
-			<Timeline
-				mediaInfo={mediaInfo}
-				thumbSheetUrl={thumbSheetUrl}
-				mobile={false}
-				
-				videoElement={videoElement}
-				bind:videoPaused={videoPaused}
-				bind:videoCurrentTime={videoCurrentTime}
-				videoDuration={videoDuration}
-				videoBuffered={videoBuffered}
-				
-				bind:scrubbingTime={scrubbingTime}
-			/>
-			
+		{#if mobile}
 			<div class="control-row">
-				<button class="control-button" on:click={gotoPrevVideo} disabled={mediaInfo.prev_video === null}>
-					<FeatherIcon name="skip-back" size="1em"/>
-				</button>
+				<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
 				
-				<button class="control-button" on:click={playPause}>
-					{#if videoPaused || videoEnded}
-						<FeatherIcon name="play" size="1em"/>
-					{:else}
-						<FeatherIcon name="pause" size="1em"/>
-					{/if}
-				</button>
+				<div class="spacer"></div>
 				
-				<button class="control-button" on:click={gotoNextVideo} disabled={mediaInfo.next_video === null}>
-					<FeatherIcon name="skip-forward" size="1em"/>
-				</button>
-				
+				<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
+			</div>
+		{/if}
+		
+		<Timeline
+			{mediaInfo}
+			{thumbSheetUrl}
+			{mobile}
+			
+			{videoElement}
+			bind:videoPaused={videoPaused}
+			bind:videoCurrentTime={videoCurrentTime}
+			{videoDuration}
+			{videoBuffered}
+			
+			bind:scrubbingTime={scrubbingTime}
+		/>
+		
+		{#if !mobile}
+			<div class="control-row">
+				<SkipButton direction=back {mediaInfo}/>
+				<PlayPauseButton {videoPaused} on:click={playPause}/>
+				<SkipButton direction=forward {mediaInfo}/>
 				<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
 				
 				<div class="spacer"></div>
 
-				<button class="control-button" on:click={toggleFullscreen}>
-					{#if isFullscreen}
-						<FeatherIcon name="minimize" size="1em"/>
-					{:else}
-						<FeatherIcon name="maximize" size="1em"/>
-					{/if}
-				</button>
+				<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
 			</div>
-		{:else}
-			<div class="control-row">
-				<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
-				
-				<div class="spacer"></div>
-				
-				<button class="control-button" on:click={toggleFullscreen}>
-					{#if isFullscreen}
-						<FeatherIcon name="minimize" size="1em"/>
-					{:else}
-						<FeatherIcon name="maximize" size="1em"/>
-					{/if}
-				</button>
-			</div>
-			
-			<Timeline
-				mediaInfo={mediaInfo}
-				thumbSheetUrl={thumbSheetUrl}
-				mobile={true}
-				
-				videoElement={videoElement}
-				bind:videoPaused={videoPaused}
-				bind:videoCurrentTime={videoCurrentTime}
-				videoDuration={videoDuration}
-				videoBuffered={videoBuffered}
-				
-				bind:scrubbingTime={scrubbingTime}
-			/>
 		{/if}
 	</div>
 </figure>
@@ -435,19 +332,6 @@
 		}
 	}
 	
-	button {
-		padding: 0;
-		margin: 0;
-		background: none;
-		border-radius: 0;
-		color: inherit;
-		font-size: inherit;
-		font-weight: inherit;
-		text-decoration: none;
-		border: none;
-		cursor: pointer;
-	}
-	
 	.full-thumbnail-container {
 		position: absolute;
 		top: 0;
@@ -457,10 +341,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		
-		.full-thumbnail {
-			flex: 1;
-		}
 	}
 	
 	.spinner-container {
@@ -506,6 +386,7 @@
 		display: flex;
 		flex-direction: column;
 		background: linear-gradient(to top, rgba(black, 0.6), transparent);
+		padding-top: 6px;
 		padding: 0 8px;
 	}
 	
@@ -519,37 +400,6 @@
 		}
 	}
 	
-	.control-button {
-		width: var(--video-player-control-size);
-		height: var(--video-player-control-size);
-		font-size: var(--video-player-control-size);
-		
-		&:disabled {
-			color: var(--disabled-text-color);
-		}
-	}
-	
-	.center-control-button {
-		width: var(--video-player-center-control-size);
-		height: var(--video-player-center-control-size);
-		font-size: var(--video-player-center-control-icon-size);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50%;
-		background-color: #0009;
-		
-		&.play-pause {
-			width: calc(var(--video-player-center-control-size) * 1.5);
-			height: calc(var(--video-player-center-control-size) * 1.5);
-			font-size: calc(var(--video-player-center-control-icon-size) * 1.5);
-		}
-		
-		&:disabled {
-			color: var(--disabled-text-color);
-		}
-	}
-	
 	.control-element {
 		height: var(--video-player-control-size);
 		line-height: var(--video-player-control-size);
@@ -559,8 +409,12 @@
 	}
 	
 	.video-title {
+		position: absolute;
+		top: 8px;
+		left: 0px;
+		width: 100%;
+		text-align: center;
 		font-size: var(--video-player-control-size);
-		margin: 0 auto;
 	}
 	
 	@keyframes fadeOut {
