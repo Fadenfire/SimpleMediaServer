@@ -17,7 +17,7 @@ pub async fn thumbnail_sheet_route(
 	
 	let resolved_path = libraries::resolve_path_with_auth(
 		server_state, library_id, library_path.iter().collect(), request.headers())?;
-	let media_path = video_locator::locate_video(&resolved_path).await.map_err(|_| ApiError::FileNotFound)?;
+	let media_path = video_locator::locate_video(&resolved_path).await?.file()?;
 	
 	let generated_sprite_sheet = server_state.thumbnail_sheet_generator.get_or_generate(media_path).await?;
 	

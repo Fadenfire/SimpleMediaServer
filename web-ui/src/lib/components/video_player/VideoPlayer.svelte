@@ -14,6 +14,7 @@
     import SkipButton from "./buttons/SkipButton.svelte";
     import FullscreenButton from "./buttons/FullscreenButton.svelte";
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
+    import ConnectionsButton from "./buttons/ConnectionsButton.svelte";
 
 	export let mediaInfo: ApiMediaInfo;
 	
@@ -233,11 +234,13 @@
 	
 	<div bind:this={topControlsElement} class="top-controls hideable" class:hidden={!showControls}>
 		<div class="control-row">
-			{#if isFullscreen || true}
+			{#if isFullscreen}
 				<div class="control-element"><div class="video-title">{mediaInfo.display_name}</div></div>
 			{/if}
 			
 			<div class="spacer"></div>
+			
+			<ConnectionsButton {mediaInfo} currentTime={videoCurrentTime}/>
 		</div>
 	</div>
 	
@@ -392,6 +395,7 @@
 	
 	.control-row {
 		display: flex;
+		align-items: center;
 		padding: 8px;
 		gap: 8px;
 		
@@ -411,8 +415,8 @@
 	.video-title {
 		position: absolute;
 		top: 8px;
-		left: 0px;
-		width: 100%;
+		left: 50%;
+		transform: translateX(-50%);
 		text-align: center;
 		font-size: var(--video-player-control-size);
 	}

@@ -7,6 +7,7 @@ use crate::web_server::api_routes::list_dir;
 use crate::web_server::api_routes::list_dir::FileEntry;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::{video_locator, web_utils};
+use crate::web_server::video_locator::LocatedFile;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
 #[instrument(skip_all)]
@@ -37,7 +38,7 @@ pub async fn get_watch_history_route(server_state: &ServerState, request: &Hyper
 	};
 	
 	for (history_entry, resolved_path) in history_entries {
-		let Ok(media_path) = video_locator::locate_video(&resolved_path).await else { continue };
+		let Ok(media_path) = video_locator::locate_video(&resolved_path).await.and_then(LocatedFile::file) else { continue };
 		
 		match list_dir::create_file_entry(server_state, user, &history_entry.library_id, &history_entry.media_path, &media_path).await {
 			Ok(file_entry) => entries.push(file_entry),

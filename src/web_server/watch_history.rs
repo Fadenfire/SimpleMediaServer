@@ -12,6 +12,7 @@ use time::OffsetDateTime;
 use tokio::sync::Notify;
 
 use crate::web_server::auth::AuthManager;
+use crate::web_server::video_locator;
 
 pub struct UserWatchHistories {
 	watch_histories: HashMap<String, WatchHistory>,
@@ -102,14 +103,16 @@ impl WatchHistory {
 		ser_entries.sort_by_key(|entry| entry.last_watched);
 		
 		for ser_entry in ser_entries {
+			let media_path = normalize_path(&ser_entry.media_path);
+			
 			let key = MediaKey {
 				library_id: ser_entry.library_id.clone(),
-				media_path: ser_entry.media_path.clone(),
+				media_path: media_path.clone(),
 			};
 			
 			let entry = WatchHistoryEntry {
 				library_id: ser_entry.library_id,
-				media_path: ser_entry.media_path,
+				media_path,
 				last_watched: ser_entry.last_watched,
 				progress: ser_entry.progress,
 			};
@@ -128,11 +131,13 @@ impl WatchHistory {
 	}
 	
 	pub fn get_entry(&self, library_id: &str, media_path: &RelativePath) -> Option<&WatchHistoryEntry> {
-		self.entries.get(&MediaKey::new(library_id, media_path.normalize()))
+		let media_path = normalize_path(media_path);
+		
+		self.entries.get(&MediaKey::new(library_id, media_path))
 	}
 	
 	pub fn update_progress(&mut self, library_id: &str, media_path: &RelativePath, new_progress: u64) {
-		let media_path = media_path.normalize();
+		let media_path = normalize_path(media_path);
 		let updated_time = OffsetDateTime::now_utc();
 		
 		match self.entries.entry(MediaKey::new(library_id, media_path.clone())) {
@@ -171,6 +176,16 @@ impl WatchHistory {
 				.collect(),
 		}
 	}
+}
+
+fn normalize_path(path: &RelativePath) -> RelativePathBuf {
+	let mut path = path.normalize();
+	
+	if path.extension().is_some_and(|ext| video_locator::MEDIA_EXTENSIONS.contains(&ext)) {
+		path.set_extension("");
+	}
+	
+	path
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]

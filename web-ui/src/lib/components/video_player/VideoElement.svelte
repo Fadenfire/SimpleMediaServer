@@ -3,6 +3,7 @@
     import { VideoBackend } from './video_backend';
     import { onMount } from 'svelte';
     import { escapePath, splitLibraryPath } from '$lib/utils';
+    import { page } from '$app/stores';
 
 	export let mediaInfo: ApiMediaInfo;
 	
@@ -74,7 +75,11 @@
 		playerBackend = new VideoBackend(innerVideoElement, mediaInfo);
 		playerBackend.attachNative();
 		
-		if (mediaInfo.watch_progress && mediaInfo.watch_progress < mediaInfo.duration - 10) {
+		const seekOverride: number | undefined = $page.state?.videoPlayerSeekTo;
+		
+		if (seekOverride !== undefined) {
+			innerVideoElement.currentTime = seekOverride;
+		} else if (mediaInfo.watch_progress && mediaInfo.watch_progress < mediaInfo.duration - 10) {
 			innerVideoElement.currentTime = mediaInfo.watch_progress;
 		}
 		

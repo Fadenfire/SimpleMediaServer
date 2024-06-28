@@ -34,6 +34,12 @@
 		width: var(--video-player-control-size);
 		height: var(--video-player-control-size);
 		font-size: var(--video-player-control-size);
+		
+		&.large {
+			width: calc(var(--video-player-control-size) * 1.5);
+			height: calc(var(--video-player-control-size) * 1.5);
+			font-size: calc(var(--video-player-control-size) * 1.5);
+		}
 	}
 	
 	.floating-control-button {

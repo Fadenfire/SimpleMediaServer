@@ -23,6 +23,7 @@ interface ApiMediaInfo {
 	prev_video: string | null,
 	next_video: string | null,
 	watch_progress: number | null,
+	connections: ApiVideoConnection[],
 }
 
 interface ApiVideoInfo {
@@ -31,6 +32,14 @@ interface ApiVideoInfo {
 	thumbnail_sheet_rows: number,
 	thumbnail_sheet_cols: number,
 	thumbnail_sheet_interval: number,
+}
+
+interface ApiVideoConnection {
+	other_path: string,
+	shortcut_thumbnail: string | null,
+	left_start: number,
+	left_end: number,
+	right_start: number,
 }
 
 interface ApiDirectoryInfo {

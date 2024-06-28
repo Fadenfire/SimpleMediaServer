@@ -19,7 +19,7 @@ pub async fn hls_manifest_route(
 	
 	let resolved_path = libraries::resolve_path_with_auth(
 		server_state, library_id, library_path.iter().collect(), request.headers())?;
-	let media_path = video_locator::locate_video(&resolved_path).await.map_err(|_| ApiError::FileNotFound)?;
+	let media_path = video_locator::locate_video(&resolved_path).await?.file()?;
 	
 	let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&media_path, &server_state.thumbnail_sheet_generator).await?;
 	let duration = media_metadata.duration.as_secs_f64();
