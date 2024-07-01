@@ -1,3 +1,4 @@
+use std::ffi::c_int;
 use anyhow::{anyhow, Context};
 use ffmpeg_next::{codec, decoder, encoder};
 use ffmpeg_next::format::Pixel;
@@ -100,6 +101,7 @@ impl VideoBackend for QuickSyncVideoBackend {
 			(*ctx).hw_device_ctx = self.hw_context.add_ref()?;
 			(*ctx).get_format = Some(Self::get_format);
 			(*ctx).pkt_timebase = params.packet_time_base.into();
+			(*ctx).flags |= params.flags as c_int;
 		}
 		
 		let decoder = decoder_context.decoder().video().context("Opening decoder")?;

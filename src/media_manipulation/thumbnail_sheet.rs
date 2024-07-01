@@ -1,8 +1,11 @@
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Context;
 use bytes::Bytes;
 use ffmpeg_next::{decoder, format, frame, media, rescale, Rescale};
+use ffmpeg_sys_next::AV_CODEC_FLAG_COPY_OPAQUE;
 use image::{GenericImage, Rgb, RgbImage};
 use serde::{Deserialize, Serialize};
 use turbojpeg::Subsamp;
@@ -10,7 +13,7 @@ use turbojpeg::Subsamp;
 use crate::media_manipulation::backends::{BackendFactory, VideoDecoderParams};
 use crate::media_manipulation::media_utils;
 use crate::media_manipulation::media_utils::frame_scaler::FrameScaler;
-use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;
+use crate::media_manipulation::media_utils::{MILLIS_TIME_BASE, SECONDS_TIME_BASE};
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 120;
 const JPEG_QUALITY: i32 = 90;
@@ -26,10 +29,11 @@ pub struct ThumbnailSheetParams {
 }
 
 pub fn calculate_sheet_params(duration: i64, video_width: u32, video_height: u32) -> ThumbnailSheetParams {
-	let video_duration: u32 = duration.rescale(rescale::TIME_BASE, SECONDS_TIME_BASE).try_into().unwrap();
-	let interval = (video_duration / 500).max(10);
+	let video_duration_millis = duration.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE).try_into().unwrap();
+	let video_duration = Duration::from_millis(video_duration_millis);
+	let interval = (video_duration.as_secs() / 500).max(5) as u32;
 	
-	let thumbnail_count = video_duration / interval;
+	let thumbnail_count = (video_duration.as_secs_f64() / interval as f64).ceil() as u32;
 	let sheet_dimension = (thumbnail_count as f64).sqrt().ceil() as u32;
 	
 	ThumbnailSheetParams {
@@ -53,6 +57,8 @@ pub fn generate_sheet(backend_factory: &impl BackendFactory, media_path: PathBuf
 	let mut decoder = video_backend.create_decoder(VideoDecoderParams {
 		stream_params: video_stream.parameters(),
 		packet_time_base: video_stream.time_base(),
+		flags: AV_CODEC_FLAG_COPY_OPAQUE,
+		..Default::default()
 	})?;
 	
 	media_utils::discard_all_but_keyframes(&mut demuxer, video_stream_index);
@@ -67,18 +73,18 @@ pub fn generate_sheet(backend_factory: &impl BackendFactory, media_path: PathBuf
 	let mut scaler = FrameScaler::new();
 	let mut frame = frame::Video::empty();
 	
-	let mut frames_processed = 0;
-	
 	let mut receive_frames = |decoder: &mut decoder::Video| -> anyhow::Result<()> {
 		while decoder.receive_frame(&mut frame).is_ok() {
+			let Some(frame_opaque) = media_utils::get_frame_opaque(&frame) else { continue };
+			let offset = (frame_opaque.get() - 1) as u32;
+			
 			let rgb_frame = scaler.scale_frame_rgb(&frame, sheet_params.thumbnail_width, sheet_params.thumbnail_height)?;
 			let image_view = media_utils::frame_image_sample_rgb(&rgb_frame);
 			
-			let x_pos = (frames_processed % sheet_params.sheet_cols) * sheet_params.thumbnail_width;
-			let y_pos = (frames_processed / sheet_params.sheet_rows) * sheet_params.thumbnail_height;
+			let x_pos = (offset % sheet_params.sheet_cols) * sheet_params.thumbnail_width;
+			let y_pos = (offset / sheet_params.sheet_rows) * sheet_params.thumbnail_height;
 			
 			sprite_sheet.copy_from(&image_view.as_view::<Rgb<u8>>().unwrap(), x_pos, y_pos).unwrap();
-			frames_processed += 1;
 		}
 		
 		Ok(())
@@ -87,9 +93,12 @@ pub fn generate_sheet(backend_factory: &impl BackendFactory, media_path: PathBuf
 	for offset in 0..sheet_params.thumbnail_count {
 		let time = (offset * sheet_params.interval).rescale(SECONDS_TIME_BASE, rescale::TIME_BASE);
 		
-		demuxer.seek(time, time..).context("Seeking")?;
+		if demuxer.seek(time, time..).is_err() { continue; }
 		
-		media_utils::push_one_packet(&mut demuxer, &mut decoder, video_stream_index)?;
+		// Add one to make it one indexed
+		let packet_opaque = NonZeroUsize::new(offset as usize + 1).unwrap();
+		
+		media_utils::push_one_packet(&mut demuxer, &mut decoder, video_stream_index, Some(packet_opaque))?;
 		receive_frames(&mut decoder)?;
 	}
 	

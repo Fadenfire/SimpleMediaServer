@@ -48,6 +48,7 @@ impl VideoTranscoder {
 		let decoder = params.backend.create_decoder(VideoDecoderParams {
 			stream_params: params.in_stream.parameters(),
 			packet_time_base: params.in_stream.time_base(),
+			..Default::default()
 		})?;
 		
 		let framerate = decoder.frame_rate().unwrap_or(Rational(60, 1));
@@ -189,6 +190,7 @@ impl VideoTranscoder {
 					bitrate: self.bit_rate,
 					encoder_options: self.encoder_options.clone(),
 					input_hw_ctx: Some(hw_ctx),
+					..Default::default()
 				}).context("Creating encoder")?;
 				
 				self.encoder = Some(encoder);

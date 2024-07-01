@@ -305,8 +305,6 @@
 				</div>
 			{/if}
 		</div>
-		
-		<div style="grid-area: right; background-color: red;">dsadnais</div>
 	</div>
 </figure>
 

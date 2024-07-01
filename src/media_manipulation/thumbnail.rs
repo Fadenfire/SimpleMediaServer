@@ -8,8 +8,8 @@ use rand_chacha::ChaCha20Rng;
 use turbojpeg::Subsamp;
 
 use crate::media_manipulation::backends::{BackendFactory, VideoDecoderParams};
-use crate::media_manipulation::media_utils::frame_scaler::FrameScaler;
 use crate::media_manipulation::media_utils;
+use crate::media_manipulation::media_utils::frame_scaler::FrameScaler;
 use crate::media_manipulation::media_utils::MICRO_TIME_BASE;
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 720;
@@ -27,6 +27,7 @@ pub fn extract_thumbnail(backend_factory: &impl BackendFactory, media_path: Path
 	let mut decoder = video_backend.create_decoder(VideoDecoderParams {
 		stream_params: video_stream.parameters(),
 		packet_time_base: video_stream.time_base(),
+		..Default::default()
 	})?;
 	
 	media_utils::discard_all_but_keyframes(&mut demuxer, video_stream_index);
@@ -71,9 +72,9 @@ pub fn extract_thumbnail(backend_factory: &impl BackendFactory, media_path: Path
 		let time = rng.gen_range((video_duration / 10)..(video_duration / 10 * 9))
 			.rescale(MICRO_TIME_BASE, rescale::TIME_BASE);
 		
-		demuxer.seek(time, time..).context("Seeking")?;
+		if demuxer.seek(time, ..).is_err() { continue; }
 		
-		media_utils::push_one_packet(&mut demuxer, &mut decoder, video_stream_index)?;
+		media_utils::push_one_packet(&mut demuxer, &mut decoder, video_stream_index, None)?;
 		receive_frames(&mut decoder)?;
 	}
 	

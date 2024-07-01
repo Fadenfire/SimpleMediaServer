@@ -1,3 +1,4 @@
+use std::ffi::c_int;
 use anyhow::{anyhow, Context};
 use ffmpeg_next::{codec, decoder, encoder};
 use ffmpeg_next::format::Pixel;
@@ -59,6 +60,8 @@ impl VideoBackend for VideoToolboxVideoBackend {
 		
 		let mut decoder_context = codec::context::Context::new_with_codec(decoder_codec);
 		decoder_context.set_parameters(params.stream_params)?;
+		
+		unsafe { (*decoder_context.as_mut_ptr()).flags |= params.flags as c_int; }
 		
 		let mut decoder = decoder_context.decoder().video().context("Opening decoder")?;
 		
