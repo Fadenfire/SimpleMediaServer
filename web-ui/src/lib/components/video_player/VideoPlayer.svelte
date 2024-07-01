@@ -29,8 +29,6 @@
 	let videoBuffering = true;
 	
 	let playerElement: HTMLElement;
-	let bottomControlsElement: HTMLElement;
-	let topControlsElement: HTMLElement;
 	let scrubbingTime: number | null = null;
 	let thumbSheetUrl: string | undefined;
 	
@@ -59,8 +57,10 @@
 	
 	// Show Controls
 	
+	let controlsContainerElement: HTMLElement;
+	
 	let showControls = false;
-	$: showControls = !isIdle || (!mobile && (bottomControlsElement?.matches(":hover") || topControlsElement?.matches(":hover")));
+	$: showControls = !isIdle || (!mobile && controlsContainerElement?.matches(":hover"));
 	
 	// Player Actions
 	
@@ -232,18 +232,6 @@
 		</div>
 	{/if}
 	
-	<div bind:this={topControlsElement} class="top-controls hideable" class:hidden={!showControls}>
-		<div class="control-row">
-			{#if isFullscreen}
-				<div class="control-element"><div class="video-title">{mediaInfo.display_name}</div></div>
-			{/if}
-			
-			<div class="spacer"></div>
-			
-			<ConnectionsButton {mediaInfo} currentTime={videoCurrentTime}/>
-		</div>
-	</div>
-	
 	{#if mobile}
 		<div class="center-controls hideable" class:hidden={!showControls}>
 			<SkipButton floating={true} direction=back {mediaInfo}/>
@@ -266,43 +254,59 @@
 		{/if}
 	{/if}
 	
-	<div bind:this={bottomControlsElement} class="bottom-controls hideable" class:hidden={!showControls}>
-		{#if mobile}
+	<div bind:this={controlsContainerElement} class="controls-container hideable" class:hidden={!showControls}>
+		<div class="top-controls">
 			<div class="control-row">
-				<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
+				{#if isFullscreen}
+					<div class="control-element"><div class="video-title">{mediaInfo.display_name}</div></div>
+				{/if}
 				
 				<div class="spacer"></div>
 				
-				<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
+				<ConnectionsButton {mediaInfo} currentTime={videoCurrentTime}/>
 			</div>
-		{/if}
+		</div>
 		
-		<Timeline
-			{mediaInfo}
-			{thumbSheetUrl}
-			{mobile}
+		<div class="bottom-controls">
+			{#if mobile}
+				<div class="control-row">
+					<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
+					
+					<div class="spacer"></div>
+					
+					<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
+				</div>
+			{/if}
 			
-			{videoElement}
-			bind:videoPaused={videoPaused}
-			bind:videoCurrentTime={videoCurrentTime}
-			{videoDuration}
-			{videoBuffered}
-			
-			bind:scrubbingTime={scrubbingTime}
-		/>
-		
-		{#if !mobile}
-			<div class="control-row">
-				<SkipButton direction=back {mediaInfo}/>
-				<PlayPauseButton {videoPaused} on:click={playPause}/>
-				<SkipButton direction=forward {mediaInfo}/>
-				<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
+			<Timeline
+				{mediaInfo}
+				{thumbSheetUrl}
+				{mobile}
 				
-				<div class="spacer"></div>
-
-				<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
-			</div>
-		{/if}
+				{videoElement}
+				bind:videoPaused={videoPaused}
+				bind:videoCurrentTime={videoCurrentTime}
+				{videoDuration}
+				{videoBuffered}
+				
+				bind:scrubbingTime={scrubbingTime}
+			/>
+			
+			{#if !mobile}
+				<div class="control-row">
+					<SkipButton direction=back {mediaInfo}/>
+					<PlayPauseButton {videoPaused} on:click={playPause}/>
+					<SkipButton direction=forward {mediaInfo}/>
+					<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
+					
+					<div class="spacer"></div>
+	
+					<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
+				</div>
+			{/if}
+		</div>
+		
+		<div style="grid-area: right; background-color: red;">dsadnais</div>
 	</div>
 </figure>
 
@@ -335,41 +339,6 @@
 		}
 	}
 	
-	.full-thumbnail-container {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-	
-	.spinner-container {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		width: calc(var(--video-player-center-control-size) * 1.5);
-		height: calc(var(--video-player-center-control-size) * 1.5);
-		font-size: calc(var(--video-player-center-control-icon-size) * 1.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50%;
-		background-color: #0009;
-	}
-	
-	.top-controls {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		background: linear-gradient(to bottom, rgba(black, 0.6), transparent);
-		padding: 0 8px;
-	}
-	
 	.center-controls {
 		position: absolute;
 		top: 50%;
@@ -381,16 +350,39 @@
 		gap: 32px;
 	}
 	
-	.bottom-controls {
+	.controls-container {
 		position: absolute;
-		bottom: 0;
+		top: 0;
 		left: 0;
 		width: 100%;
+		height: 100%;
+		display: grid;
+		grid-template-areas:
+			"top top top"
+			". . right"
+			"bottom bottom bottom";
+		grid-template-columns: auto 1fr auto;
+		grid-template-rows: auto 1fr auto;
+		pointer-events: none;
+		
+		> * {
+			pointer-events: auto;
+		}
+	}
+	
+	.top-controls {
+		grid-area: top;
+		background: linear-gradient(to bottom, rgba(black, 0.6), transparent);
+		padding: 0 8px;
+	}
+	
+	.bottom-controls {
+		grid-area: bottom;
 		display: flex;
 		flex-direction: column;
 		background: linear-gradient(to top, rgba(black, 0.6), transparent);
-		padding-top: 6px;
 		padding: 0 8px;
+		padding-top: 6px;
 	}
 	
 	.control-row {
@@ -419,6 +411,32 @@
 		transform: translateX(-50%);
 		text-align: center;
 		font-size: var(--video-player-control-size);
+	}
+	
+	.full-thumbnail-container {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	
+	.spinner-container {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: calc(var(--video-player-center-control-size) * 1.5);
+		height: calc(var(--video-player-center-control-size) * 1.5);
+		font-size: calc(var(--video-player-center-control-icon-size) * 1.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		background-color: #0009;
 	}
 	
 	@keyframes fadeOut {
