@@ -1,5 +1,15 @@
 <script lang="ts" context="module">
 	export const TAP_SEEK_AMOUNT = 10;
+
+	export function isMobile() {
+		// return true;
+		return window.matchMedia("(pointer: coarse)").matches;
+	}
+	
+	export enum SidebarType {
+		None,
+		Connections,
+	}
 </script>
 
 <script lang="ts">
@@ -15,6 +25,7 @@
     import FullscreenButton from "./buttons/FullscreenButton.svelte";
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
     import ConnectionsButton from "./buttons/ConnectionsButton.svelte";
+    import ConnectionsMenu from "./menus/ConnectionsMenu.svelte";
 
 	export let mediaInfo: ApiMediaInfo;
 	
@@ -35,9 +46,17 @@
 	let tapBackIndicatorElement: HTMLElement | undefined;
 	let tapForwardIndicatorElement: HTMLElement | undefined;
 	
-	const mobile = window.matchMedia("(pointer: coarse)").matches;
+	const mobile = isMobile();
 	
 	$: videoInfo = mediaInfo.video_info;
+	
+	// Sidedar
+	
+	let sidebarShown = SidebarType.None;
+	
+	function toggleSidebar(sidebar: SidebarType) {
+		sidebarShown = sidebarShown == sidebar ? SidebarType.None : sidebar;
+	}
 	
 	// Idleness
 	
@@ -60,7 +79,7 @@
 	let controlsContainerElement: HTMLElement;
 	
 	let showControls = false;
-	$: showControls = !isIdle || (!mobile && controlsContainerElement?.matches(":hover"));
+	$: showControls = !isIdle || sidebarShown != SidebarType.None || (!mobile && controlsContainerElement?.matches(":hover"));
 	
 	// Player Actions
 	
@@ -194,8 +213,9 @@
 <svelte:window on:keydown={onWindowKeyPressed}/>
 
 <figure
-	class="player-container"
+	class="video-player"
 	class:fullscreen={isFullscreen}
+	class:mobile
 	bind:this={playerElement}
 	on:pointermove={resetIdleness}
 	on:pointerdown={resetIdleness}
@@ -240,14 +260,14 @@
 		</div>
 		
 		{#if tapSeekBackAmount > 0}
-			<div class="tap-seek-indicator" style="left: var(--video-player-seek-indicator-size);" bind:this={tapBackIndicatorElement}>
+			<div class="tap-seek-indicator left" bind:this={tapBackIndicatorElement}>
 				<FeatherIcon name="rewind" size="3em"/>
 				{tapSeekBackAmount} seconds
 			</div>
 		{/if}
 		
 		{#if tapSeekForwardAmount > 0}
-			<div class="tap-seek-indicator" style="right: var(--video-player-seek-indicator-size);" bind:this={tapForwardIndicatorElement}>
+			<div class="tap-seek-indicator right" bind:this={tapForwardIndicatorElement}>
 				<FeatherIcon name="fast-forward" size="3em"/>
 				{tapSeekForwardAmount} seconds
 			</div>
@@ -263,7 +283,7 @@
 				
 				<div class="spacer"></div>
 				
-				<ConnectionsButton {mediaInfo} currentTime={videoCurrentTime}/>
+				<ConnectionsButton {mediaInfo} {videoCurrentTime} on:click={() => toggleSidebar(SidebarType.Connections)}/>
 			</div>
 		</div>
 		
@@ -278,19 +298,20 @@
 				</div>
 			{/if}
 			
-			<Timeline
-				{mediaInfo}
-				{thumbSheetUrl}
-				{mobile}
-				
-				{videoElement}
-				bind:videoPaused={videoPaused}
-				bind:videoCurrentTime={videoCurrentTime}
-				{videoDuration}
-				{videoBuffered}
-				
-				bind:scrubbingTime={scrubbingTime}
-			/>
+			<div class:mobile-timeline-container={mobile} class:fullscreen={isFullscreen}>
+				<Timeline
+					{mediaInfo}
+					{thumbSheetUrl}
+					
+					{videoElement}
+					bind:videoPaused={videoPaused}
+					bind:videoCurrentTime={videoCurrentTime}
+					{videoDuration}
+					{videoBuffered}
+					
+					bind:scrubbingTime={scrubbingTime}
+				/>
+			</div>
 			
 			{#if !mobile}
 				<div class="control-row">
@@ -305,19 +326,37 @@
 				</div>
 			{/if}
 		</div>
+		
+		<div class="right-sidebar">
+			{#if sidebarShown == SidebarType.Connections}
+				<ConnectionsMenu {mediaInfo} {videoElement} {videoCurrentTime}/>
+			{/if}
+		</div>
 	</div>
 </figure>
 
 <style lang="scss">
-	.player-container {
+	@use "player.scss";
+	
+	$seek-indicator-size: 90px;
+	
+	.video-player {
 		width: 100%;
 		height: 100%;
 		background-color: black;
 		position: relative;
 		touch-action: manipulation;
 		
+		--video-player-control-size: 20px;
+		--video-player-large-control-size: 30px;
+		
 		&.fullscreen {
 			touch-action: none;
+		}
+		
+		&.mobile {
+			--video-player-control-size: 22px;
+			--video-player-large-control-size: 34px;
 		}
 	}
 	
@@ -370,8 +409,14 @@
 	
 	.top-controls {
 		grid-area: top;
+		position: relative;
 		background: linear-gradient(to bottom, rgba(black, 0.6), transparent);
-		padding: 0 8px;
+		padding: 0 player.$gap-size;
+		
+		.control-row {
+			box-sizing: content-box;
+			height: var(--video-player-large-control-size);
+		}
 	}
 	
 	.bottom-controls {
@@ -379,15 +424,33 @@
 		display: flex;
 		flex-direction: column;
 		background: linear-gradient(to top, rgba(black, 0.6), transparent);
-		padding: 0 8px;
-		padding-top: 6px;
+		padding: 0 player.$gap-size;
+		padding-top: player.$gap-size;
+	}
+	
+	.right-sidebar {
+		grid-area: right;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+		padding: player.$gap-size;
+		overflow: hidden;
+	}
+	
+	.mobile-timeline-container {
+		padding-top: 4px;
+		padding-bottom: 16px;
+		
+		&.fullscreen {
+			padding-bottom: 32px;
+		}
 	}
 	
 	.control-row {
 		display: flex;
 		align-items: center;
-		padding: 8px;
-		gap: 8px;
+		padding: player.$gap-size;
+		gap: player.$gap-size;
 		
 		.spacer {
 			flex: 1;
@@ -404,9 +467,9 @@
 	
 	.video-title {
 		position: absolute;
-		top: 8px;
+		top: 50%;
 		left: 50%;
-		transform: translateX(-50%);
+		transform: translate(-50%, -50%);
 		text-align: center;
 		font-size: var(--video-player-control-size);
 	}
@@ -427,14 +490,8 @@
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
-		width: calc(var(--video-player-center-control-size) * 1.5);
-		height: calc(var(--video-player-center-control-size) * 1.5);
-		font-size: calc(var(--video-player-center-control-icon-size) * 1.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 50%;
-		background-color: #0009;
+		@include player.floating-circle;
+		@include player.floating-circle-large;
 	}
 	
 	@keyframes fadeOut {
@@ -453,17 +510,21 @@
 		position: absolute;
 		top: 50%;
 		transform: translate(-50%, -50%);
-		display: flex;
+		@include player.floating-circle;
 		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		width: var(--video-player-seek-indicator-size);
-		height: var(--video-player-seek-indicator-size);
+		width: $seek-indicator-size;
+		height: $seek-indicator-size;
 		font-size: 12px;
 		font-weight: 500;
-		border-radius: 50%;
-		background-color: #0009;
 		animation: fadeOut 1s 0.5s forwards;
 		pointer-events: none;
+		
+		&.left {
+			left: $seek-indicator-size;
+		}
+		
+		&.right {
+			right: $seek-indicator-size;
+		}
 	}
 </style>

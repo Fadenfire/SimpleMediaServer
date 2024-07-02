@@ -9,6 +9,7 @@ use tracing::{error, instrument};
 
 use crate::web_server::{libraries, video_locator};
 use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_routes::thumbnail;
 use crate::web_server::auth::User;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
@@ -78,7 +79,7 @@ pub async fn list_dir_route(
 					.and_then(|path| path.file_stem())
 					.and_then(OsStr::to_str)
 					.map(|thumbnail_path_name| {
-						format!("/api/thumbnail/{}", RelativePath::new(library_id).join(&library_path).join(path_name).join(thumbnail_path_name))
+						thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&library_path).join(path_name).join(thumbnail_path_name))
 					});
 			}
 			
@@ -114,7 +115,7 @@ pub async fn create_file_entry(
 		&server_state.thumbnail_sheet_generator).await?;
 	
 	let full_path = RelativePath::new(library_id).join(&library_path);
-	let thumbnail_path = format!("/api/thumbnail/{}", &full_path);
+	let thumbnail_path = thumbnail::create_thumbnail_path(&full_path);
 	
 	let watch_progress = server_state.user_watch_histories.lock().unwrap()
 		.get_watch_history(&user.id)

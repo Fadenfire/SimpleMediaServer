@@ -28,6 +28,7 @@ pub struct ConnectionsFile {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ConnectedVideoEntry {
 	pub video_path: RelativePathBuf,
+	pub relation: String,
 	pub shortcut_thumbnail: Option<RelativePathBuf>,
 	pub connections: Vec<ConnectionEntry>,
 }

@@ -35,7 +35,9 @@ interface ApiVideoInfo {
 }
 
 interface ApiVideoConnection {
-	other_path: string,
+	video_path: string,
+	video_thumbnail: string,
+	relation: string,
 	shortcut_thumbnail: string | null,
 	left_start: number,
 	left_end: number,

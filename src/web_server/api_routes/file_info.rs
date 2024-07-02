@@ -9,7 +9,7 @@ use tracing::instrument;
 
 use crate::web_server::{libraries, media_connections, video_locator};
 use crate::web_server::api_routes::error::ApiError;
-use crate::web_server::api_routes::list_dir;
+use crate::web_server::api_routes::{list_dir, thumbnail};
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
 use crate::web_server::video_metadata::Dimension;
@@ -72,11 +72,15 @@ pub async fn file_info_route(
 					connection_file.connected_videos.into_iter()
 						.flat_map(|entry| {
 							let other_path = RelativePath::new(library_id).join(&entry.video_path);
-							let shortcut_thumbnail = entry.shortcut_thumbnail.map(|path| RelativePath::new(library_id).join(&path));
+							let other_thumbnail = thumbnail::create_thumbnail_path(&other_path);
+							let shortcut_thumbnail = entry.shortcut_thumbnail
+								.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&path)));
 							
 							entry.connections.into_iter()
 								.map(move |connection| VideoConnection {
-									other_path: other_path.clone(),
+									video_path: other_path.clone(),
+									video_thumbnail: other_thumbnail.clone(),
+									relation: entry.relation.clone(),
 									shortcut_thumbnail: shortcut_thumbnail.clone(),
 									left_start: connection.left_start,
 									left_end: connection.left_start + connection.duration,
@@ -155,8 +159,10 @@ struct VideoInfo {
 
 #[derive(Debug, Serialize)]
 struct VideoConnection {
-	other_path: RelativePathBuf,
-	shortcut_thumbnail: Option<RelativePathBuf>,
+	video_path: RelativePathBuf,
+	video_thumbnail: String,
+	relation: String,
+	shortcut_thumbnail: Option<String>,
 	left_start: u64,
 	left_end: u64,
 	right_start: u64,

@@ -20,6 +20,8 @@
 <slot/>
 
 <style lang="scss">
+	$nav-bar-height: 40px;
+	
 	nav {
 		display: flex;
 		width: 100%;
@@ -30,7 +32,7 @@
 	.nav-item {
 		display: block;
 		// width: var(--nav-bar-height);
-		height: var(--nav-bar-height);
+		height: $nav-bar-height;
 		color: var(--main-text-color);
 		text-decoration: none;
 		padding: 8px;

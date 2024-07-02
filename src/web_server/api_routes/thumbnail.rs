@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use http::{HeaderMap, Method};
+use relative_path::RelativePath;
 use tracing::instrument;
 
 use crate::web_server::{libraries, video_locator};
@@ -15,6 +16,10 @@ const IMAGE_EXTENSIONS: &[&str] = &[
 	"png",
 	"webp"
 ];
+
+pub fn create_thumbnail_path(library_path: &RelativePath) -> String {
+	format!("/api/thumbnail/{}", library_path)
+}
 
 #[instrument(skip(server_state, request))]
 pub async fn thumbnail_route(

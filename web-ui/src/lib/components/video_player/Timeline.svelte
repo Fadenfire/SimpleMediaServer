@@ -3,10 +3,10 @@
     import Bar from "./Bar.svelte";
     import { formatDuration } from "$lib/utils";
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
+    import { isMobile } from "./VideoPlayer.svelte";
 	
 	export let mediaInfo: ApiMediaInfo;
 	export let thumbSheetUrl: string | undefined;
-	export let mobile: boolean;
 	
 	export let videoElement: HTMLVideoElement;
 	export let videoPaused: boolean;
@@ -19,6 +19,8 @@
 	let timelineElement: HTMLElement;
 	
 	$: videoInfo = mediaInfo.video_info;
+	
+	const mobile = isMobile();
 	
 	// Hover Effects
 	
@@ -84,7 +86,7 @@
 
 <svelte:window on:pointermove={onWindowPointerMove} on:pointerup={onWindowPointerUp} />
 
-<div class="timeline" class:expanded={mobile} bind:this={timelineElement}>
+<div class="timeline" bind:this={timelineElement}>
 	<div
 		class="bounding-box"
 		class:mobile={mobile}
@@ -94,17 +96,17 @@
 		on:pointerleave={onTimelinePointerLeave}
 	>
 		<div class="bars">
-			<Bar color="var(--video-player-base-bar-color)"/>
+			<Bar color="var(--background-bar-color)"/>
 			
 			{#each videoBuffered as seg}
-				<Bar color="var(--video-player-buffer-bar-color)" startValue={seg.start / videoDuration} endValue={seg.end / videoDuration} />
+				<Bar color="var(--foreground-bar-color)" startValue={seg.start / videoDuration} endValue={seg.end / videoDuration} />
 			{/each}
 			
 			{#if !mobile && hoverProgress !== null}
-				<Bar color="var(--video-player-buffer-bar-color)" endValue={hoverProgress} />
+				<Bar color="var(--foreground-bar-color)" endValue={hoverProgress} />
 			{/if}
 			
-			<Bar color="var(--video-player-accent-bar-color)" endValue={videoCurrentTime / videoDuration} />
+			<Bar color="var(--accent-bar-color)" endValue={videoCurrentTime / videoDuration} />
 			
 			<div class="thumb-wrapper" style="transform: translateX({videoCurrentTime / videoDuration * 100}cqw);">
 				<div class="thumb"></div>
@@ -129,22 +131,25 @@
 </div>
 
 <style lang="scss">
+	$timeline-bounding-height: 14px;
+	$timeline-bounding-mobile-height: 24px;
+	$timeline-bar-focused-width: 5px;
+	$thumb-size: 10px;
+	
 	@mixin no-select {
 		user-select: none;
 		-webkit-user-select: none;
 	}
 	
 	.timeline {
+		--background-bar-color: #DDD6;
+		--foreground-bar-color: #EEE6;
+		
 		position: relative;
 		width: 100%;
-		height: var(--video-player-bar-width);
+		height: var(--bar-width);
 		overflow: visible;
 		@include no-select;
-		
-		&.expanded {
-			margin-top: 4px;
-			margin-bottom: 16px;
-		}
 	}
 	
 	.bounding-box {
@@ -155,20 +160,20 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		height: var(--video-player-timeline-width);
+		height: $timeline-bounding-height;
 		cursor: pointer;
 		touch-action: none;
 		@include no-select;
 		
 		&.mobile {
-			height: var(--video-player-timeline-mobile-width);
+			height: $timeline-bounding-mobile-height;
 		}
 	}
 	
 	.bars {
 		position: relative;
 		width: 100%;
-		height: var(--video-player-bar-width);
+		height: var(--bar-width);
 		overflow: visible;
 		container-type: size;
 		transition: height 0.2s;
@@ -183,11 +188,11 @@
 	}
 	
 	.thumb {
-		width: var(--video-player-thumb-size);
-		height: var(--video-player-thumb-size);
+		width: $thumb-size;
+		height: $thumb-size;
 		transform: translate(-50%, -50%) scale(1);
 		border-radius: 50%;
-		background-color: var(--video-player-accent-bar-color);
+		background-color: var(--accent-bar-color);
 		transition: transform 0.2s;
 		touch-action: none;
 		@include no-select;
@@ -201,12 +206,13 @@
 		font-weight: 500;
 		text-align: center;
 		background-color: #000C;
+		border-radius: 4px;
 		padding: 4px;
 	}
 	
 	.bounding-box:not(.mobile):hover, .bounding-box.scrubbing {
 		.bars {
-			height: var(--video-player-bar-focused-width);
+			height: $timeline-bar-focused-width;
 		}
 	}
 	

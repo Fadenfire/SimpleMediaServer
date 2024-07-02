@@ -1,0 +1,26 @@
+$gap-size: 8px;
+
+$center-control-size: 40px;
+$center-control-icon-size: 26px;
+$large-control-multiplier: 1.5;
+
+$menu-background-color: #666D;
+$menu-foreground-color: #9996;
+$menu-bright-foreground-color: #DDD6;
+
+@mixin floating-circle {
+	width: $center-control-size;
+	height: $center-control-size;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: $center-control-icon-size;
+	border-radius: 50%;
+	background-color: #0009;
+}
+
+@mixin floating-circle-large {
+	width: $center-control-size * $large-control-multiplier;
+	height: $center-control-size * $large-control-multiplier;
+	font-size: $center-control-icon-size * $large-control-multiplier;
+}

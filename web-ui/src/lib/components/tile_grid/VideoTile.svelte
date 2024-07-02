@@ -45,12 +45,12 @@
 		left: 0px;
 		bottom: 0px;
 		width: 100%;
-		height: 3px;
+		height: var(--bar-width);
 		background-color: #DDD9;
 		
 		.bar {
 			height: 100%;
-			background-color: var(--video-player-accent-bar-color);
+			background-color: var(--accent-bar-color);
 		}
 	}
 </style>
