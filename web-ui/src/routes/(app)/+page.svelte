@@ -22,7 +22,7 @@
 		</TileGrid>
 	</PageSection>
 	
-	<PageSection title="Watched">
+	<PageSection title="Recently Watched">
 		<TileGrid>
 			{#each data.watch_history.entries as file}
 				<VideoTile
