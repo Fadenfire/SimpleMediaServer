@@ -3,8 +3,7 @@
 	import PageSection from "$lib/components/PageSection.svelte";
 	import TileGrid from "$lib/components/tile_grid/TileGrid.svelte";
 	import type { PageData } from "./$types";
-    import VideoTile from "$lib/components/tile_grid/VideoTile.svelte";
-    import { escapePath } from "$lib/utils";
+    import HistoryTile from "./watch_history/HistoryTile.svelte";
 
 	export let data: PageData;
 </script>
@@ -22,16 +21,10 @@
 		</TileGrid>
 	</PageSection>
 	
-	<PageSection title="Recently Watched">
+	<PageSection title="Recently Watched" titleLink="/watch_history">
 		<TileGrid>
-			{#each data.watch_history.entries as file}
-				<VideoTile
-					title="{file.display_name}"
-					link="/files/{escapePath(file.full_path)}/"
-					duration="{file.duration}"
-					thumbnailPath="{escapePath(file.thumbnail_path)}"
-					progress={file.watch_progress}
-				/>
+			{#each data.watchHistory.entries as entry}
+				<HistoryTile historyEntry={entry}/>
 			{/each}
 		</TileGrid>
 	</PageSection>

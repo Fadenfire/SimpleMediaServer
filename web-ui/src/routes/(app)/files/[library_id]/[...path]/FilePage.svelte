@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { page } from "$app/stores";
     import VideoPlayer from "$lib/components/video_player/VideoPlayer.svelte";
 
 	export let mediaInfo: ApiMediaInfo;

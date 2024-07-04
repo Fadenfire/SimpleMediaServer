@@ -13,8 +13,9 @@
 		{#if thumbnail !== undefined}
 			<img class="thumbnail" src="{thumbnail}" alt="{title}">
 		{:else}
-			<div class="folder-icon"><FeatherIcon name="folder" size="4em"/></div>
+			<FeatherIcon name="folder" size="4em"/>
 		{/if}
+		
 		{#if child_count > 0}
 			<div class="count-container"><FeatherIcon name="list"/> {child_count}</div>
 		{/if}
@@ -22,14 +23,6 @@
 </BaseTile>
 
 <style lang="scss">
-	.folder-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		height: 100%;
-	}
-	
 	.thumbnail {
 		object-fit: cover;
 		width: 100%;

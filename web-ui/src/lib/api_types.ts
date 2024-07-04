@@ -72,7 +72,16 @@ interface ApiChildDirectory {
 }
 
 interface ApiWatchHistoryResponse {
-	entries: ApiChildFile[],
+	total_pages: number,
+	entries: ApiWatchHistoryResponseEntry[],
+}
+
+interface ApiWatchHistoryResponseEntry {
+	library_id: string,
+	media_path: string,
+	last_watched: string,
+	progress: number,
+	file: ApiChildFile | null,
 }
 
 interface ApiDimension {
@@ -84,4 +93,9 @@ interface UpdateWatchProgressParams {
 	library_id: string,
 	media_path: string,
 	new_watch_progress: number,
+}
+
+interface DeleteWatchProgressParams {
+	library_id: string,
+	media_path: string,
 }

@@ -126,6 +126,10 @@ impl WatchHistory {
 		}
 	}
 	
+	pub fn entry_count(&self) -> usize {
+		self.entries.len()
+	}
+	
 	pub fn iter_entries(&self) -> impl DoubleEndedIterator<Item = &WatchHistoryEntry> {
 		self.entries.values()
 	}
@@ -159,6 +163,14 @@ impl WatchHistory {
 				});
 			}
 		}
+		
+		self.dirty = true;
+	}
+	
+	pub fn delete_entry(&mut self, library_id: &str, media_path: &RelativePath) {
+		let media_path = normalize_path(media_path);
+		
+		self.entries.remove(&MediaKey::new(library_id, media_path));
 		
 		self.dirty = true;
 	}
@@ -221,6 +233,8 @@ pub struct SerializedWatchHistory {
 pub struct SerializedWatchHistoryEntry {
 	library_id: String,
 	media_path: RelativePathBuf,
+	// #[serde(serialize_with = "time::serde::iso8601::serialize")]
+	#[serde(with = "time::serde::iso8601")]
 	last_watched: OffsetDateTime,
 	progress: u64,
 }

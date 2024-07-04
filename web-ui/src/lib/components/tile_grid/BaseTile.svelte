@@ -1,41 +1,55 @@
 <script lang="ts">
 	export let title: string;
-	export let link: string;
+	export let link: string | undefined = undefined;
 </script>
 
 <div class="tile">
-	<a class="card-link" href="{link}">
+	<a class="card-link" href={link}>
 		<div class="card">
-			<slot name="card" />
+			<slot name="card"/>
 		</div>
 	</a>
-	<a class="title" href="{link}">{title}</a>
+	<div class="title-container">
+		<a class="title" href={link}>{title}</a>
+		<slot name="title-row"></slot>
+	</div>
 	<slot name="desc"></slot>
 </div>
 
 <style lang="scss">
+	.tile {
+		display: flex;
+		flex-direction: column;
+	}
+	
 	.card-link {
 		text-decoration: none;
 	}
 	
 	.card {
-		background-color: var(--foreground-color);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
 		aspect-ratio: 16 / 9;
 		width: 100%;
 		margin-bottom: 8px;
 		border-radius: 8px;
+		background-color: var(--foreground-color);
 		color: var(--main-text-color);
 		overflow: hidden;
-		position: relative;
 		box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
 	}
 	
-	.title {
-		text-decoration: none;
-		color: var(--main-text-color);
+	.title-container {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 4px;
 	}
 	
-	.title:hover {
-		text-decoration: underline;
+	.title {
+		flex: 1;
+		color: var(--main-text-color);
 	}
 </style>

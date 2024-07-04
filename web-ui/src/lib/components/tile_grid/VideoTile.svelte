@@ -20,6 +20,7 @@
 			</div>
 		{/if}
 	</svelte:fragment>
+	<slot name="title-row" slot="title-row"></slot>
 </BaseTile>
 
 <style lang="scss">
