@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 32 32">
+	<defs>
+		<radialGradient cx="0.5" cy="0.5" id="background-grad" r="0.3">
+			<stop offset="0" stop-color="#1A1A1A" />
+			<stop offset="1" stop-color="#202020" />
+		</radialGradient>
+	</defs>
+	
+	<rect fill="url(#background-grad) black" height="32.0" width="32.0" x="0" y="0" />
+	<image x="4" y="4" width="24" height="24" href="icon.svg" />
+</svg>
