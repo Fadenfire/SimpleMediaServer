@@ -19,7 +19,7 @@
     import { escapePath } from "$lib/utils";
     import Button from "./Button.svelte";
 
-	export let mediaInfo: ApiMediaInfo;
+	export let mediaInfo: ApiFileInfo;
 	export let videoCurrentTime: number;
 	
 	$: shortcutLinks = mediaInfo.connections.filter(connection => connection.shortcut_thumbnail !== null);

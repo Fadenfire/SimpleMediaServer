@@ -1,20 +1,65 @@
+// Responses
+
+type LibrariesResponse = ApiLibraryEntry[];
+
+type FileInfoResponse = (ApiFileInfo & { type: "file" }) | (ApiDirectoryInfo & { type: "directory" });
+
+interface ListDirectoryResponse {
+	files: ApiFileEntry[],
+	directories: ApiDirectoryEntry[],
+	total_duration: number,
+}
+
+interface ApiWatchHistoryResponse {
+	total_pages: number,
+	entries: ApiWatchHistoryEntry[],
+}
+
+// Params
+
+interface UpdateWatchProgressParams {
+	library_id: string,
+	media_path: string,
+	new_watch_progress: number,
+}
+
+interface DeleteWatchProgressParams {
+	library_id: string,
+	media_path: string,
+}
+
+// Shared Types
+
 interface ApiUserInfo {
 	display_name: string,
 	username: string,
 }
 
-type LibrariesResponse = ApiLibrary[];
-
-interface ApiLibrary {
+interface ApiLibraryEntry {
 	id: string,
 	display_name: string,
 }
 
-type FileInfoResponse = ApiMediaInfo | ApiDirectoryInfo;
+interface ApiFileEntry {
+	path_name: string,
+	full_path: string,
+	display_name: string,
+	thumbnail_path: string,
+	duration: number,
+	artist: string | null,
+	watch_progress: number | null,
+	date_modified: string,
+}
 
-interface ApiMediaInfo {
-	type: "file",
-	path: string,
+interface ApiDirectoryEntry {
+	path_name: string,
+	display_name: string,
+	thumbnail_path: string | null,
+	child_count: number,
+}
+
+interface ApiFileInfo {
+	full_path: string,
 	display_name: String,
 	file_size: number,
 	duration: number,
@@ -45,57 +90,18 @@ interface ApiVideoConnection {
 }
 
 interface ApiDirectoryInfo {
-	type: "directory",
 	display_name: string,
 }
 
-interface ListDirectoryResponse {
-	files: ApiChildFile[],
-	directories: ApiChildDirectory[],
-	total_duration: number,
-}
-
-interface ApiChildFile {
-	path_name: string,
-	full_path: string,
-	display_name: string,
-	thumbnail_path: string,
-	duration: number,
-	watch_progress: number | null,
-}
-
-interface ApiChildDirectory {
-	path_name: string,
-	display_name: string,
-	thumbnail_path: string | null,
-	child_count: number,
-}
-
-interface ApiWatchHistoryResponse {
-	total_pages: number,
-	entries: ApiWatchHistoryResponseEntry[],
-}
-
-interface ApiWatchHistoryResponseEntry {
+interface ApiWatchHistoryEntry {
 	library_id: string,
 	media_path: string,
 	last_watched: string,
 	progress: number,
-	file: ApiChildFile | null,
+	file: ApiFileEntry | null,
 }
 
 interface ApiDimension {
 	width: number,
 	height: number,
-}
-
-interface UpdateWatchProgressParams {
-	library_id: string,
-	media_path: string,
-	new_watch_progress: number,
-}
-
-interface DeleteWatchProgressParams {
-	library_id: string,
-	media_path: string,
 }

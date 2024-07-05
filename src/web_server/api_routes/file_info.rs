@@ -10,6 +10,7 @@ use tracing::instrument;
 use crate::web_server::{libraries, media_connections, video_locator};
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::api_routes::{list_dir, thumbnail};
+use crate::web_server::api_routes::api_types::{ApiDirectoryInfo, ApiFileInfo, ApiVideoConnection, ApiVideoInfo};
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
 use crate::web_server::video_metadata::Dimension;
@@ -39,7 +40,7 @@ pub async fn file_info_route(
 			let this_index = adjacent_files.iter().position(|path| path == &file_path).context("Can't find self in file list")?;
 			
 			let video_info = media_metadata.video_metadata.map(|video_metadata| {
-				VideoInfo {
+				ApiVideoInfo {
 					video_size: video_metadata.video_size,
 					sheet_thumbnail_size: Dimension {
 						width: video_metadata.thumbnail_sheet_params.thumbnail_width,
@@ -77,7 +78,7 @@ pub async fn file_info_route(
 								.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&path)));
 							
 							entry.connections.into_iter()
-								.map(move |connection| VideoConnection {
+								.map(move |connection| ApiVideoConnection {
 									video_path: other_path.clone(),
 									video_thumbnail: other_thumbnail.clone(),
 									relation: entry.relation.clone(),
@@ -93,8 +94,8 @@ pub async fn file_info_route(
 			
 			connections.sort_by_key(|con| con.left_end);
 			
-			let file_info = MediaInfo {
-				path: RelativePath::new(library_id).join(&library_path),
+			let file_info = ApiFileInfo {
+				full_path: RelativePath::new(library_id).join(&library_path),
 				display_name: media_metadata.title,
 				file_size: file_metadata.len(),
 				duration: media_metadata.duration.as_secs(),
@@ -118,7 +119,7 @@ pub async fn file_info_route(
 					.ok_or(ApiError::FileNotFound)?
 			};
 			
-			let dir_info = DirectoryInfo {
+			let dir_info = ApiDirectoryInfo {
 				display_name,
 			};
 			
@@ -130,45 +131,6 @@ pub async fn file_info_route(
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum FileInfoResponse {
-	File(MediaInfo),
-	Directory(DirectoryInfo),
-}
-
-#[derive(Debug, Serialize)]
-struct MediaInfo {
-	path: RelativePathBuf,
-	display_name: String,
-	file_size: u64,
-	duration: u64,
-	artist: Option<String>,
-	video_info: Option<VideoInfo>,
-	prev_video: Option<String>,
-	next_video: Option<String>,
-	watch_progress: Option<u64>,
-	connections: Vec<VideoConnection>,
-}
-
-#[derive(Debug, Serialize)]
-struct VideoInfo {
-	video_size: Dimension,
-	sheet_thumbnail_size: Dimension,
-	thumbnail_sheet_rows: u32,
-	thumbnail_sheet_cols: u32,
-	thumbnail_sheet_interval: u32,
-}
-
-#[derive(Debug, Serialize)]
-struct VideoConnection {
-	video_path: RelativePathBuf,
-	video_thumbnail: String,
-	relation: String,
-	shortcut_thumbnail: Option<String>,
-	left_start: u64,
-	left_end: u64,
-	right_start: u64,
-}
-
-#[derive(Debug, Serialize)]
-struct DirectoryInfo {
-	display_name: String,
+	File(ApiFileInfo),
+	Directory(ApiDirectoryInfo),
 }

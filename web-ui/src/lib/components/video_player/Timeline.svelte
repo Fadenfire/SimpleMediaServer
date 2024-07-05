@@ -5,7 +5,7 @@
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
     import { isMobile } from "./VideoPlayer.svelte";
 	
-	export let mediaInfo: ApiMediaInfo;
+	export let mediaInfo: ApiFileInfo;
 	export let thumbSheetUrl: string | undefined;
 	
 	export let videoElement: HTMLVideoElement;

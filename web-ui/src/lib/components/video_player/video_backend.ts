@@ -8,19 +8,19 @@ export enum SourceType {
 
 export class VideoBackend {
 	videoElement: HTMLVideoElement;
-	mediaInfo: ApiMediaInfo;
+	mediaInfo: ApiFileInfo;
 	
 	hls: Hls | undefined = undefined;
 	
 	currentSource: SourceType | undefined = undefined;
 	
-	constructor(videoElement: HTMLVideoElement, mediaInfo: ApiMediaInfo) {
+	constructor(videoElement: HTMLVideoElement, mediaInfo: ApiFileInfo) {
 		this.videoElement = videoElement;
 		this.mediaInfo = mediaInfo;
 		
 		if (Hls.isSupported()) {
 			this.hls = new Hls();
-			this.hls.loadSource(`/api/media/hls/${escapePath(this.mediaInfo.path)}/manifest`);
+			this.hls.loadSource(`/api/media/hls/${escapePath(this.mediaInfo.full_path)}/manifest`);
 		}
 		
 		this.videoElement.addEventListener("error", () => this.#onVideoError());
@@ -34,7 +34,7 @@ export class VideoBackend {
 		
 		this.hls?.detachMedia();
 		
-		this.videoElement.src = `/api/media/native/${escapePath(this.mediaInfo.path)}`;
+		this.videoElement.src = `/api/media/native/${escapePath(this.mediaInfo.full_path)}`;
 		this.currentSource = SourceType.Native;
 		
 		this.videoElement.currentTime = oldTime;
@@ -50,7 +50,7 @@ export class VideoBackend {
 			
 			this.hls.attachMedia(this.videoElement);
 		} else {
-			this.videoElement.src = `/api/media/hls/${escapePath(this.mediaInfo.path)}/manifest`;
+			this.videoElement.src = `/api/media/hls/${escapePath(this.mediaInfo.full_path)}/manifest`;
 		}
 		
 		this.currentSource = SourceType.Hls;

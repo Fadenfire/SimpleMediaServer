@@ -6,7 +6,7 @@
     export let floating = false;
 	export let direction: "forward" | "back";
 	
-	export let mediaInfo: ApiMediaInfo;
+	export let mediaInfo: ApiFileInfo;
 	
 	$: skipTarget = direction === "forward" ? mediaInfo.next_video : mediaInfo.prev_video;
 	

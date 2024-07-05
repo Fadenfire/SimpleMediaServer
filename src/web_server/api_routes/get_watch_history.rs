@@ -1,14 +1,12 @@
 use http::{Method, StatusCode};
-use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
 use tracing::{error, instrument};
 
+use crate::web_server::{video_locator, web_utils};
+use crate::web_server::api_routes::api_types::ApiWatchHistoryEntry;
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::api_routes::list_dir;
-use crate::web_server::api_routes::list_dir::FileEntry;
 use crate::web_server::server_state::ServerState;
-use crate::web_server::{video_locator, web_utils};
 use crate::web_server::video_locator::LocatedFile;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
@@ -16,7 +14,7 @@ use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, r
 pub async fn get_watch_history_route(server_state: &ServerState, request: &HyperRequest) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
-	let params: Params = web_utils::parse_query(request.uri())?;
+	let params: WatchHistoryParams = web_utils::parse_query(request.uri())?;
 	let user = server_state.auth_manager.lookup_from_headers(request.headers())?;
 	
 	let history_entries: Vec<_>;
@@ -53,7 +51,7 @@ pub async fn get_watch_history_route(server_state: &ServerState, request: &Hyper
 			}
 		}
 		
-		entries.push(WatchHistoryResponseEntry {
+		entries.push(ApiWatchHistoryEntry {
 			library_id: entry.library_id,
 			media_path: entry.media_path,
 			last_watched: entry.last_watched,
@@ -71,7 +69,7 @@ pub async fn get_watch_history_route(server_state: &ServerState, request: &Hyper
 }
 
 #[derive(Debug, Deserialize)]
-struct Params {
+struct WatchHistoryParams {
 	page: usize,
 	page_size: usize,
 }
@@ -79,15 +77,5 @@ struct Params {
 #[derive(Debug, Serialize)]
 struct WatchHistoryResponse {
 	total_pages: usize,
-	entries: Vec<WatchHistoryResponseEntry>,
-}
-
-#[derive(Debug, Serialize)]
-struct WatchHistoryResponseEntry {
-	library_id: String,
-	media_path: RelativePathBuf,
-	#[serde(with = "time::serde::iso8601")]
-	last_watched: OffsetDateTime,
-	progress: u64,
-	file: Option<FileEntry>,
+	entries: Vec<ApiWatchHistoryEntry>,
 }

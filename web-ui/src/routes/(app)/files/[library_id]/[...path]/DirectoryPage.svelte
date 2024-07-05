@@ -1,3 +1,17 @@
+<script lang="ts" context="module">
+	enum SortType {
+		Name,
+		DateAdded,
+		Duration,
+		WatchProgress,
+	}
+	
+	enum SortDirection {
+		Ascending,
+		Descending,
+	}
+</script>
+
 <script lang="ts">
 	import DirectoryTile from "$lib/components/tile_grid/DirectoryTile.svelte";
 	import PageSection from "$lib/components/PageSection.svelte";
@@ -6,13 +20,58 @@
     import TileGrid from "$lib/components/tile_grid/TileGrid.svelte";
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     import DimStripe from "$lib/components/DimStripe.svelte";
+    import Dropdown from "$lib/components/Dropdown.svelte";
+	import dayjs from "dayjs";
 	
 	export let dirInfo: ApiDirectoryInfo;
 	export let listDirPromise: Promise<ListDirectoryResponse>;
+	
+	let sortType = SortType.Name;
+	
+	function sortEntries(files: ApiFileEntry[], sortType: SortType): ApiFileEntry[] {
+		if (sortType == SortType.Name) return files;
+		
+		let keyFunc: (entry: ApiFileEntry) => any;
+		let sortDirection = SortDirection.Ascending;
+		
+		if (sortType == SortType.DateAdded) {
+			keyFunc = entry => dayjs(entry.date_modified).valueOf();
+			
+			sortDirection = SortDirection.Descending;
+		}
+		else if (sortType == SortType.Duration) {
+			keyFunc = entry => entry.duration;
+		}
+		else if (sortType == SortType.WatchProgress) {
+			keyFunc = entry => entry.watch_progress ?? 0;
+		}
+		
+		return files.toSorted((entryA, entryB) => {
+			const a = keyFunc(entryA);
+			const b = keyFunc(entryB);
+			
+			if (a == b) {
+				return 0;
+			} else if (sortDirection == SortDirection.Ascending) {
+				return a < b ? -1 : 1;
+			} else {
+				return a < b ? 1 : -1;
+			}
+		});
+	}
 </script>
 
 <main class="main-content">
 	<PageSection title="{dirInfo.display_name}">
+		<svelte:fragment slot="title-bar">
+			<Dropdown bind:value={sortType} label="Sort by">
+				<option value={SortType.Name}>Name</option>
+				<option value={SortType.DateAdded}>Date Added</option>
+				<option value={SortType.Duration}>Duration</option>
+				<option value={SortType.WatchProgress}>Watch Progress</option>
+			</Dropdown>
+		</svelte:fragment>
+		
 		{#await listDirPromise}
 			<DimStripe>Loading</DimStripe>
 		{:then dirList}
@@ -32,14 +91,10 @@
 						/>
 					{/each}
 					
-					{#each dirList.files as file}
-						<VideoTile
-							title={file.display_name}
-							link="{encodeURIComponent(file.path_name)}/"
-							duration={file.duration}
-							thumbnailPath={escapePath(file.thumbnail_path)}
-							progress={file.watch_progress}
-						/>
+					{@const files = sortEntries(dirList.files, sortType)}
+					
+					{#each files as file}
+						<VideoTile fileEntry={file}/>
 					{/each}
 				</TileGrid>
 			{/if}

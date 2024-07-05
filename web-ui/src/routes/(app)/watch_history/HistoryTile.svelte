@@ -5,18 +5,12 @@
     import { escapePath } from "$lib/utils";
     import EntryDeleteButton from "./EntryDeleteButton.svelte";
 	
-	export let historyEntry: ApiWatchHistoryResponseEntry;
+	export let historyEntry: ApiWatchHistoryEntry;
 	export let showDeleteButton = false;
 </script>
 
 {#if historyEntry.file !== null}
-	<VideoTile
-		title={historyEntry.file.display_name}
-		link="/files/{escapePath(historyEntry.file.full_path)}/"
-		duration={historyEntry.file.duration}
-		thumbnailPath={escapePath(historyEntry.file.thumbnail_path)}
-		progress={historyEntry.progress}
-	>
+	<VideoTile fileEntry={historyEntry.file}>
 		<EntryDeleteButton slot="title-row" {historyEntry} {showDeleteButton} on:deleteEntry/>
 	</VideoTile>
 {:else}

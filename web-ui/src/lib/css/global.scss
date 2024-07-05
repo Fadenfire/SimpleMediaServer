@@ -17,6 +17,8 @@ main.main-content {
 }
 
 button.custom-button {
+	appearance: none;
+	-webkit-appearance: none;
 	padding: 0;
 	margin: 0;
 	display: block;

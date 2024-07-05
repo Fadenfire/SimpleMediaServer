@@ -1,26 +1,29 @@
 <script lang="ts">
-    import { formatDuration } from "$lib/utils";
+    import { escapePath, formatDuration } from "$lib/utils";
     import BaseTile from "./BaseTile.svelte";
 
-	export let title: string;
-	export let duration: number;
-	export let link: string;
-	export let thumbnailPath: string;
-	export let progress: number | null = null;
+	export let fileEntry: ApiFileEntry;
 </script>
 
-<BaseTile title="{title}" link="{link}">
+<BaseTile title={fileEntry.display_name} link="/files/{escapePath(fileEntry.full_path)}/">
 	<svelte:fragment slot="card">
-		<img class="thumbnail" src="{thumbnailPath}" alt="{title}">
-		<div class="duration-container">{formatDuration(duration)}</div>
+		<img class="thumbnail" src={escapePath(fileEntry.thumbnail_path)} alt="{fileEntry.display_name}">
+		<div class="duration-container">{formatDuration(fileEntry.duration)}</div>
 		
-		{#if progress !== null}
+		{#if fileEntry.watch_progress !== null}
 			<div class="bar-container">
-				<div class="bar" style="width: calc(max(10px, {progress / duration * 100}%));"></div>
+				<div class="bar" style="width: calc(max(10px, {fileEntry.watch_progress / fileEntry.duration * 100}%));"></div>
 			</div>
 		{/if}
 	</svelte:fragment>
+	
 	<slot name="title-row" slot="title-row"></slot>
+	
+	<svelte:fragment slot="desc">
+		{#if fileEntry.artist}
+			<span class="extra-info">{fileEntry.artist}</span>
+		{/if}
+	</svelte:fragment>
 </BaseTile>
 
 <style lang="scss">
@@ -53,5 +56,11 @@
 			height: 100%;
 			background-color: var(--accent-bar-color);
 		}
+	}
+	
+	.extra-info {
+		color: var(--secondary-text-color);
+		font-size: 0.8em;
+		line-height: 2em;
 	}
 </style>

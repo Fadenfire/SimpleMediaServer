@@ -13,7 +13,7 @@ pub async fn update_watch_progress_route(server_state: &ServerState, request: Hy
 	restrict_method(&request, &[Method::POST])?;
 	
 	let (request, body) = request.into_parts();
-	let params: Params = web_utils::parse_json_body(body).await?;
+	let params: UpdateWatchHistoryParams = web_utils::parse_json_body(body).await?;
 	
 	let user = server_state.auth_manager.lookup_from_headers(&request.headers)?;
 	
@@ -37,7 +37,7 @@ pub async fn update_watch_progress_route(server_state: &ServerState, request: Hy
 }
 
 #[derive(Debug, Deserialize)]
-struct Params {
+struct UpdateWatchHistoryParams {
 	pub library_id: String,
 	pub media_path: RelativePathBuf,
 	pub new_watch_progress: u64,

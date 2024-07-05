@@ -12,7 +12,7 @@ use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse, restr
 pub async fn login_route(request: HyperRequest, auth_manager: &AuthManager) -> Result<HyperResponse, ApiError> {
 	restrict_method(&request, &[Method::POST])?;
 	
-	let params: Params = web_utils::parse_form_body(request.into_body()).await?;
+	let params: LoginParams = web_utils::parse_form_body(request.into_body()).await?;
 	
 	let Some(user) = auth_manager.login(&params.username, &params.password) else {
 		let res = Response::builder()
@@ -41,7 +41,7 @@ pub async fn login_route(request: HyperRequest, auth_manager: &AuthManager) -> R
 }
 
 #[derive(Debug, Deserialize)]
-struct Params {
+struct LoginParams {
 	username: String,
 	password: String,
 }

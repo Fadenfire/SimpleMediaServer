@@ -1,7 +1,7 @@
 <script lang="ts">
     import VideoPlayer from "$lib/components/video_player/VideoPlayer.svelte";
 
-	export let mediaInfo: ApiMediaInfo;
+	export let mediaInfo: ApiFileInfo;
 	
 	$: videoAspectRadio = mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0;
 </script>

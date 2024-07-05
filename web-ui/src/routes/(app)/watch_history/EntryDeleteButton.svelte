@@ -2,7 +2,7 @@
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     import { createEventDispatcher } from "svelte";
 
-	export let historyEntry: ApiWatchHistoryResponseEntry;
+	export let historyEntry: ApiWatchHistoryEntry;
 	export let showDeleteButton;
 	
 	const dispatch = createEventDispatcher();

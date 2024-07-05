@@ -5,9 +5,11 @@ use std::path::{Path, PathBuf};
 use http::{Method, StatusCode};
 use relative_path::{RelativePath, RelativePathBuf};
 use serde::Serialize;
+use time::OffsetDateTime;
 use tracing::{error, instrument};
 
 use crate::web_server::{libraries, video_locator};
+use crate::web_server::api_routes::api_types::{ApiDirectoryEntry, ApiFileEntry};
 use crate::web_server::api_routes::error::ApiError;
 use crate::web_server::api_routes::thumbnail;
 use crate::web_server::auth::User;
@@ -37,8 +39,8 @@ pub async fn list_dir_route(
 	
 	let mut read_dir = tokio::fs::read_dir(&resolved_path).await?;
 	
-	let mut files: Vec<FileEntry> = Vec::new();
-	let mut directories: Vec<DirectoryEntry> = Vec::new();
+	let mut files: Vec<ApiFileEntry> = Vec::new();
+	let mut directories: Vec<ApiDirectoryEntry> = Vec::new();
 	
 	let mut total_time = 0;
 	
@@ -83,7 +85,7 @@ pub async fn list_dir_route(
 					});
 			}
 			
-			directories.push(DirectoryEntry {
+			directories.push(ApiDirectoryEntry {
 				path_name: path_name.to_owned(),
 				display_name: path_name.to_owned(),
 				thumbnail_path,
@@ -110,7 +112,7 @@ pub async fn create_file_entry(
 	library_id: &str,
 	library_path: &RelativePath,
 	media_path: &Path
-) -> anyhow::Result<FileEntry> {
+) -> anyhow::Result<ApiFileEntry> {
 	let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(media_path,
 		&server_state.thumbnail_sheet_generator).await?;
 	
@@ -122,13 +124,19 @@ pub async fn create_file_entry(
 		.get_entry(library_id, &library_path)
 		.map(|entry| entry.progress);
 	
-	Ok(FileEntry {
+	let date_modified = media_metadata.mod_time
+		.map(OffsetDateTime::from)
+		.unwrap_or(OffsetDateTime::UNIX_EPOCH);
+	
+	Ok(ApiFileEntry {
 		path_name: media_metadata.path_name,
 		full_path,
 		display_name: media_metadata.title,
 		thumbnail_path,
 		duration: media_metadata.duration.as_secs(),
+		artist: media_metadata.artist,
 		watch_progress,
+		date_modified,
 	})
 }
 
@@ -160,25 +168,7 @@ pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>>
 
 #[derive(Debug, Serialize)]
 struct ListDirResponse {
-	files: Vec<FileEntry>,
-	directories: Vec<DirectoryEntry>,
+	files: Vec<ApiFileEntry>,
+	directories: Vec<ApiDirectoryEntry>,
 	total_duration: u64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct FileEntry {
-	path_name: String,
-	full_path: RelativePathBuf,
-	display_name: String,
-	thumbnail_path: String,
-	duration: u64,
-	watch_progress: Option<u64>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DirectoryEntry {
-	path_name: String,
-	display_name: String,
-	thumbnail_path: Option<String>,
-	child_count: u32,
 }

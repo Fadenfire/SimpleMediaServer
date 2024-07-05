@@ -5,7 +5,7 @@
     import { escapePath, splitLibraryPath } from '$lib/utils';
     import { page } from '$app/stores';
 
-	export let mediaInfo: ApiMediaInfo;
+	export let mediaInfo: ApiFileInfo;
 	
 	export let playerBackend: VideoBackend | undefined = undefined;
 	export let thumbSheetUrl: string | undefined = undefined;
@@ -39,7 +39,7 @@
 	function updateWatchProgress() {
 		if (!playerBackend) return;
 		
-		const [library_id, media_path] = splitLibraryPath(mediaInfo.path);
+		const [library_id, media_path] = splitLibraryPath(mediaInfo.full_path);
 		
 		const msg: UpdateWatchProgressParams = {
 			library_id,
@@ -90,7 +90,7 @@
 		thumbSheetUrl = undefined;
 		
 		if (mediaInfo.video_info !== null) {
-			fetch(`/api/thumbnail_sheet/${escapePath(mediaInfo.path)}`)
+			fetch(`/api/thumbnail_sheet/${escapePath(mediaInfo.full_path)}`)
 				.then(res => res.blob())
 				.then(blob => {
 					if (mounted) thumbSheetUrl = URL.createObjectURL(blob);

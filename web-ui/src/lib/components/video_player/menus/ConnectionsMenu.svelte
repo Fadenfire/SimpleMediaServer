@@ -5,7 +5,7 @@
     import { followLink } from "../buttons/ConnectionsButton.svelte";
     import SidebarMenu from "./SidebarMenu.svelte";
 
-	export let mediaInfo: ApiMediaInfo;
+	export let mediaInfo: ApiFileInfo;
 	export let videoElement: HTMLVideoElement;
 	export let videoCurrentTime: number;
 	

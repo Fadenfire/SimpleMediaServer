@@ -27,7 +27,7 @@
     import ConnectionsButton from "./buttons/ConnectionsButton.svelte";
     import ConnectionsMenu from "./menus/ConnectionsMenu.svelte";
 
-	export let mediaInfo: ApiMediaInfo;
+	export let mediaInfo: ApiFileInfo;
 	
 	// Video properties
 	let playerBackend: VideoBackend | undefined;
@@ -222,7 +222,7 @@
 	on:fullscreenchange={onFullscreenChange}
 >
 	<div class="video-container" on:pointerdown={playerClick}>
-		{#key mediaInfo.path}
+		{#key mediaInfo.full_path}
 			<VideoElement
 				{mediaInfo}
 				

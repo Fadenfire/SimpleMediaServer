@@ -19,6 +19,7 @@ mod get_user;
 mod update_watch_progress;
 mod get_watch_history;
 mod delete_watch_progress;
+mod api_types;
 
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
 	if let ["login"] = path {
