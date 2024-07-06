@@ -20,6 +20,7 @@ mod update_watch_progress;
 mod get_watch_history;
 mod delete_watch_progress;
 mod api_types;
+mod hls_level_manifest;
 
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
 	if let ["login"] = path {
@@ -38,25 +39,28 @@ pub async fn route_request(request: HyperRequest, path: &[&str], server_state: A
 		["watch_history"] => get_watch_history::get_watch_history_route(&server_state, &request).await,
 		
 		["file_info", library_id, library_path @ ..] =>
-			file_info::file_info_route(&server_state, &request, *library_id, library_path).await,
+			file_info::file_info_route(&server_state, &request, library_id, library_path).await,
 		
 		["list_dir", library_id, library_path @ ..] =>
-			list_dir::list_dir_route(&server_state, &request, *library_id, library_path).await,
+			list_dir::list_dir_route(&server_state, &request, library_id, library_path).await,
 		
 		["thumbnail", library_id, library_path @ ..] =>
-			thumbnail::thumbnail_route(&server_state, &request, *library_id, library_path).await,
+			thumbnail::thumbnail_route(&server_state, &request, library_id, library_path).await,
 		
 		["thumbnail_sheet", library_id, library_path @ ..] =>
-			thumbnail_sheet::thumbnail_sheet_route(&server_state, &request, *library_id, library_path).await,
+			thumbnail_sheet::thumbnail_sheet_route(&server_state, &request, library_id, library_path).await,
 		
 		["media", "native", library_id, library_path @ ..] =>
-			native_video::native_video_route(&server_state, request, *library_id, library_path).await,
+			native_video::native_video_route(&server_state, request, library_id, library_path).await,
 		
-		["media", "hls", library_id, library_path @ .., "manifest"] =>
-			hls_manifest::hls_manifest_route(&server_state, &request, *library_id, library_path).await,
+		["media", "hls", library_id, library_path @ .., "level", quality_level, "manifest.m3u8"] =>
+			hls_level_manifest::hls_level_manifest_route(&server_state, &request, library_id, library_path, quality_level).await,
 		
-		["media", "hls", library_id, library_path @ .., "segment", segment_index] =>
-			hls_segment::hls_segment_route(&server_state, &request, *library_id, library_path, *segment_index).await,
+		["media", "hls", library_id, library_path @ .., "level", quality_level, "segment", segment_index] =>
+			hls_segment::hls_segment_route(&server_state, &request, library_id, library_path, quality_level, segment_index).await,
+		
+		["media", "hls", library_id, library_path @ .., "manifest.m3u8"] =>
+			hls_manifest::hls_manifest_route(&server_state, &request, library_id, library_path).await,
 		
 		_ => Err(ApiError::NotFound)
 	};

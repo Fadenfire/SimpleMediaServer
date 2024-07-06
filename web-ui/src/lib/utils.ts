@@ -12,6 +12,18 @@ export function formatDuration(time: number): string {
 	}
 }
 
+const POWER_UNITS = ["k", "M", "G", "T", "E"];
+
+export function abbreviateNumber(num: number, digits: number = 0) {
+	const power = Math.floor(Math.log10(num) / 3);
+	if (power <= 0) return num.toFixed();
+	
+	const x = num / Math.pow(1000, power);
+	const unit = POWER_UNITS?.[power - 1] ?? "?";
+	
+	return x.toFixed(digits) + unit;
+}
+
 export function joinPath(path: string, component: string): string {
 	if (!path.endsWith("/")) {
 		path += "/";

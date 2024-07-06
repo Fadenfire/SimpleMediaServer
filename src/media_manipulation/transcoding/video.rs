@@ -55,7 +55,7 @@ impl VideoTranscoder {
 		let rate_time_base = framerate.invert() * Rational(1, 10);
 		
 		let output_height = decoder.height().min(params.target_height);
-		let output_width = decoder.width() * output_height / decoder.height() / 2 * 2;
+		let output_width = super::calculate_output_width(decoder.width(), decoder.height(), params.target_height);
 		
 		let has_global_header = params.muxer.format().flags().contains(format::flag::Flags::GLOBAL_HEADER);
 		

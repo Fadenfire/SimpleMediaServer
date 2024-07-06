@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { SvelteMediaTimeRange } from 'svelte/elements';
-    import { VideoBackend } from './video_backend';
+    import { NATIVE_LEVEL_INDEX, VideoBackend } from './video_backend';
     import { onMount } from 'svelte';
     import { escapePath, splitLibraryPath } from '$lib/utils';
     import { page } from '$app/stores';
@@ -73,7 +73,7 @@
 		mounted = true;
 		
 		playerBackend = new VideoBackend(innerVideoElement, mediaInfo);
-		playerBackend.attachNative();
+		playerBackend.currentLevelIndex.set(NATIVE_LEVEL_INDEX);
 		
 		const seekOverride: number | undefined = $page.state?.videoPlayerSeekTo;
 		

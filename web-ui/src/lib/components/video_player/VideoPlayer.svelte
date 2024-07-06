@@ -9,6 +9,7 @@
 	export enum SidebarType {
 		None,
 		Connections,
+		Settings,
 	}
 </script>
 
@@ -26,6 +27,8 @@
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
     import ConnectionsButton from "./buttons/ConnectionsButton.svelte";
     import ConnectionsMenu from "./menus/ConnectionsMenu.svelte";
+    import SettingsButton from "./buttons/SettingsButton.svelte";
+	import SettingsMenu from "./menus/SettingsMenu.svelte";
 
 	export let mediaInfo: ApiFileInfo;
 	
@@ -240,7 +243,7 @@
 		{/key}
 	</div>
 	
-	{#if mobile && scrubbingTime !== null && videoInfo !== null && thumbSheetUrl !== undefined}
+	{#if scrubbingTime !== null && videoInfo !== null && thumbSheetUrl !== undefined}
 		<div class="full-thumbnail-container">
 			<PreviewThumbnail {videoInfo} {thumbSheetUrl} currentTime={scrubbingTime} extraStyles="flex: 1;"/>
 		</div>
@@ -281,7 +284,7 @@
 					<div class="control-element"><div class="video-title">{mediaInfo.display_name}</div></div>
 				{/if}
 				
-				<div class="spacer"></div>
+				<div class="flex-spacer"></div>
 				
 				<ConnectionsButton {mediaInfo} {videoCurrentTime} on:click={() => toggleSidebar(SidebarType.Connections)}/>
 			</div>
@@ -292,8 +295,9 @@
 				<div class="control-row">
 					<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
 					
-					<div class="spacer"></div>
+					<div class="flex-spacer"></div>
 					
+					<SettingsButton on:click={() => toggleSidebar(SidebarType.Settings)}/>
 					<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
 				</div>
 			{/if}
@@ -320,8 +324,9 @@
 					<SkipButton direction=forward {mediaInfo}/>
 					<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
 					
-					<div class="spacer"></div>
-	
+					<div class="flex-spacer"></div>
+					
+					<SettingsButton on:click={() => toggleSidebar(SidebarType.Settings)}/>
 					<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
 				</div>
 			{/if}
@@ -330,6 +335,12 @@
 		<div class="right-sidebar">
 			{#if sidebarShown == SidebarType.Connections}
 				<ConnectionsMenu {mediaInfo} {videoElement} {videoCurrentTime}/>
+			{/if}
+			
+			<div class="flex-spacer"></div>
+			
+			{#if sidebarShown == SidebarType.Settings && playerBackend}
+				<SettingsMenu {playerBackend}/>
 			{/if}
 		</div>
 	</div>
@@ -407,6 +418,11 @@
 		}
 	}
 	
+	.flex-spacer {
+		flex: 1;
+		pointer-events: none;
+	}
+	
 	.top-controls {
 		grid-area: top;
 		position: relative;
@@ -435,6 +451,11 @@
 		justify-content: flex-start;
 		padding: player.$gap-size;
 		overflow: hidden;
+		pointer-events: none;
+		
+		> :global(*) {
+			pointer-events: auto;
+		}
 	}
 	
 	.mobile-timeline-container {
@@ -451,10 +472,6 @@
 		align-items: center;
 		padding: player.$gap-size;
 		gap: player.$gap-size;
-		
-		.spacer {
-			flex: 1;
-		}
 	}
 	
 	.control-element {

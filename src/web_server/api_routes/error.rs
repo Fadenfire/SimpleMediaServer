@@ -14,6 +14,7 @@ pub enum ApiError {
 	Unauthorized,
 	InvalidBody,
 	InvalidQuery,
+	UnknownQualityLevel,
 	// UnknownLogin,
 	MethodNotAllowed(Vec<Method>),
 	UnexpectedError(anyhow::Error),
@@ -29,6 +30,7 @@ impl ApiError {
 			Self::Unauthorized => (StatusCode::BAD_REQUEST, "unauthorized"),
 			Self::InvalidBody => (StatusCode::BAD_REQUEST, "invalid_body"),
 			Self::InvalidQuery => (StatusCode::BAD_REQUEST, "invalid_query"),
+			Self::UnknownQualityLevel => (StatusCode::BAD_REQUEST, "unknown_quality_level"),
 			// Self::UnknownLogin => (StatusCode::BAD_REQUEST, "unknown_login"),
 			Self::MethodNotAllowed(_) => (StatusCode::METHOD_NOT_ALLOWED, "method_not_allowed"),
 			Self::UnexpectedError(err) => {

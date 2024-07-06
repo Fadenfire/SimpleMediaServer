@@ -202,6 +202,7 @@
 		position: absolute;
 		bottom: 0;
 		left: 0;
+		z-index: 100;
 		font-size: 10px;
 		font-weight: 500;
 		text-align: center;

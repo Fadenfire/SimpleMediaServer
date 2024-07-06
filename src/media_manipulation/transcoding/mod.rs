@@ -20,6 +20,10 @@ mod video;
 
 const PADDING_DELTA: i64 = 1;
 
+pub fn calculate_output_width(source_width: u32, source_height: u32, target_height: u32) -> u32 {
+	source_width * target_height / source_height / 2 * 2
+}
+
 pub struct TranscodingOptions<'a, B: BackendFactory> {
 	pub backend_factory: &'a B,
 	pub media_path: PathBuf,

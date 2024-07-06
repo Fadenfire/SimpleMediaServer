@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
 use anyhow::{anyhow, Context};
-use ffmpeg_next::{codec, format, Rescale, rescale};
+use ffmpeg_next::{codec, format, Rational, Rescale, rescale};
 use ffmpeg_next::media::Type;
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +71,7 @@ pub struct MediaMetadata {
 pub struct VideoMetadata {
 	pub video_size: Dimension,
 	pub thumbnail_sheet_params: ThumbnailSheetParams,
+	pub frame_rate: Rational,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -118,6 +119,7 @@ fn extract_media_metadata(
 					height: decoder.height(),
 				},
 				thumbnail_sheet_params,
+				frame_rate: decoder.frame_rate().unwrap_or(Rational(60, 1)),
 			})
 		}
 		None => None
