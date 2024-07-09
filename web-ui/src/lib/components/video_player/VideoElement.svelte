@@ -4,6 +4,7 @@
     import { onMount } from 'svelte';
     import { escapePath, splitLibraryPath } from '$lib/utils';
     import { page } from '$app/stores';
+    import { invalidate } from '$app/navigation';
 
 	export let mediaInfo: ApiFileInfo;
 	
@@ -50,6 +51,10 @@
 		fetch("/api/update_watch_progress", {
 			method: "POST",
 			body: JSON.stringify(msg)
+		})
+		.then(() => {
+			invalidate(url => url.pathname == "/api/watch_history" ||
+				url.pathname.startsWith(`/api/list_dir/${encodeURIComponent(library_id)}/`));
 		});
 	}
 	

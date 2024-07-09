@@ -1,4 +1,8 @@
-<div class="menu">
+<script lang="ts">
+	export let extraStyles: string | undefined = undefined;
+</script>
+
+<div class="menu" style={extraStyles}>
 	<slot/>
 </div>
 

@@ -358,6 +358,7 @@
 		position: relative;
 		touch-action: manipulation;
 		
+		--video-player-control-gap: 8px;
 		--video-player-control-size: 20px;
 		--video-player-large-control-size: 30px;
 		
@@ -366,7 +367,8 @@
 		}
 		
 		&.mobile {
-			--video-player-control-size: 22px;
+			--video-player-control-gap: 12px;
+			--video-player-control-size: 24px;
 			--video-player-large-control-size: 34px;
 		}
 	}
@@ -471,7 +473,7 @@
 		display: flex;
 		align-items: center;
 		padding: player.$gap-size;
-		gap: player.$gap-size;
+		gap: var(--video-player-control-gap);
 	}
 	
 	.control-element {
