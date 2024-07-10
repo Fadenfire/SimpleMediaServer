@@ -13,9 +13,25 @@
 		videoCurrentTime = time;
 		videoElement.currentTime = time;
 	}
+	
+	// $: connectedVideos = Array.from(new Set(mediaInfo.connections.map(con => con.video_path)))
 </script>
 
 <SidebarMenu>
+	<!-- <div style="display: flex; gap: 10px; height: 100%;">
+		{#each connectedVideos as connectedVideo}
+			{@const joe = mediaInfo.connections.filter(con => con.video_path == connectedVideo)}
+			<div>
+				{joe[0].relation}
+				<div style="height: 100%; width: 4px; background-color: blue; position: relative;">
+					{#each joe as connection}
+						<div style="background-color: red; position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform-origin: 0 0; transform: translateY({connection.left_start / mediaInfo.duration * 100}%) scaleY({(connection.left_end - connection.left_start) / mediaInfo.duration});"></div>
+					{/each}
+				</div>
+			</div>
+		{/each}
+	</div> -->
+	
 	{#each mediaInfo.connections as connection}
 		{@const active = connection.left_start <= videoCurrentTime && videoCurrentTime < connection.left_end}
 		

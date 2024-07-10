@@ -68,7 +68,9 @@ interface ApiFileInfo {
 	prev_video: string | null,
 	next_video: string | null,
 	watch_progress: number | null,
+	description: string | null,
 	connections: ApiVideoConnection[],
+	comments: ApiCommentThread[],
 }
 
 interface ApiVideoInfo {
@@ -87,6 +89,18 @@ interface ApiVideoConnection {
 	left_start: number,
 	left_end: number,
 	right_start: number,
+}
+
+interface ApiCommentThread {
+	comment: ApiComment,
+	replies: ApiComment[],
+}
+
+interface ApiComment {
+	author: string,
+	text: string,
+	likes: number,
+	published_at: string,
 }
 
 interface ApiDirectoryInfo {

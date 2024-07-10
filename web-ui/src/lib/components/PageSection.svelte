@@ -36,6 +36,11 @@
 		
 		a {
 			color: var(--main-text-color);
+			text-decoration: none;
+			
+			&:hover {
+				text-decoration: underline;
+			}
 		}
 	}
 </style>

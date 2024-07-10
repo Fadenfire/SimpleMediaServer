@@ -13,7 +13,7 @@ body {
 }
 
 main.main-content {
-	padding: 10px;
+	margin: 10px;
 }
 
 button.custom-button {
@@ -32,10 +32,11 @@ button.custom-button {
 	cursor: pointer;
 }
 
-a {
-	text-decoration: none;
+a.normal-link {
+	color: var(--link-color);
+	transition: color 0.3s;
 	
 	&[href]:hover {
-		text-decoration: underline;
+		color: var(--link-hover-color);
 	}
 }

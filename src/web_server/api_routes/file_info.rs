@@ -35,79 +35,7 @@ pub async fn file_info_route(
 	
 	match video_locator::locate_video(&resolved_path).await? {
 		LocatedFile::File(file_path) => {
-			let file_metadata = tokio::fs::metadata(&file_path).await?;
-			let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&file_path, &server_state.thumbnail_sheet_generator).await?;
-			
-			let adjacent_files = list_dir::collect_video_list(&file_path.parent().context("No parent")?).await?;
-			let this_index = adjacent_files.iter().position(|path| path == &file_path).context("Can't find self in file list")?;
-			
-			let video_info = media_metadata.video_metadata.map(|video_metadata| {
-				ApiVideoInfo {
-					video_size: video_metadata.video_size,
-					sheet_thumbnail_size: Dimension {
-						width: video_metadata.thumbnail_sheet_params.thumbnail_width,
-						height: video_metadata.thumbnail_sheet_params.thumbnail_height,
-					},
-					thumbnail_sheet_rows: video_metadata.thumbnail_sheet_params.sheet_rows,
-					thumbnail_sheet_cols: video_metadata.thumbnail_sheet_params.sheet_cols,
-					thumbnail_sheet_interval: video_metadata.thumbnail_sheet_params.interval,
-				}
-			});
-			
-			let prev_video = this_index
-				.checked_sub(1)
-				.and_then(|i| adjacent_files.get(i))
-				.and_then(|path| path.file_stem())
-				.and_then(OsStr::to_str)
-				.map(ToOwned::to_owned);
-			let next_video = adjacent_files.get(this_index + 1)
-				.and_then(|path| path.file_stem())
-				.and_then(OsStr::to_str)
-				.map(ToOwned::to_owned);
-			
-			let watch_progress = server_state.user_watch_histories.lock().unwrap()
-				.get_watch_history(&user.id)
-				.get_entry(library_id, &library_path)
-				.map(|entry| entry.progress);
-			
-			let mut connections = media_connections::get_video_connections(&resolved_path).await?
-				.map(|connection_file| {
-					connection_file.connected_videos.into_iter()
-						.flat_map(|entry| {
-							let other_path = RelativePath::new(library_id).join(&entry.video_path);
-							let other_thumbnail = thumbnail::create_thumbnail_path(&other_path);
-							let shortcut_thumbnail = entry.shortcut_thumbnail
-								.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&path)));
-							
-							entry.connections.into_iter()
-								.map(move |connection| ApiVideoConnection {
-									video_path: other_path.clone(),
-									video_thumbnail: other_thumbnail.clone(),
-									relation: entry.relation.clone(),
-									shortcut_thumbnail: shortcut_thumbnail.clone(),
-									left_start: connection.left_start,
-									left_end: connection.left_start + connection.duration,
-									right_start: connection.right_start,
-								})
-						})
-						.collect()
-				})
-				.unwrap_or_else(|| Vec::new());
-			
-			connections.sort_by_key(|con| con.left_end);
-			
-			let file_info = ApiFileInfo {
-				full_path: RelativePath::new(library_id).join(&library_path),
-				display_name: media_metadata.title,
-				file_size: file_metadata.len(),
-				duration: media_metadata.duration.as_secs(),
-				artist: media_metadata.artist,
-				video_info,
-				prev_video,
-				next_video,
-				watch_progress,
-				connections,
-			};
+			let file_info = create_file_info(server_state, user, library_id, &library_path, &file_path).await?;
 			
 			Ok(json_response(StatusCode::OK, &FileInfoResponse::File(file_info)))
 		}
@@ -128,6 +56,118 @@ pub async fn file_info_route(
 			Ok(json_response(StatusCode::OK, &FileInfoResponse::Directory(dir_info)))
 		}
 	}
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum FileInfoResponse {
+	File(ApiFileInfo),
+	Directory(ApiDirectoryInfo),
+}
+
+pub const DESCRIPTION_FILE_EXT: &str = "description";
+pub const COMMENTS_FILE_EXT: &str = "comments.json";
+
+pub async fn create_file_info(
+	server_state: &ServerState,
+	user: &User,
+	library_id: &str,
+	library_path: &RelativePath,
+	media_path: &Path
+) -> anyhow::Result<ApiFileInfo> {
+	let file_metadata = tokio::fs::metadata(&media_path).await?;
+	let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&media_path, &server_state.thumbnail_sheet_generator).await?;
+	
+	let adjacent_files = list_dir::collect_video_list(&media_path.parent().context("No parent")?).await?;
+	let this_index = adjacent_files.iter().position(|path| path == &media_path).context("Can't find self in file list")?;
+	
+	let video_info = media_metadata.video_metadata.map(|video_metadata| {
+		ApiVideoInfo {
+			video_size: video_metadata.video_size,
+			sheet_thumbnail_size: Dimension {
+				width: video_metadata.thumbnail_sheet_params.thumbnail_width,
+				height: video_metadata.thumbnail_sheet_params.thumbnail_height,
+			},
+			thumbnail_sheet_rows: video_metadata.thumbnail_sheet_params.sheet_rows,
+			thumbnail_sheet_cols: video_metadata.thumbnail_sheet_params.sheet_cols,
+			thumbnail_sheet_interval: video_metadata.thumbnail_sheet_params.interval,
+		}
+	});
+	
+	let prev_video = this_index
+		.checked_sub(1)
+		.and_then(|i| adjacent_files.get(i))
+		.and_then(|path| path.file_stem())
+		.and_then(OsStr::to_str)
+		.map(ToOwned::to_owned);
+	let next_video = adjacent_files.get(this_index + 1)
+		.and_then(|path| path.file_stem())
+		.and_then(OsStr::to_str)
+		.map(ToOwned::to_owned);
+	
+	let watch_progress = server_state.user_watch_histories.lock().unwrap()
+		.get_watch_history(&user.id)
+		.get_entry(library_id, &library_path)
+		.map(|entry| entry.progress);
+	
+	let description = read_file_maybe(media_path, DESCRIPTION_FILE_EXT).await?
+		.and_then(|data| String::from_utf8(data).ok());
+	
+	let mut connections = media_connections::get_video_connections(&media_path).await?
+		.map(|connection_file| {
+			connection_file.connected_videos.into_iter()
+				.flat_map(|entry| {
+					let other_path = RelativePath::new(library_id).join(&entry.video_path);
+					let other_thumbnail = thumbnail::create_thumbnail_path(&other_path);
+					let shortcut_thumbnail = entry.shortcut_thumbnail
+						.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&path)));
+					
+					entry.connections.into_iter()
+						.map(move |connection| ApiVideoConnection {
+							video_path: other_path.clone(),
+							video_thumbnail: other_thumbnail.clone(),
+							relation: entry.relation.clone(),
+							shortcut_thumbnail: shortcut_thumbnail.clone(),
+							left_start: connection.left_start,
+							left_end: connection.left_start + connection.duration,
+							right_start: connection.right_start,
+						})
+				})
+				.collect()
+		})
+		.unwrap_or_else(|| Vec::new());
+	
+	connections.sort_by_key(|con| con.left_end);
+	
+	let comments = read_file_maybe(media_path, COMMENTS_FILE_EXT).await?
+		.and_then(|data| serde_json::from_slice(&data).ok())
+		.map(|comments_file: CommentsFile| comments_file.comment_threads)
+		.unwrap_or_default();
+	
+	Ok(ApiFileInfo {
+		full_path: RelativePath::new(library_id).join(&library_path),
+		display_name: media_metadata.title,
+		file_size: file_metadata.len(),
+		duration: media_metadata.duration.as_secs(),
+		artist: media_metadata.artist,
+		video_info,
+		prev_video,
+		next_video,
+		watch_progress,
+		description,
+		connections,
+		comments,
+	})
+}
+
+pub async fn read_file_maybe(media_path: &Path, ext: &str) -> anyhow::Result<Option<Vec<u8>>> {
+	let path = media_path.with_extension(ext);
+	
+	if !tokio::fs::try_exists(&path).await? {
+		return Ok(None);
+	}
+	
+	Ok(Some(tokio::fs::read(&path).await?))
 }
 
 #[derive(Debug, Clone, Deserialize)]

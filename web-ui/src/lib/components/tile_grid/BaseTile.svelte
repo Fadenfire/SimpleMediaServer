@@ -50,6 +50,11 @@
 	
 	.title {
 		flex: 1;
+		text-decoration: none;
 		color: var(--main-text-color);
+		
+		&[href]:hover {
+			text-decoration: underline;
+		}
 	}
 </style>
