@@ -7,7 +7,7 @@ use pbkdf2::pbkdf2_hmac;
 use sha2::Sha256;
 
 use crate::config::UsersConfig;
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 
 pub const AUTH_COOKIE_NAME: &str = "media_server_access_token";
 pub const AUTH_TOKEN_LENGTH: usize = 32;

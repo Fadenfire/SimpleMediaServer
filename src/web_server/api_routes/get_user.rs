@@ -1,8 +1,8 @@
 use http::{Method, StatusCode};
 use tracing::instrument;
 
-use crate::web_server::api_routes::api_types::ApiUserInfo;
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_types::ApiUserInfo;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::auth::AuthManager;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 

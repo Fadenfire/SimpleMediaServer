@@ -9,8 +9,8 @@ use time::OffsetDateTime;
 use tracing::{error, instrument};
 
 use crate::web_server::{libraries, video_locator};
-use crate::web_server::api_routes::api_types::{ApiDirectoryEntry, ApiFileEntry};
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_types::{ApiDirectoryEntry, ApiFileEntry};
+use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::thumbnail;
 use crate::web_server::auth::User;
 use crate::web_server::server_state::ServerState;

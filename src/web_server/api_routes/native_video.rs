@@ -3,7 +3,7 @@ use http_body_util::BodyExt;
 use tower_http::services::ServeFile;
 use tracing::instrument;
 
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::{libraries, video_locator};
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, restrict_method};

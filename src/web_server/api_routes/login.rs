@@ -3,7 +3,7 @@ use http::header::{LOCATION, SET_COOKIE};
 use serde::Deserialize;
 use tracing::instrument;
 
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::auth::{AUTH_COOKIE_NAME, AuthManager};
 use crate::web_server::web_utils;
 use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse, restrict_method};

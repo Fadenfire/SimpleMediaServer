@@ -4,7 +4,7 @@ use serde::Deserialize;
 use tracing::instrument;
 
 use crate::web_server::{libraries, video_locator, web_utils};
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils::{empty_body, HyperRequest, HyperResponse, restrict_method};
 

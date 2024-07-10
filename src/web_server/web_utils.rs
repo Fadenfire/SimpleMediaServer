@@ -14,7 +14,7 @@ use relative_path::RelativePath;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 
 pub type HyperRequest = Request<Incoming>;
 pub type HyperResponse = Response<HyperBody>;

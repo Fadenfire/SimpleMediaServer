@@ -1,16 +1,18 @@
 use std::borrow::Cow;
 use std::ffi::OsStr;
+use std::path::Path;
 
 use anyhow::Context;
 use http::{Method, StatusCode};
 use relative_path::{RelativePath, RelativePathBuf};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::web_server::{libraries, media_connections, video_locator};
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::{list_dir, thumbnail};
-use crate::web_server::api_routes::api_types::{ApiDirectoryInfo, ApiFileInfo, ApiVideoConnection, ApiVideoInfo};
+use crate::web_server::api_types::{ApiCommentThread, ApiDirectoryInfo, ApiFileInfo, ApiVideoConnection, ApiVideoInfo};
+use crate::web_server::auth::User;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
 use crate::web_server::video_metadata::Dimension;
@@ -128,9 +130,7 @@ pub async fn file_info_route(
 	}
 }
 
-#[derive(Debug, Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum FileInfoResponse {
-	File(ApiFileInfo),
-	Directory(ApiDirectoryInfo),
+#[derive(Debug, Clone, Deserialize)]
+pub struct CommentsFile {
+	pub comment_threads: Vec<ApiCommentThread>,
 }

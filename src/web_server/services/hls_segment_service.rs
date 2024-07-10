@@ -6,7 +6,7 @@ use bytes::Bytes;
 
 use crate::media_manipulation::transcoding;
 use crate::media_manipulation::transcoding::TranscodingOptions;
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
 use crate::web_server::services::artifact_cache::{ArtifactGenerator, FileValidityKey};
 use crate::web_server::video_metadata::{Dimension, VideoMetadata};

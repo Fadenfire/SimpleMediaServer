@@ -1,5 +1,5 @@
 use relative_path::RelativePathBuf;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
 use crate::web_server::video_metadata::Dimension;
@@ -48,7 +48,9 @@ pub struct ApiFileInfo {
 	pub prev_video: Option<String>,
 	pub next_video: Option<String>,
 	pub watch_progress: Option<u64>,
+	pub description: Option<String>,
 	pub connections: Vec<ApiVideoConnection>,
+	pub comments: Vec<ApiCommentThread>,
 }
 
 #[derive(Debug, Serialize)]
@@ -69,6 +71,21 @@ pub struct ApiVideoConnection {
 	pub left_start: u64,
 	pub left_end: u64,
 	pub right_start: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ApiCommentThread {
+	pub comment: ApiComment,
+	pub replies: Vec<ApiComment>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ApiComment {
+	pub author: String,
+	pub text: String,
+	pub likes: u64,
+	#[serde(with = "time::serde::iso8601")]
+	pub published_at: OffsetDateTime,
 }
 
 #[derive(Debug, Serialize)]

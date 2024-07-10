@@ -5,7 +5,7 @@ use http::HeaderMap;
 use relative_path::{RelativePath, RelativePathBuf};
 
 use crate::config::LibrariesConfig;
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils;
 

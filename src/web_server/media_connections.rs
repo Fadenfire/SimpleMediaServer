@@ -5,12 +5,10 @@ use relative_path::RelativePathBuf;
 use serde::{Deserialize, Deserializer};
 use serde::de::Error;
 
-use crate::utils;
-
 pub const CONNECTIONS_FILE_EXT: &str = "connections.json";
 
 pub async fn get_video_connections(path: &Path) -> anyhow::Result<Option<ConnectionsFile>> {
-	let connections_path = utils::add_extension(path, CONNECTIONS_FILE_EXT);
+	let connections_path = path.with_extension(CONNECTIONS_FILE_EXT);
 	
 	if !tokio::fs::try_exists(&connections_path).await? {
 		return Ok(None);

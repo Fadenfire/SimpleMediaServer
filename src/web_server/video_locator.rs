@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use crate::utils;
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 
 pub const MEDIA_EXTENSIONS: &[&str] = &[
 	"mp4",

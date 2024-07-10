@@ -35,6 +35,8 @@ mod server_state;
 mod auth;
 mod watch_history;
 mod media_connections;
+mod api_types;
+mod api_error;
 
 #[instrument(skip_all)]
 async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {

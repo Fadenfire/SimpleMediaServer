@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};
 
 use crate::web_server::{video_locator, web_utils};
-use crate::web_server::api_routes::api_types::ApiWatchHistoryEntry;
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_types::ApiWatchHistoryEntry;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::list_dir;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;

@@ -3,7 +3,7 @@ use http::Method;
 use tracing::instrument;
 
 use crate::web_server::services::hls_segment_service::SegmentParams;
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::{libraries, video_locator};
 use crate::web_server::services::hls_segment_service;

@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::login::login_route;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse};
 
-pub mod error;
 mod list_libraries;
 mod file_info;
 mod list_dir;
@@ -19,7 +18,6 @@ mod get_user;
 mod update_watch_progress;
 mod get_watch_history;
 mod delete_watch_progress;
-mod api_types;
 mod hls_level_manifest;
 
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {

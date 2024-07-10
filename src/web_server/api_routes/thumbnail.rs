@@ -5,7 +5,7 @@ use relative_path::RelativePath;
 use tracing::instrument;
 
 use crate::web_server::{libraries, video_locator};
-use crate::web_server::api_routes::error::ApiError;
+use crate::web_server::api_error::ApiError;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, restrict_method, serve_file_basic};
