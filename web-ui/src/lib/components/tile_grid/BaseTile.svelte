@@ -44,8 +44,9 @@
 	.title-container {
 		display: flex;
 		flex-direction: row;
-		align-items: flex-start;
+		align-items: center;
 		gap: 4px;
+		margin-bottom: 4px;
 	}
 	
 	.title {

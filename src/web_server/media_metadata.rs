@@ -114,6 +114,7 @@ fn extract_media_metadata(
 	let creation_date = demuxer.metadata().get("date")
 		.and_then(|date| Date::parse(date, YT_DLP_DATE_FORMAT).ok())
 		.map(|date| date.midnight().assume_utc())
+		.or_else(|| file_metadata.created().ok().map(Into::into))
 		.unwrap_or_else(|| mod_time.into());
 	
 	let video_metadata = match demuxer.streams().best(Type::Video) {

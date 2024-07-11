@@ -23,6 +23,7 @@
 					<HistoryTile
 						historyEntry={entry}
 						showDeleteButton={true}
+						showLastWatched={true}
 						on:deleteEntry={() => watchHistory.entries = watchHistory.entries.filter(e => e !== entry)}
 					/>
 				{/each}

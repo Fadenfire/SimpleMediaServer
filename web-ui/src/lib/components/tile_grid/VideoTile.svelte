@@ -36,6 +36,7 @@
 	
 	<svelte:fragment slot="desc">
 		<span class="extra-info" title={extraInfoTooltip}>{extraInfo}</span>
+		<slot name="desc"></slot>
 	</svelte:fragment>
 </BaseTile>
 
@@ -74,6 +75,5 @@
 	.extra-info {
 		color: var(--secondary-text-color);
 		font-size: 0.8em;
-		line-height: 2em;
 	}
 </style>
