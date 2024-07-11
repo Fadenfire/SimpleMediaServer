@@ -1,18 +1,27 @@
 <script lang="ts">
-    import MultiLineText from "$lib/components/MultiLineText.svelte";
+    import FormattedText from "$lib/components/FormattedText.svelte";
 	import VideoPlayer from "$lib/components/video_player/VideoPlayer.svelte";
+    import { formatRichText } from "$lib/format_text";
     import Comments from "./Comments.svelte";
 
 	export let mediaInfo: ApiFileInfo;
 	
+	let videoPlayer: VideoPlayer;
+	
+	function seekTo(time: number) {
+		videoPlayer.seekTo(time);
+		window.scrollTo(0, 0);
+	}
+	
 	$: videoAspectRadio = mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0;
+	$: description = mediaInfo.description ? formatRichText(mediaInfo.description, seekTo) : undefined;
 </script>
 
 <div class="main-container" style="--video-aspect-radio: {videoAspectRadio}">
 	<main class="main-content">
 		<section class="video-section">
 			<div class="video-container">
-				<VideoPlayer mediaInfo={mediaInfo}/>
+				<VideoPlayer bind:this={videoPlayer} mediaInfo={mediaInfo}/>
 			</div>
 			
 			<h1 class="title">{mediaInfo.display_name}</h1>
@@ -21,9 +30,9 @@
 				<span class="extra-info">{mediaInfo.artist}</span>
 			{/if}
 			
-			{#if mediaInfo.description}
+			{#if description}
 				<p class="description">
-					<MultiLineText text={mediaInfo.description}/>
+					<FormattedText text={description}/>
 				</p>
 			{/if}
 		</section>
@@ -31,7 +40,7 @@
 		{#if mediaInfo.comments.length > 0}
 			<section class="comments">
 				<h3>Comments</h3>
-				<Comments commentThreads={mediaInfo.comments}/>
+				<Comments commentThreads={mediaInfo.comments} on:seekTo={event => seekTo(event.detail)}/>
 			</section>
 		{/if}
 	</main>
@@ -63,11 +72,6 @@
 	.video-container {
 		width: var(--video-width);
 		height: var(--video-height);
-	}
-	
-	.basic-info {
-		display: flex;
-		flex-direction: column;
 	}
 	
 	.title {

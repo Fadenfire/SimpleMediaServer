@@ -6,10 +6,10 @@
 
 <div class="comments">
 	{#each commentThreads as thread}
-		<Comment comment={thread.comment}>
+		<Comment comment={thread.comment} on:seekTo>
 			{#if thread.replies.length > 0}
 				<details>
-					<summary class="replies-dropdown">Replies</summary>
+					<summary class="replies-dropdown">{thread.replies.length} {thread.replies.length == 1 ? "Reply" : "Replies"}</summary>
 					
 					<div class="replies comments">
 						{#each thread.replies as reply}

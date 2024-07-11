@@ -12,6 +12,13 @@ export function formatDuration(time: number): string {
 	}
 }
 
+export function parseDuration(text: string): number {
+	const e = text.split(":");
+	e.reverse();
+	
+	return parseInt(e[0]) + parseInt(e[1]) * 60 + parseInt(e?.[2] ?? "0") * 60 * 60;
+}
+
 const POWER_UNITS = ["k", "M", "G", "T", "E"];
 
 export function abbreviateNumber(num: number, digits: number = 0) {

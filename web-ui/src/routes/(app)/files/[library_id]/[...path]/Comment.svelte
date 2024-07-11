@@ -1,9 +1,14 @@
 <script lang="ts">
-    import MultiLineText from "$lib/components/MultiLineText.svelte";
+    import FormattedText from "$lib/components/FormattedText.svelte";
+    import { formatRichText } from "$lib/format_text";
     import dayjs from "dayjs";
-
+    import { createEventDispatcher } from "svelte";
+	
 	export let comment: ApiComment;
 	
+	const dispatch = createEventDispatcher();
+	
+	$: text = formatRichText(comment.text, time => dispatch("seekTo", time));
 	$: publishedAt = dayjs(comment.published_at).format("YYYY-MM-DD");
 </script>
 
@@ -14,7 +19,7 @@
 	</div>
 	
 	<p class="text">
-		<MultiLineText text={comment.text}/>
+		<FormattedText text={text}/>
 	</p>
 	
 	<slot></slot>
@@ -26,7 +31,7 @@
 		flex-direction: column;
 		align-items: start;
 		gap: 8px;
-		// background-color: var(--foreground-inset-color);
+		background-color: var(--foreground-inset-color);
 		border-radius: 8px;
 		padding: 8px;
 		font-size: 14px;

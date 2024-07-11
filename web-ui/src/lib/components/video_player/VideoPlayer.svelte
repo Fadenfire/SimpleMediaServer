@@ -107,6 +107,13 @@
 		}
 	}
 	
+	export function seekTo(time: number) {
+		const newTime = Math.max(0, Math.min(videoDuration, time));
+		
+		videoCurrentTime = newTime;
+		videoElement.currentTime = newTime;
+	}
+	
 	// Fullscreen
 	
 	let isFullscreen = false;
