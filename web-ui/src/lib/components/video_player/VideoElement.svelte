@@ -83,8 +83,10 @@
 		const seekOverride: number | undefined = $page.state?.videoPlayerSeekTo;
 		
 		if (seekOverride !== undefined) {
+			innerCurrentTime = seekOverride;
 			innerVideoElement.currentTime = seekOverride;
 		} else if (mediaInfo.watch_progress && mediaInfo.watch_progress < mediaInfo.duration - 10) {
+			innerCurrentTime = mediaInfo.watch_progress;
 			innerVideoElement.currentTime = mediaInfo.watch_progress;
 		}
 		
