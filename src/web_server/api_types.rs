@@ -2,7 +2,7 @@ use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::web_server::video_metadata::Dimension;
+use crate::web_server::media_metadata::Dimension;
 
 #[derive(Debug, Serialize)]
 pub struct ApiUserInfo {
@@ -26,7 +26,7 @@ pub struct ApiFileEntry {
 	pub artist: Option<String>,
 	pub watch_progress: Option<u64>,
 	#[serde(with = "time::serde::iso8601")]
-	pub date_modified: OffsetDateTime,
+	pub creation_date: OffsetDateTime,
 }
 
 #[derive(Debug, Serialize)]
@@ -44,6 +44,8 @@ pub struct ApiFileInfo {
 	pub file_size: u64,
 	pub duration: u64,
 	pub artist: Option<String>,
+	#[serde(with = "time::serde::iso8601")]
+	pub creation_date: OffsetDateTime,
 	pub video_info: Option<ApiVideoInfo>,
 	pub prev_video: Option<String>,
 	pub next_video: Option<String>,

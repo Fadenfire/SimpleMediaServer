@@ -1,8 +1,23 @@
 <script lang="ts">
     import { escapePath, formatDuration } from "$lib/utils";
+    import dayjs from "dayjs";
     import BaseTile from "./BaseTile.svelte";
 
 	export let fileEntry: ApiFileEntry;
+	
+	let extraInfo: string;
+	let extraInfoTooltip: string;
+	
+	$: {
+		const frags = [];
+		const creationDate = dayjs(fileEntry.creation_date);
+		
+		if (fileEntry.artist) frags.push(fileEntry.artist);
+		frags.push(creationDate.fromNow());
+		
+		extraInfo = frags.join(" • ");
+		extraInfoTooltip = creationDate.format("YYYY-MM-DD");
+	}
 </script>
 
 <BaseTile title={fileEntry.display_name} link="/files/{escapePath(fileEntry.full_path)}/">
@@ -20,9 +35,7 @@
 	<slot name="title-row" slot="title-row"></slot>
 	
 	<svelte:fragment slot="desc">
-		{#if fileEntry.artist}
-			<span class="extra-info">{fileEntry.artist}</span>
-		{/if}
+		<span class="extra-info" title={extraInfoTooltip}>{extraInfo}</span>
 	</svelte:fragment>
 </BaseTile>
 

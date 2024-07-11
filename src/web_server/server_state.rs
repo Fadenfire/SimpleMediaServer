@@ -11,7 +11,7 @@ use crate::web_server::services::hls_segment_service::HlsSegmentGenerator;
 use crate::web_server::services::task_pool::TaskPool;
 use crate::web_server::services::thumbnail_service::ThumbnailGenerator;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
-use crate::web_server::video_metadata::MediaMetadataCache;
+use crate::web_server::media_metadata::MediaMetadataCache;
 use crate::web_server::watch_history::UserWatchHistories;
 
 pub struct ServerState {

@@ -48,7 +48,7 @@ interface ApiFileEntry {
 	duration: number,
 	artist: string | null,
 	watch_progress: number | null,
-	date_modified: string,
+	creation_date: string,
 }
 
 interface ApiDirectoryEntry {
@@ -64,6 +64,7 @@ interface ApiFileInfo {
 	file_size: number,
 	duration: number,
 	artist: string | null,
+	creation_date: string,
 	video_info: ApiVideoInfo | null,
 	prev_video: string | null,
 	next_video: string | null,

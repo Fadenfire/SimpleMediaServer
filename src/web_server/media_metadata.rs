@@ -8,7 +8,9 @@ use anyhow::{anyhow, Context};
 use ffmpeg_next::{codec, format, Rational, Rescale, rescale};
 use ffmpeg_next::media::Type;
 use serde::{Deserialize, Serialize};
-
+use time::format_description::BorrowedFormatItem;
+use time::macros::format_description;
+use time::{Date, OffsetDateTime};
 use crate::media_manipulation::media_utils::MILLIS_TIME_BASE;
 use crate::media_manipulation::thumbnail_sheet;
 use crate::media_manipulation::thumbnail_sheet::ThumbnailSheetParams;
@@ -34,7 +36,7 @@ impl MediaMetadataCache {
 			let cache = self.metadata_cache.lock().unwrap();
 			
 			if let Some(media_metadata) = cache.get(&media_path) {
-				if media_metadata.file_size == file_metadata.len() && media_metadata.mod_time == file_metadata.modified().ok() {
+				if media_metadata.file_size == file_metadata.len() && Some(media_metadata.mod_time) == file_metadata.modified().ok() {
 					return Ok(media_metadata.clone());
 				}
 			}
@@ -59,11 +61,12 @@ impl MediaMetadataCache {
 #[derive(Clone, Debug)]
 pub struct MediaMetadata {
 	pub file_size: u64,
-	pub mod_time: Option<SystemTime>,
+	pub mod_time: SystemTime,
 	pub path_name: String,
 	pub duration: Duration,
 	pub title: String,
 	pub artist: Option<String>,
+	pub creation_date: OffsetDateTime,
 	pub video_metadata: Option<VideoMetadata>,
 }
 
@@ -80,12 +83,16 @@ pub struct Dimension {
 	pub height: u32,
 }
 
+const YT_DLP_DATE_FORMAT: &[BorrowedFormatItem] = format_description!("[year][month][day]");
+
 fn extract_media_metadata(
 	media_path: PathBuf,
 	file_metadata: std::fs::Metadata,
 	cached_thumbnail_sheet_params: Option<ThumbnailSheetParams>
 ) -> anyhow::Result<MediaMetadata> {
 	let demuxer = format::input(&media_path).context("Opening video file")?;
+	
+	let mod_time = file_metadata.modified().context("FS doesn't support mod time")?;
 	
 	let duration_millis = demuxer.duration()
 		.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)
@@ -103,6 +110,11 @@ fn extract_media_metadata(
 		.unwrap_or_else(|| path_name.clone());
 	
 	let artist = demuxer.metadata().get("artist").map(ToOwned::to_owned);
+	
+	let creation_date = demuxer.metadata().get("date")
+		.and_then(|date| Date::parse(date, YT_DLP_DATE_FORMAT).ok())
+		.map(|date| date.midnight().assume_utc())
+		.unwrap_or_else(|| mod_time.into());
 	
 	let video_metadata = match demuxer.streams().best(Type::Video) {
 		Some(video_stream) => {
@@ -127,11 +139,12 @@ fn extract_media_metadata(
 	
 	Ok(MediaMetadata {
 		file_size: file_metadata.len(),
-		mod_time: file_metadata.modified().ok(),
+		mod_time,
 		path_name,
 		duration,
 		title,
 		artist,
+		creation_date,
 		video_metadata,
 	})
 }

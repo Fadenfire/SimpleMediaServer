@@ -5,13 +5,12 @@ use std::path::{Path, PathBuf};
 use http::{Method, StatusCode};
 use relative_path::{RelativePath, RelativePathBuf};
 use serde::Serialize;
-use time::OffsetDateTime;
 use tracing::{error, instrument};
 
 use crate::web_server::{libraries, video_locator};
-use crate::web_server::api_types::{ApiDirectoryEntry, ApiFileEntry};
 use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::thumbnail;
+use crate::web_server::api_types::{ApiDirectoryEntry, ApiFileEntry};
 use crate::web_server::auth::User;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
@@ -124,10 +123,6 @@ pub async fn create_file_entry(
 		.get_entry(library_id, &library_path)
 		.map(|entry| entry.progress);
 	
-	let date_modified = media_metadata.mod_time
-		.map(OffsetDateTime::from)
-		.unwrap_or(OffsetDateTime::UNIX_EPOCH);
-	
 	Ok(ApiFileEntry {
 		path_name: media_metadata.path_name,
 		full_path,
@@ -136,7 +131,7 @@ pub async fn create_file_entry(
 		duration: media_metadata.duration.as_secs(),
 		artist: media_metadata.artist,
 		watch_progress,
-		date_modified,
+		creation_date: media_metadata.creation_date,
 	})
 }
 

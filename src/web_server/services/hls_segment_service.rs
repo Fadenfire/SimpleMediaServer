@@ -9,7 +9,7 @@ use crate::media_manipulation::transcoding::TranscodingOptions;
 use crate::web_server::api_error::ApiError;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
 use crate::web_server::services::artifact_cache::{ArtifactGenerator, FileValidityKey};
-use crate::web_server::video_metadata::{Dimension, VideoMetadata};
+use crate::web_server::media_metadata::{Dimension, VideoMetadata};
 
 pub const SEGMENT_DURATION: i64 = 5;
 

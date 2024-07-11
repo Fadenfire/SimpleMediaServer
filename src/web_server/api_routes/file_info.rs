@@ -15,7 +15,7 @@ use crate::web_server::api_types::{ApiCommentThread, ApiDirectoryInfo, ApiFileIn
 use crate::web_server::auth::User;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
-use crate::web_server::video_metadata::Dimension;
+use crate::web_server::media_metadata::Dimension;
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
 #[instrument(skip(server_state, request))]
@@ -150,6 +150,7 @@ pub async fn create_file_info(
 		file_size: file_metadata.len(),
 		duration: media_metadata.duration.as_secs(),
 		artist: media_metadata.artist,
+		creation_date: media_metadata.creation_date,
 		video_info,
 		prev_video,
 		next_video,

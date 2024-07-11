@@ -25,7 +25,7 @@ use crate::config::ServerConfig;
 use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse};
 
 mod api_routes;
-mod video_metadata;
+mod media_metadata;
 mod video_locator;
 mod libraries;
 mod web_utils;

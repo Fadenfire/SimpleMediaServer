@@ -35,7 +35,7 @@
 		let sortDirection = SortDirection.Ascending;
 		
 		if (sortType == SortType.DateAdded) {
-			keyFunc = entry => dayjs(entry.date_modified).valueOf();
+			keyFunc = entry => dayjs(entry.creation_date).valueOf();
 			
 			sortDirection = SortDirection.Descending;
 		}

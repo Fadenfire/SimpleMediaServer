@@ -2,7 +2,9 @@
     import FormattedText from "$lib/components/FormattedText.svelte";
 	import VideoPlayer from "$lib/components/video_player/VideoPlayer.svelte";
     import { formatRichText } from "$lib/format_text";
+    import dayjs from "dayjs";
     import Comments from "./Comments.svelte";
+    import { abbreviateNumber } from "$lib/utils";
 
 	export let mediaInfo: ApiFileInfo;
 	
@@ -15,6 +17,19 @@
 	
 	$: videoAspectRadio = mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0;
 	$: description = mediaInfo.description ? formatRichText(mediaInfo.description, seekTo) : undefined;
+	
+	let extraInfo: string;
+	
+	$: {
+		const frags = [];
+		const creationDate = dayjs(mediaInfo.creation_date);
+		
+		if (mediaInfo.artist) frags.push(mediaInfo.artist);
+		frags.push(creationDate.format("MMM D, YYYY"));
+		frags.push(abbreviateNumber(mediaInfo.file_size, 1) + "B");
+		
+		extraInfo = frags.join(" • ");
+	}
 </script>
 
 <div class="main-container" style="--video-aspect-radio: {videoAspectRadio}">
@@ -25,10 +40,7 @@
 			</div>
 			
 			<h1 class="title">{mediaInfo.display_name}</h1>
-			
-			{#if mediaInfo.artist}
-				<span class="extra-info">{mediaInfo.artist}</span>
-			{/if}
+			<span class="extra-info">{extraInfo}</span>
 			
 			{#if description}
 				<p class="description">
@@ -80,9 +92,11 @@
 	
 	.extra-info {
 		color: var(--secondary-text-color);
+		font-size: 16px;
 	}
 	
 	.description {
+		margin: 8px 0px;
 		padding: 12px;
 		border-radius: 8px;
 		background-color: var(--foreground-inset-color);
