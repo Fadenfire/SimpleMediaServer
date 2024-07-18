@@ -135,7 +135,8 @@ export class VideoBackend {
 		
 		let currentHlsLevelName: string | undefined;
 		
-		if (currentLevel == HLS_AUTO_LEVEL_INDEX && this.hls && this.hls.currentLevel >= 0) {
+		// currentLevel == HLS_AUTO_LEVEL_INDEX
+		if (this.hls && this.hls.currentLevel >= 0) {
 			currentHlsLevelName = genHlsLevelName(this.hls.levels[this.hls.currentLevel]);
 		}
 		

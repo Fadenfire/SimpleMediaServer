@@ -34,6 +34,7 @@
 	.replies-dropdown {
 		font-weight: 500;
 		color: var(--link-color);
+		cursor: pointer;
 	}
 	
 	.replies {
