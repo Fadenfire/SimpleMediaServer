@@ -22,6 +22,7 @@
     import DimStripe from "$lib/components/DimStripe.svelte";
     import Dropdown from "$lib/components/Dropdown.svelte";
 	import dayjs from "dayjs";
+    import PathComponents from "./PathComponents.svelte";
 	
 	export let dirInfo: ApiDirectoryInfo;
 	export let listDirPromise: Promise<ListDirectoryResponse>;
@@ -71,6 +72,8 @@
 				<option value={SortType.WatchProgress}>Watch Progress</option>
 			</Dropdown>
 		</svelte:fragment>
+		
+		<PathComponents slot="header" info={dirInfo}/>
 		
 		{#await listDirPromise}
 			<DimStripe>Loading</DimStripe>

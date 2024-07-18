@@ -15,15 +15,27 @@ pub const SEGMENT_DURATION: i64 = 5;
 
 pub const QUALITY_LEVELS: &[HlsQualityLevel] = &[
 	HlsQualityLevel {
-		id: "1080p_12M",
+		id: "1080p_15M",
 		target_video_height: 1080,
-		video_bitrate: 12_000_000,
+		video_bitrate: 15_000_000,
 		audio_bitrate: 192_000,
 	},
 	HlsQualityLevel {
-		id: "720p_8M",
+		id: "720p_10M",
 		target_video_height: 720,
-		video_bitrate: 8_000_000,
+		video_bitrate: 10_000_000,
+		audio_bitrate: 192_000,
+	},
+	HlsQualityLevel {
+		id: "720p_6M",
+		target_video_height: 720,
+		video_bitrate: 6_000_000,
+		audio_bitrate: 192_000,
+	},
+	HlsQualityLevel {
+		id: "480p_4M",
+		target_video_height: 480,
+		video_bitrate: 4_000_000,
 		audio_bitrate: 192_000,
 	},
 	HlsQualityLevel {
@@ -69,6 +81,7 @@ impl HlsQualityLevel {
 	}
 }
 
+#[derive(Debug, Clone)]
 pub struct SegmentParams {
 	pub media_path: PathBuf,
 	pub segment_index: usize,

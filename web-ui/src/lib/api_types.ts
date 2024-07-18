@@ -58,9 +58,13 @@ interface ApiDirectoryEntry {
 	child_count: number,
 }
 
-interface ApiFileInfo {
+interface ApiInfoCommon {
 	full_path: string,
-	display_name: String,
+	library_display_name: string,
+	display_name: string,
+}
+
+interface ApiFileInfo extends ApiInfoCommon {
 	file_size: number,
 	duration: number,
 	artist: string | null,
@@ -104,9 +108,7 @@ interface ApiComment {
 	published_at: string,
 }
 
-interface ApiDirectoryInfo {
-	display_name: string,
-}
+interface ApiDirectoryInfo extends ApiInfoCommon {}
 
 interface ApiWatchHistoryEntry {
 	library_id: string,

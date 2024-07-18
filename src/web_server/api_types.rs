@@ -40,6 +40,7 @@ pub struct ApiDirectoryEntry {
 #[derive(Debug, Serialize)]
 pub struct ApiFileInfo {
 	pub full_path: RelativePathBuf,
+	pub library_display_name: String,
 	pub display_name: String,
 	pub file_size: u64,
 	pub duration: u64,
@@ -92,6 +93,8 @@ pub struct ApiComment {
 
 #[derive(Debug, Serialize)]
 pub struct ApiDirectoryInfo {
+	pub full_path: RelativePathBuf,
+	pub library_display_name: String,
 	pub display_name: String,
 }
 

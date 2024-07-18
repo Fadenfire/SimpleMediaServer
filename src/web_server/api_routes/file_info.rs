@@ -13,6 +13,7 @@ use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::{list_dir, thumbnail};
 use crate::web_server::api_types::{ApiCommentThread, ApiDirectoryInfo, ApiFileInfo, ApiVideoConnection, ApiVideoInfo};
 use crate::web_server::auth::User;
+use crate::web_server::libraries::Library;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
 use crate::web_server::media_metadata::Dimension;
@@ -33,11 +34,11 @@ pub async fn file_info_route(
 	let (library, resolved_path) = libraries::resolve_library_and_path_with_auth(
 		server_state, library_id, library_path.clone(), request.headers())?;
 	
-	match video_locator::locate_video(&resolved_path).await? {
+	let res = match video_locator::locate_video(&resolved_path).await? {
 		LocatedFile::File(file_path) => {
-			let file_info = create_file_info(server_state, user, library_id, &library_path, &file_path).await?;
+			let file_info = create_file_info(server_state, user, library, &library_path, &file_path).await?;
 			
-			Ok(json_response(StatusCode::OK, &FileInfoResponse::File(file_info)))
+			FileInfoResponse::File(file_info)
 		}
 		LocatedFile::Directory(dir_path) => {
 			let display_name = if library_path.as_str().is_empty() {
@@ -50,12 +51,16 @@ pub async fn file_info_route(
 			};
 			
 			let dir_info = ApiDirectoryInfo {
+				full_path: RelativePath::new(&library.id).join(&library_path),
+				library_display_name: library.display_name.clone(),
 				display_name,
 			};
 			
-			Ok(json_response(StatusCode::OK, &FileInfoResponse::Directory(dir_info)))
+			FileInfoResponse::Directory(dir_info)
 		}
-	}
+	};
+	
+	Ok(json_response(StatusCode::OK, &res))
 }
 
 #[derive(Debug, Serialize)]
@@ -71,7 +76,7 @@ pub const COMMENTS_FILE_EXT: &str = "comments.json";
 pub async fn create_file_info(
 	server_state: &ServerState,
 	user: &User,
-	library_id: &str,
+	library: &Library,
 	library_path: &RelativePath,
 	media_path: &Path
 ) -> anyhow::Result<ApiFileInfo> {
@@ -107,7 +112,7 @@ pub async fn create_file_info(
 	
 	let watch_progress = server_state.user_watch_histories.lock().unwrap()
 		.get_watch_history(&user.id)
-		.get_entry(library_id, &library_path)
+		.get_entry(&library.id, &library_path)
 		.map(|entry| entry.progress);
 	
 	let description = read_file_maybe(media_path, DESCRIPTION_FILE_EXT).await?
@@ -117,10 +122,10 @@ pub async fn create_file_info(
 		.map(|connection_file| {
 			connection_file.connected_videos.into_iter()
 				.flat_map(|entry| {
-					let other_path = RelativePath::new(library_id).join(&entry.video_path);
+					let other_path = RelativePath::new(&library.id).join(&entry.video_path);
 					let other_thumbnail = thumbnail::create_thumbnail_path(&other_path);
 					let shortcut_thumbnail = entry.shortcut_thumbnail
-						.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&path)));
+						.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(&library.id).join(&path)));
 					
 					entry.connections.into_iter()
 						.map(move |connection| ApiVideoConnection {
@@ -145,7 +150,8 @@ pub async fn create_file_info(
 		.unwrap_or_default();
 	
 	Ok(ApiFileInfo {
-		full_path: RelativePath::new(library_id).join(&library_path),
+		full_path: RelativePath::new(&library.id).join(&library_path),
+		library_display_name: library.display_name.clone(),
 		display_name: media_metadata.title,
 		file_size: file_metadata.len(),
 		duration: media_metadata.duration.as_secs(),

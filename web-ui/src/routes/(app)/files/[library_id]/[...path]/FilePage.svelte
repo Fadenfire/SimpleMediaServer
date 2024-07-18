@@ -5,6 +5,7 @@
     import dayjs from "dayjs";
     import Comments from "./Comments.svelte";
     import { abbreviateNumber } from "$lib/utils";
+	import PathComponents from "./PathComponents.svelte";
 
 	export let mediaInfo: ApiFileInfo;
 	
@@ -39,8 +40,11 @@
 				<VideoPlayer bind:this={videoPlayer} mediaInfo={mediaInfo}/>
 			</div>
 			
-			<h1 class="title">{mediaInfo.display_name}</h1>
-			<span class="extra-info">{extraInfo}</span>
+			<div class="info">
+				<h1 class="title">{mediaInfo.display_name}</h1>
+				<span class="extra-info">{extraInfo}</span>
+				<PathComponents info={mediaInfo}/>
+			</div>
 			
 			{#if description}
 				<p class="description">
@@ -67,12 +71,11 @@
 	
 	.main-content {
 		--video-target-height: 80vh;
-		--video-max-width: calc(100vw - 20px);
+		--video-max-width: calc(100vw - 40px);
 		--video-height: calc(min(var(--video-target-height), var(--video-max-width) / var(--video-aspect-radio)));
 		--video-width: calc(min(var(--video-target-height) * var(--video-aspect-radio), var(--video-max-width)));
 		
 		width: var(--video-width);
-		overflow-x: hidden;
 	}
 	
 	.video-section {
@@ -84,6 +87,12 @@
 	.video-container {
 		width: var(--video-width);
 		height: var(--video-height);
+	}
+	
+	.info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
 	}
 	
 	.title {

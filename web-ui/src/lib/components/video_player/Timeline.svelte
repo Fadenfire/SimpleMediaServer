@@ -119,7 +119,7 @@
 							{videoInfo}
 							{thumbSheetUrl}
 							currentTime={hoverProgress * videoDuration}
-							extraStyles="height: 72px;"
+							extraStyles="height: 92px;"
 						/>
 					{/if}
 					
