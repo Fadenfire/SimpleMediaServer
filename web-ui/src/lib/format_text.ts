@@ -1,12 +1,13 @@
 import { NEWLINE, type FormattedText } from "./components/FormattedText.svelte";
 import { parseDuration } from "./utils";
 
-const WHITESPACE_REGEX = /(\n|\s+)/g;
+const TIMESTAMP_PATTERN = /\b(?:\d+:)?\d{1,2}:\d{1,2}\b/;
 
-const TIMESTAMP_REGEX = /^(\d+:)?\d{1,2}:\d{1,2}$/;
+const TOKEN_REGEX = new RegExp(`(${TIMESTAMP_PATTERN.source}|\\n|\\s+)`, "g");
+const TIMESTAMP_REGEX = new RegExp(`^${TIMESTAMP_PATTERN.source}$`);
 
 export function formatRichText(fullText: string, seekTo?: (time: number) => void): FormattedText {
-	const fragments: FormattedText = fullText.split(WHITESPACE_REGEX)
+	const fragments: FormattedText = fullText.split(TOKEN_REGEX)
 		.map(frag => {
 			if (frag == "\n") {
 				return NEWLINE;

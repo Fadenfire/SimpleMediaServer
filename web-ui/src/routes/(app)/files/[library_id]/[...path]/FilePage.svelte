@@ -42,8 +42,8 @@
 			
 			<div class="info">
 				<h1 class="title">{mediaInfo.display_name}</h1>
-				<span class="extra-info">{extraInfo}</span>
 				<PathComponents info={mediaInfo}/>
+				<span class="extra-info">{extraInfo}</span>
 			</div>
 			
 			{#if description}
