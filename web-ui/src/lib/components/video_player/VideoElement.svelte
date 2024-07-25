@@ -39,6 +39,7 @@
 	
 	function updateWatchProgress() {
 		if (!playerBackend) return;
+		if (videoCurrentTime < Math.min(1.0, videoDuration / 20)) return;
 		
 		const [library_id, media_path] = splitLibraryPath(mediaInfo.full_path);
 		

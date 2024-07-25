@@ -12,7 +12,12 @@
 	
 	function onClick() {
 		if (skipTarget !== null) {
-			goto(`../${encodeURIComponent(skipTarget)}/`, { replaceState: true });
+			goto(`../${encodeURIComponent(skipTarget)}/`, {
+				replaceState: true,
+				state: {
+					videoPlayerSeekTo: 0
+				}
+			});
 		}
 	}
 </script>
