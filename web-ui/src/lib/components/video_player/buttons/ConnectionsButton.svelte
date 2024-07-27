@@ -34,12 +34,12 @@
 </script>
 
 {#each linkTargets as connection (connection.video_path)}
-	<Button large={true} on:click={() => followLink(connection, videoCurrentTime)}>
-		<img class="shortcut-thumbnail" src="{escapePath(connection.shortcut_thumbnail ?? "")}" alt=""/>
+	<Button large={true} tooltip="Jump to {connection.relation}" on:click={() => followLink(connection, videoCurrentTime)}>
+		<img class="shortcut-thumbnail" src={escapePath(connection.shortcut_thumbnail ?? "")} alt=""/>
 	</Button>
 {/each}
 
-<Button disabled={mediaInfo.connections.length == 0} on:click>
+<Button disabled={mediaInfo.connections.length == 0} tooltip="Connections" on:click>
 	<FeatherIcon name="link" size="1em"/>
 </Button>
 

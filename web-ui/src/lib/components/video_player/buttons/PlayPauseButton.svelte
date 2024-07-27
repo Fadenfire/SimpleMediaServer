@@ -7,7 +7,7 @@
 	export let videoPaused;
 </script>
 
-<Button {floating} large={floating} on:click>
+<Button {floating} large={floating} tooltip={videoPaused ? "Play" : "Pause"} on:click>
 	{#if videoPaused}
 		<FeatherIcon name="play" size="1em" style={floating ? "transform: translateX(2px);" : ""}/>
 	{:else}

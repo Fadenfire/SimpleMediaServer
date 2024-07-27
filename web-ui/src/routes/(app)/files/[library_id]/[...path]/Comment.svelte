@@ -8,14 +8,23 @@
 	
 	const dispatch = createEventDispatcher();
 	
+	let publishedAt: string;
+	let publishedAtTooltip: string;
+	
 	$: text = formatRichText(comment.text, time => dispatch("seekTo", time));
-	$: publishedAt = dayjs(comment.published_at).format("YYYY-MM-DD");
+	
+	$: {
+		const date = dayjs(comment.published_at);
+		
+		publishedAt = date.fromNow();
+		publishedAtTooltip = date.format("YYYY-MM-DD");
+	}
 </script>
 
 <div class="comment">
 	<div class="heading">
 		<span class="author">{comment.author}</span>
-		<span class="date">{publishedAt}</span>
+		<span class="date" title={publishedAtTooltip}>{publishedAt}</span>
 	</div>
 	
 	<p class="text">

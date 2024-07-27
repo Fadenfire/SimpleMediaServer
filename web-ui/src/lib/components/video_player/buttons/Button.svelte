@@ -1,4 +1,5 @@
 <script lang="ts">
+	export let tooltip: string | undefined = undefined;
     export let floating = false;
 	export let large = false;
 	export let disabled = false;
@@ -10,7 +11,8 @@
 	class:floating={floating}
 	class:large={large}
 	disabled={disabled}
-	style="{extraStyles}"
+	style={extraStyles}
+	title={tooltip}
 	on:click
 >
 	<slot/>
@@ -23,7 +25,6 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		// background-color: blue;
 	}
 	
 	button[disabled] {

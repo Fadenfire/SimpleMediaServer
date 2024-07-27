@@ -3,6 +3,6 @@
     import Button from "./Button.svelte";
 </script>
 
-<Button on:click>
+<Button tooltip="Settings" on:click>
 	<FeatherIcon name="settings" size="0.9em"/>
 </Button>

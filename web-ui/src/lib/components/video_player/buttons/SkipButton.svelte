@@ -22,7 +22,7 @@
 	}
 </script>
 
-<Button {floating} disabled={skipTarget === null} on:click={onClick}>
+<Button {floating} disabled={skipTarget === null} tooltip={direction === "forward" ? "Next Video" : "Previous Video"} on:click={onClick}>
 	{#if direction === "forward"}
 		<FeatherIcon name="skip-forward" size="1em"/>
 	{:else}

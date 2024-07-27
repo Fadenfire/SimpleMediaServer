@@ -5,7 +5,7 @@
     export let isFullscreen;
 </script>
 
-<Button on:click>
+<Button on:click tooltip="Toggle Fullscreen">
 	{#if isFullscreen}
 		<FeatherIcon name="minimize" size="1em"/>
 	{:else}
