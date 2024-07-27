@@ -105,10 +105,7 @@ impl WatchHistory {
 		for ser_entry in ser_entries {
 			let media_path = normalize_path(&ser_entry.media_path);
 			
-			let key = MediaKey {
-				library_id: ser_entry.library_id.clone(),
-				media_path: media_path.clone(),
-			};
+			let key = MediaKey::new(&ser_entry.library_id, media_path.clone());
 			
 			let entry = WatchHistoryEntry {
 				library_id: ser_entry.library_id,
@@ -203,11 +200,18 @@ fn normalize_path(path: &RelativePath) -> RelativePathBuf {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct MediaKey {
 	library_id: String,
-	media_path: RelativePathBuf,
+	media_path: String,
 }
 
 impl MediaKey {
 	fn new(library_id: &str, media_path: RelativePathBuf) -> Self {
+		let mut media_path = media_path.into_string();
+		media_path = media_path.to_lowercase();
+		
+		// if case_insensitive {
+		// 	media_path = media_path.to_lowercase();
+		// }
+		
 		Self {
 			library_id: library_id.to_owned(),
 			media_path,
@@ -233,7 +237,6 @@ pub struct SerializedWatchHistory {
 pub struct SerializedWatchHistoryEntry {
 	library_id: String,
 	media_path: RelativePathBuf,
-	// #[serde(serialize_with = "time::serde::iso8601::serialize")]
 	#[serde(with = "time::serde::iso8601")]
 	last_watched: OffsetDateTime,
 	progress: u64,
