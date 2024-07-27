@@ -19,7 +19,7 @@ export function parseDuration(text: string): number {
 	return parseInt(e[0]) + parseInt(e[1]) * 60 + parseInt(e?.[2] ?? "0") * 60 * 60;
 }
 
-const POWER_UNITS = ["k", "M", "G", "T", "E"];
+const POWER_UNITS = ["k", "M", "G", "T", "P", "E", "Z", "Y"];
 
 export function abbreviateNumber(num: number, digits: number = 0) {
 	const power = Math.floor(Math.log10(num) / 3);

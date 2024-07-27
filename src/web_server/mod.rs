@@ -2,7 +2,6 @@ use std::convert::Infallible;
 use std::fs::Permissions;
 use std::io::Cursor;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -13,6 +12,7 @@ use http_body_util::BodyExt;
 use hyper::service::service_fn;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn;
+use rcgen::{CertificateParams, DnType, KeyPair};
 use tokio::net::TcpListener;
 use tokio_rustls::{rustls, TlsAcceptor};
 use tower::Service;
@@ -116,13 +116,9 @@ async fn create_tls_acceptor(data_dir: &Path) -> anyhow::Result<TlsAcceptor> {
 	let private_key_path = certs_dir.join("key.pem");
 	
 	if !tokio::fs::try_exists(&cert_path).await? || !tokio::fs::try_exists(&private_key_path).await? {
-		let cert = rcgen::generate_simple_self_signed(&["localhost".to_owned()])?;
+		info!("No TLS certificate found, generating self-signed cert");
 		
-		tokio::fs::write(&cert_path, cert.cert.pem()).await?;
-		tokio::fs::write(&private_key_path, cert.key_pair.serialize_pem()).await?;
-		
-		#[cfg(unix)]
-		tokio::fs::set_permissions(&private_key_path, Permissions::from_mode(0o600)).await?;
+		generate_tls_cert(&cert_path, &private_key_path).await?;
 	}
 	
 	let mut cert_reader = Cursor::new(tokio::fs::read(&cert_path).await?);
@@ -139,8 +135,30 @@ async fn create_tls_acceptor(data_dir: &Path) -> anyhow::Result<TlsAcceptor> {
 	Ok(TlsAcceptor::from(Arc::new(tls_config)))
 }
 
+async fn generate_tls_cert(cert_path: &Path, private_key_path: &Path) -> anyhow::Result<()> {
+	let key_pair = KeyPair::generate()?;
+	
+	let mut cert_params = CertificateParams::new(&["localhost".to_owned()])?;
+	cert_params.distinguished_name.push(DnType::CommonName, "localhost");
+	cert_params.distinguished_name.push(DnType::OrganizationName, "Rust Media Server");
+	cert_params.distinguished_name.push(DnType::OrganizationalUnitName, "Self Signed");
+	
+	let cert = cert_params.self_signed(&key_pair)?;
+	
+	tokio::fs::write(&cert_path, cert.pem()).await?;
+	tokio::fs::write(&private_key_path, key_pair.serialize_pem()).await?;
+	
+	#[cfg(unix)] {
+		use std::os::unix::fs::PermissionsExt;
+		
+		tokio::fs::set_permissions(&private_key_path, Permissions::from_mode(0o600)).await?;
+	}
+	
+	Ok(())
+}
+
 async fn serve(socket_addr: SocketAddr, server_state: Arc<ServerState>, tls_acceptor: Option<TlsAcceptor>) -> anyhow::Result<()> {
-	info!("Listening on {}", socket_addr);
+	info!("Listening on {} {}", socket_addr, if tls_acceptor.is_some() { "with TLS" } else { "" });
 	
 	let listener = TcpListener::bind(socket_addr).await?;
 	
