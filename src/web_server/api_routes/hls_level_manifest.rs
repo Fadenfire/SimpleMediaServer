@@ -9,7 +9,7 @@ use crate::web_server::services::hls_segment_service;
 use crate::web_server::services::hls_segment_service::SEGMENT_DURATION;
 use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse, restrict_method};
 
-#[instrument(skip(server_state))]
+#[instrument(skip(server_state, request))]
 pub async fn hls_level_manifest_route(
 	server_state: &ServerState,
 	request: &HyperRequest,

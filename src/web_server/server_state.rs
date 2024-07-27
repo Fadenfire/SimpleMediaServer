@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use tracing::info;
 
 use crate::config::ServerConfig;
+use crate::utils;
 use crate::web_server::auth::AuthManager;
 use crate::web_server::libraries::Libraries;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
@@ -45,8 +46,9 @@ impl ServerState {
 			.build(HlsSegmentGenerator::new(media_backend_factory.clone()))
 			.await?;
 		
-		info!("HLS segments cache contains {} bytes, {} bytes max", hls_segment_generator.cache_size(),
-			config.main_config.caches.segments_cache_size_limit);
+		info!("HLS segments cache contains {}B, {}B max",
+			utils::abbreviate_number(hls_segment_generator.cache_size()),
+			utils::abbreviate_number(config.main_config.caches.segments_cache_size_limit));
 		
 		let thumbnail_generator = ArtifactCache::builder()
 			.cache_dir(config.paths.thumbnail_cache_dir.clone())
@@ -55,8 +57,9 @@ impl ServerState {
 			.build(ThumbnailGenerator::new(media_backend_factory.clone()))
 			.await?;
 		
-		info!("Thumbnail cache contains {} bytes, {} bytes max", thumbnail_generator.cache_size(),
-			config.main_config.caches.thumbnail_cache_size_limit);
+		info!("Thumbnail cache contains {}B, {}B max",
+			utils::abbreviate_number(thumbnail_generator.cache_size()),
+			utils::abbreviate_number(config.main_config.caches.thumbnail_cache_size_limit));
 		
 		let thumbnail_sheet_generator = ArtifactCache::builder()
 			.cache_dir(config.paths.thumbnail_sheet_cache_dir.clone())
@@ -65,8 +68,9 @@ impl ServerState {
 			.build(ThumbnailSheetGenerator::new(media_backend_factory.clone()))
 			.await?;
 		
-		info!("Thumbnail sheet cache contains {} bytes, {} bytes max", thumbnail_sheet_generator.cache_size(),
-			config.main_config.caches.thumbnail_sheet_cache_size_limit);
+		info!("Thumbnail sheet cache contains {}B, {}B max",
+			utils::abbreviate_number(thumbnail_sheet_generator.cache_size()),
+			utils::abbreviate_number(config.main_config.caches.thumbnail_sheet_cache_size_limit));
 		
 		let video_metadata_cache = MediaMetadataCache::new();
 		

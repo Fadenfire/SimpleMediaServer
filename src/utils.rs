@@ -20,6 +20,18 @@ pub fn add_extension(path: &Path, extension: impl AsRef<Path>) -> PathBuf {
 	path
 }
 
+const POWER_UNITS: &[char] = &['k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
+
+pub fn abbreviate_number(num: u64) -> String {
+	let power = num.ilog(1000);
+	if power <= 0 { return num.to_string(); }
+	
+	let x = num / 1000u64.pow(power);
+	let unit = POWER_UNITS.get((power - 1) as usize).unwrap_or(&'?');
+	
+	format!("{}{}", x, unit)
+}
+
 pub fn deserialize_suffixed_number<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where D: Deserializer<'de>
 {
@@ -49,18 +61,16 @@ where D: Deserializer<'de>
 }
 
 pub fn convert_suffixed_number(string: &str) -> Option<u64> {
-	const UNITS: &[char] = &['k', 'M', 'G', 'T', 'E'];
-	
 	let string = string.replace('_', "");
 	
 	let Some(unit) = string.chars().last() else { return None };
 	
-	let exp = UNITS.iter()
+	let exp = POWER_UNITS.iter()
 		.position(|u| *u == unit)
 		.map(|i| i + 1)
 		.unwrap_or(0) as u32;
 	
-	let Some(num): Option<u64> = string.strip_suffix(UNITS)
+	let Some(num): Option<u64> = string.strip_suffix(POWER_UNITS)
 		.unwrap_or(&string)
 		.parse().ok()
 	else { return None };

@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-
+use std::time::Instant;
 use anyhow::Context;
 use bytes::Bytes;
-
+use tracing::info;
 use crate::media_manipulation::transcoding;
 use crate::media_manipulation::transcoding::TranscodingOptions;
 use crate::web_server::api_error::ApiError;
@@ -48,6 +48,12 @@ pub const QUALITY_LEVELS: &[HlsQualityLevel] = &[
 		id: "360p_1M",
 		target_video_height: 360,
 		video_bitrate: 1_000_000,
+		audio_bitrate: 96_000,
+	},
+	HlsQualityLevel {
+		id: "240p_500k",
+		target_video_height: 240,
+		video_bitrate: 500_000,
 		audio_bitrate: 96_000,
 	},
 ];
@@ -121,6 +127,9 @@ impl ArtifactGenerator for HlsSegmentGenerator {
 		let start_time = input.segment_index as i64 * SEGMENT_DURATION;
 		let time_range = start_time..(start_time + SEGMENT_DURATION);
 		
+		info!("Generating segment {} at {} for {:?}", input.segment_index, input.quality_level.id, &input.media_path);
+		let start_time = Instant::now();
+		
 		let data = tokio::task::spawn_blocking(move || {
 			transcoding::transcode_segment(TranscodingOptions {
 				backend_factory: backend_factory.as_ref(),
@@ -132,6 +141,8 @@ impl ArtifactGenerator for HlsSegmentGenerator {
 				audio_bitrate: input.quality_level.audio_bitrate,
 			})
 		}).await.context("Panic")??;
+		
+		info!("Generated segment in {:?}", Instant::now() - start_time);
 		
 		Ok((data, ()))
 	}
