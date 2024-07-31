@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 use std::fs::Permissions;
 use std::io::Cursor;
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -63,22 +63,20 @@ async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<S
 	}
 }
 
-pub async fn run(server_config: ServerConfig) {
-	let server_config2 = server_config.clone();
-	
-	let server_state = Arc::new(ServerState::init(server_config).await
+pub async fn run(config: ServerConfig) {
+	let server_state = Arc::new(ServerState::init(config.clone()).await
 		.expect("Error initializing server state"));
 	
 	let mut servers = Vec::new();
 	
-	if server_config2.main_config.server.enable_http {
-		let http_addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), server_config2.main_config.server.http_port);
+	if config.main_config.server.enable_http {
+		let http_addr = SocketAddr::new(config.main_config.server.host, config.main_config.server.http_port);
 		servers.push(serve(http_addr, server_state.clone(), None));
 	}
 	
-	if server_config2.main_config.server.enable_https {
-		let tls_acceptor = create_tls_acceptor(&server_config2.paths.data_dir).await.expect("Creating TLS");
-		let http_addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), server_config2.main_config.server.https_port);
+	if config.main_config.server.enable_https {
+		let tls_acceptor = create_tls_acceptor(&config.paths.data_dir).await.expect("Creating TLS");
+		let http_addr = SocketAddr::new(config.main_config.server.host, config.main_config.server.https_port);
 		
 		servers.push(serve(http_addr, server_state.clone(), Some(tls_acceptor)));
 	}

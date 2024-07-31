@@ -1,3 +1,4 @@
+use std::net::{IpAddr, Ipv4Addr};
 use std::path::PathBuf;
 
 use anyhow::Context;
@@ -108,6 +109,7 @@ impl Default for GeneralConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebServerConfig {
+	pub host: IpAddr,
 	pub enable_http: bool,
 	pub enable_https: bool,
 	pub http_port: u16,
@@ -117,6 +119,7 @@ pub struct WebServerConfig {
 impl Default for WebServerConfig {
 	fn default() -> Self {
 		Self {
+			host: Ipv4Addr::UNSPECIFIED.into(),
 			enable_http: true,
 			enable_https: false,
 			http_port: 8000,
