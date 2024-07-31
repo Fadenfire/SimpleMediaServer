@@ -23,6 +23,8 @@ pub fn add_extension(path: &Path, extension: impl AsRef<Path>) -> PathBuf {
 const POWER_UNITS: &[char] = &['k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
 pub fn abbreviate_number(num: u64) -> String {
+	if num <= 0 { return num.to_string(); }
+	
 	let power = num.ilog(1000);
 	if power <= 0 { return num.to_string(); }
 	
