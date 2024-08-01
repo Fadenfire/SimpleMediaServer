@@ -32,5 +32,6 @@
 	.delete-button {
 		color: #e74c3c;
 		font-size: 20px;
+		align-self: flex-start;
 	}
 </style>
