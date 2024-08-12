@@ -9,11 +9,13 @@
 			<slot name="card"/>
 		</div>
 	</a>
-	<div class="title-container">
-		<a class="title" href={link}>{title}</a>
-		<slot name="title-row"></slot>
+	<div class="card-info">
+		<div class="desc-text">
+			<a class="title" href={link}>{title}</a>
+			<slot name="desc"></slot>
+		</div>
+		<slot name="desc-row"></slot>
 	</div>
-	<slot name="desc"></slot>
 </div>
 
 <style lang="scss">
@@ -41,16 +43,21 @@
 		box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
 	}
 	
-	.title-container {
+	.card-info {
 		display: flex;
 		flex-direction: row;
-		align-items: center;
+		align-items: flex-start;
 		gap: 4px;
-		margin-bottom: 4px;
+	}
+	
+	.desc-text {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
 	}
 	
 	.title {
-		flex: 1;
+		margin-bottom: 4px;
 		text-decoration: none;
 		color: var(--main-text-color);
 		
