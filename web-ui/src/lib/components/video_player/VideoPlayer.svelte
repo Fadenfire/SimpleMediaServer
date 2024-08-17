@@ -44,6 +44,7 @@
 	
 	let playerElement: HTMLElement;
 	let scrubbingTime: number | null = null;
+	let preciseScrubbing = false;
 	let thumbSheetUrl: string | undefined;
 	
 	let tapBackIndicatorElement: HTMLElement | undefined;
@@ -250,7 +251,7 @@
 		{/key}
 	</div>
 	
-	{#if scrubbingTime !== null && videoInfo !== null && thumbSheetUrl !== undefined}
+	{#if scrubbingTime !== null && videoInfo !== null && thumbSheetUrl !== undefined && !preciseScrubbing}
 		<div class="full-thumbnail-container">
 			<PreviewThumbnail {videoInfo} {thumbSheetUrl} currentTime={scrubbingTime} extraStyles="flex: 1;"/>
 		</div>
@@ -313,6 +314,7 @@
 				<Timeline
 					{mediaInfo}
 					{thumbSheetUrl}
+					{playerElement}
 					
 					{videoElement}
 					bind:videoPaused={videoPaused}
@@ -321,6 +323,7 @@
 					{videoBuffered}
 					
 					bind:scrubbingTime={scrubbingTime}
+					bind:preciseScrubbing={preciseScrubbing}
 				/>
 			</div>
 			

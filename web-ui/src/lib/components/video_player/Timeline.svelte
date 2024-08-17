@@ -1,3 +1,8 @@
+<script lang="ts" context="module">
+	export const PRECISE_SCRUBBING_START_DIST = 20;
+	export const PRECISE_SCRUBBING_SPEEDS = [60, 30, 10, 5, 1];
+</script>
+
 <script lang="ts">
     import type { SvelteMediaTimeRange } from "svelte/elements";
     import Bar from "./Bar.svelte";
@@ -7,6 +12,7 @@
 	
 	export let mediaInfo: ApiFileInfo;
 	export let thumbSheetUrl: string | undefined;
+	export let playerElement: HTMLElement;
 	
 	export let videoElement: HTMLVideoElement;
 	export let videoPaused: boolean;
@@ -15,6 +21,7 @@
 	export let videoBuffered: SvelteMediaTimeRange[];
 	
 	export let scrubbingTime: number | null = null;
+	export let preciseScrubbing = false;
 	
 	let timelineElement: HTMLElement;
 	
@@ -41,10 +48,38 @@
 	// Scrubbing
 	
 	let wasPaused = true;
+	let scrubSpeed = 0;
+	let lastTickScrubPos: number | null = null;
 	
-	function updateScrub(pointerX: number) {
-		scrubbingTime = normalizePointerPos(pointerX) * videoDuration;
+	function updateScrub(pointerX: number, pointerY: number) {
+		const normPos = normalizePointerPos(pointerX);
+		
+		if (lastTickScrubPos === null) {
+			scrubbingTime = normPos * videoDuration;
+			preciseScrubbing = false;
+		} else {
+			const distAbove = timelineElement.getBoundingClientRect().y - pointerY;
+			
+			if (distAbove > PRECISE_SCRUBBING_START_DIST) {
+				const playerHeight = playerElement.getBoundingClientRect().height;
+				
+				const amount = (distAbove - PRECISE_SCRUBBING_START_DIST) / (playerHeight * 0.8);
+				const index = Math.min(PRECISE_SCRUBBING_SPEEDS.length - 1, Math.max(0.0, Math.floor(amount * PRECISE_SCRUBBING_SPEEDS.length)));
+				
+				scrubSpeed = PRECISE_SCRUBBING_SPEEDS[index];
+				preciseScrubbing = true;
+			} else {
+				scrubSpeed = videoDuration;
+				preciseScrubbing = false;
+			}
+			
+			scrubbingTime = (scrubbingTime ?? normPos) + (normPos - lastTickScrubPos) * scrubSpeed;
+		}
+		
 		videoCurrentTime = scrubbingTime;
+		if (preciseScrubbing) videoElement.currentTime = scrubbingTime;
+		
+		lastTickScrubPos = normPos;
 	}
 	
 	function onTimelinePointerDown(event: PointerEvent) {
@@ -52,7 +87,7 @@
 			wasPaused = videoPaused;
 			videoElement.pause();
 			
-			updateScrub(event.clientX);
+			updateScrub(event.clientX, event.clientY);
 			
 			event.preventDefault();
 		}
@@ -60,7 +95,7 @@
 	
 	function onWindowPointerMove(event: PointerEvent) {
 		if (scrubbingTime !== null) {
-			updateScrub(event.clientX);
+			updateScrub(event.clientX, event.clientY);
 		}
 	}
 	
@@ -68,6 +103,8 @@
 		if (scrubbingTime !== null) {
 			videoElement.currentTime = scrubbingTime;
 			scrubbingTime = null;
+			lastTickScrubPos = null;
+			preciseScrubbing = false;
 			
 			if (wasPaused) {
 				videoElement.pause();
@@ -112,18 +149,24 @@
 				<div class="thumb"></div>
 			</div>
 			
-			{#if !mobile && hoverProgress !== null}
+			{#if (!mobile || preciseScrubbing) && hoverProgress !== null}
 				<div class="tooltip" style="transform: translateX({hoverProgress * 100}cqw) translate(-50%, -12px);">
-					{#if videoInfo !== null && thumbSheetUrl !== undefined}
-						<PreviewThumbnail
-							{videoInfo}
-							{thumbSheetUrl}
-							currentTime={hoverProgress * videoDuration}
-							extraStyles="height: 92px;"
-						/>
+					{#if !mobile}
+						{#if videoInfo !== null && thumbSheetUrl !== undefined}
+							<PreviewThumbnail
+								{videoInfo}
+								{thumbSheetUrl}
+								currentTime={hoverProgress * videoDuration}
+								extraStyles="height: 92px;"
+							/>
+						{/if}
+						
+						<span>{formatDuration((hoverProgress) * videoDuration)}</span>
 					{/if}
 					
-					{formatDuration((hoverProgress) * videoDuration)}
+					{#if preciseScrubbing}
+						<span>Precise Scrubbing: {scrubSpeed}s</span>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -203,6 +246,9 @@
 		bottom: 0;
 		left: 0;
 		z-index: 100;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 		font-size: 10px;
 		font-weight: 500;
 		text-align: center;
