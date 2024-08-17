@@ -94,6 +94,7 @@ pub struct GeneralConfig {
 	pub server: WebServerConfig,
 	pub transcoding: TranscodingConfig,
 	pub caches: CachesConfig,
+	pub show_hidden_files: bool,
 }
 
 impl Default for GeneralConfig {
@@ -102,6 +103,7 @@ impl Default for GeneralConfig {
 			server: WebServerConfig::default(),
 			transcoding: TranscodingConfig::default(),
 			caches: CachesConfig::default(),
+			show_hidden_files: false,
 		}
 	}
 }

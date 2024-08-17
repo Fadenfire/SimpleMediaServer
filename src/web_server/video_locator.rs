@@ -49,3 +49,7 @@ pub fn is_video(path: &Path) -> bool {
 		.and_then(OsStr::to_str)
 		.is_some_and(|ext| MEDIA_EXTENSIONS.contains(&ext))
 }
+
+pub fn is_hidden(file_name: &str) -> bool {
+	file_name.starts_with('.')
+}

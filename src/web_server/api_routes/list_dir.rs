@@ -47,6 +47,12 @@ pub async fn list_dir_route(
 	
 	while let Some(entry) = read_dir.next_entry().await? {
 		let path = entry.path();
+		
+		if !server_state.config.main_config.show_hidden_files &&
+			path.file_name().and_then(OsStr::to_str).is_some_and(video_locator::is_hidden) {
+			continue;
+		}
+		
 		let file_type = entry.file_type().await?;
 		
 		if file_type.is_file() {
