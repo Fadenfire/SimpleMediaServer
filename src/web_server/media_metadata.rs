@@ -114,7 +114,13 @@ fn extract_media_metadata(
 	let creation_date = demuxer.metadata().get("date")
 		.and_then(|date| Date::parse(date, YT_DLP_DATE_FORMAT).ok())
 		.map(|date| date.midnight().assume_utc())
-		.or_else(|| file_metadata.created().ok().map(Into::into))
+		.or_else(|| {
+			file_metadata.created().ok()
+				// If mod time is before ctime then something must have intentionally set it (probably trying to
+				//  preserve the date). So use mod time instead of ctime as it's probably more accurate in that case.
+				.filter(|c_time| c_time <= &mod_time)
+				.map(Into::into)
+		})
 		.unwrap_or_else(|| mod_time.into());
 	
 	let video_metadata = match demuxer.streams().best(Type::Video) {
