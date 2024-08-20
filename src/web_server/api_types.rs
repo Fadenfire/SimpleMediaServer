@@ -23,6 +23,7 @@ pub struct ApiFileEntry {
 	pub display_name: String,
 	pub thumbnail_path: String,
 	pub duration: u64,
+	pub file_size: u64,
 	pub artist: Option<String>,
 	pub watch_progress: Option<u64>,
 	#[serde(with = "time::serde::iso8601")]

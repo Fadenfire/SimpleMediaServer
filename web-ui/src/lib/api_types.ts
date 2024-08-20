@@ -8,6 +8,7 @@ interface ListDirectoryResponse {
 	files: ApiFileEntry[],
 	directories: ApiDirectoryEntry[],
 	total_duration: number,
+	total_size: number,
 }
 
 interface ApiWatchHistoryResponse {
@@ -46,6 +47,7 @@ interface ApiFileEntry {
 	display_name: string,
 	thumbnail_path: string,
 	duration: number,
+	file_size: number,
 	artist: string | null,
 	watch_progress: number | null,
 	creation_date: string,

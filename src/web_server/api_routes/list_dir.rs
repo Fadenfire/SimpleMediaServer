@@ -42,6 +42,7 @@ pub async fn list_dir_route(
 	let mut directories: Vec<ApiDirectoryEntry> = Vec::new();
 	
 	let mut total_time = 0;
+	let mut total_size = 0;
 	
 	let mut file_stem_set: HashSet<String> = HashSet::new();
 	
@@ -68,6 +69,7 @@ pub async fn list_dir_route(
 			match create_file_entry(server_state, user, library_id, &file_library_path, &path).await {
 				Ok(file_entry) => {
 					total_time += file_entry.duration;
+					total_size += file_entry.file_size;
 					
 					files.push(file_entry);
 				}
@@ -106,6 +108,7 @@ pub async fn list_dir_route(
 		files,
 		directories,
 		total_duration: total_time,
+		total_size,
 	};
 	
 	Ok(json_response(StatusCode::OK, &res))
@@ -135,6 +138,7 @@ pub async fn create_file_entry(
 		display_name: media_metadata.title,
 		thumbnail_path,
 		duration: media_metadata.duration.as_secs(),
+		file_size: media_metadata.file_size,
 		artist: media_metadata.artist,
 		watch_progress,
 		creation_date: media_metadata.creation_date,
@@ -172,4 +176,5 @@ struct ListDirResponse {
 	files: Vec<ApiFileEntry>,
 	directories: Vec<ApiDirectoryEntry>,
 	total_duration: u64,
+	total_size: u64,
 }
