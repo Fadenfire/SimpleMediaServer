@@ -10,6 +10,10 @@
 		Ascending,
 		Descending,
 	}
+	
+	export interface DirSnapshotObj {
+		sortType: SortType,
+	}
 </script>
 
 <script lang="ts">
@@ -23,11 +27,23 @@
     import Dropdown from "$lib/components/Dropdown.svelte";
 	import dayjs from "dayjs";
     import PathComponents from "./PathComponents.svelte";
+    import type { Snapshot } from "./$types";
 	
 	export let dirInfo: ApiDirectoryInfo;
 	export let listDirPromise: Promise<ListDirectoryResponse>;
 	
 	let sortType = SortType.Name;
+		
+	export const snapshot: Snapshot<DirSnapshotObj> = {
+		capture: () => {
+			return {
+				sortType,
+			};
+		},
+		restore: (snapshot) => {
+			sortType = snapshot.sortType;
+		}
+	};
 	
 	function sortEntries(files: ApiFileEntry[], sortType: SortType): ApiFileEntry[] {
 		if (sortType == SortType.Name) return files;
