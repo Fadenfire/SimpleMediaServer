@@ -1,0 +1,4 @@
+libraries:
+  - id: example_lib
+    display_name: Example Library
+    path: ./example-library

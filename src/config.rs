@@ -174,7 +174,7 @@ impl Default for CachesConfig {
 	fn default() -> Self {
 		Self {
 			segments_cache_dir: PathBuf::from("transcoded-segments"),
-			segments_cache_size_limit: u64::MAX,
+			segments_cache_size_limit: 500_000_000,
 			
 			thumbnail_cache_dir: PathBuf::from("thumbnails"),
 			thumbnail_cache_size_limit: u64::MAX,

@@ -1,0 +1,6 @@
+users:
+  - id: test_user
+    display_name: Test User
+    username: test
+    password: test
+    allowed_libraries: ["example_lib"]

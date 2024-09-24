@@ -1,0 +1,12 @@
+services:
+  media_server:
+    container_name: media-server
+    image: media-server:latest
+    build: .
+    platform: ${BUILD_PLATFORM:-}
+    init: true
+    tty: true
+    volumes:
+      - ./example:/data:rw
+    ports:
+      - "127.0.0.1:8000:8000"

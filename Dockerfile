@@ -1,4 +1,5 @@
-FROM --platform=$BUILDPLATFORM node:22.4.0-alpine as web-builder
+# Use native platform for web-builder since it doesn't produce any platform specific artifacts
+FROM --platform=$BUILDPLATFORM node:22.4.0-alpine AS web-builder
 
 ENV COREPACK_HOME="/corepack"
 ENV PNPM_HOME="/pnpm"
@@ -13,7 +14,7 @@ RUN --mount=type=cache,target=/corepack,sharing=locked \
     pnpm install --frozen-lockfile && \
     pnpm run build
 
-FROM rust:1.79.0-slim-bookworm as builder
+FROM rust:1.79.0-slim-bookworm AS builder
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -46,7 +47,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     sed -i "s/Components: main/Components: main non-free/" /etc/apt/sources.list.d/debian.sources && \
     apt-get update && \
-    apt-get --no-install-recommends install -y xz-utils intel-media-va-driver-non-free libva-drm2 libmfx1
+    apt-get --no-install-recommends install -y xz-utils && \
+    case "$(uname -m)" in \
+    	x86_64|amd64) \
+    		apt-get --no-install-recommends install -y intel-media-va-driver-non-free libva-drm2 libmfx1 ;; \
+    	*) ;; \
+    esac
 
 WORKDIR /app
 
@@ -61,5 +67,6 @@ RUN mkdir ffmpeg &&  \
 COPY --from=builder /app/media-server media-server
 COPY --from=web-builder /app/build/ web-ui
 
+WORKDIR /data
 ENTRYPOINT ["/app/media-server"]
-CMD ["--data-dir", "/data", "--cache-dir", "/cache"]
+CMD []

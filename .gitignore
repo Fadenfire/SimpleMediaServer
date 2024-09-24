@@ -4,4 +4,7 @@
 /target
 /run
 
+/example
+!/example/config
+
 .DS_Store
