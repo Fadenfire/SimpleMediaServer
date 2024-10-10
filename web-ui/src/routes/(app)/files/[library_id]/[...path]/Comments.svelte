@@ -13,7 +13,7 @@
 					
 					<div class="replies comments">
 						{#each thread.replies as reply}
-							<Comment comment={reply}/>
+							<Comment comment={reply} on:seekTo/>
 						{/each}
 					</div>
 				</details>
