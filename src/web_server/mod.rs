@@ -17,7 +17,7 @@ use tokio::net::TcpListener;
 use tokio_rustls::{rustls, TlsAcceptor};
 use tower::Service;
 use tower_http::services::{ServeDir, ServeFile};
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, trace};
 
 use server_state::ServerState;
 
@@ -40,7 +40,7 @@ mod api_error;
 
 #[instrument(skip_all)]
 async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
-	info!("Request for {}", request.uri().path());
+	trace!("Request for {}", request.uri().path());
 	
 	match path {
 		["api", tail @ ..] => api_routes::route_request(request, tail, server_state).await,
