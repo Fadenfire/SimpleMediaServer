@@ -9,9 +9,8 @@
 	<a class="nav-item" href="/"><FeatherIcon name="home" size="100%"/></a>
 	<a class="nav-item" href="/watch_history"><FeatherIcon name="clock" size="100%"/></a>
 	
-	<!-- {#if isStandalone()}
-		<a class="nav-item" href="javascript:window.history.back()"><FeatherIcon name="arrow-left" size="100%"/></a>
-	{/if} -->
+	<!-- svelte-ignore a11y-invalid-attribute -->
+	<a class="nav-item" href="javascript:window.history.back()"><FeatherIcon name="arrow-left" size="100%"/></a>
 	
 	<div style="flex: 1;"></div>
 	
