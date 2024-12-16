@@ -51,11 +51,13 @@ impl VideoTranscoder {
 			..Default::default()
 		})?;
 		
-		let framerate = decoder.frame_rate().unwrap_or(Rational(60, 1));
-		let rate_time_base = framerate.invert() * Rational(1, 10);
+		let framerate = decoder.frame_rate().unwrap_or(params.in_stream.rate());
+		let rate_time_base = framerate.invert();
 		
 		let output_height = decoder.height().min(params.target_height);
-		let output_width = super::calculate_output_width(decoder.width(), decoder.height(), params.target_height);
+		let output_width = super::calculate_output_width(decoder.width(), decoder.height(), output_height);
+		
+		// println!("Sizes: {} {}, {} {}, {:?}", decoder.width(), decoder.height(), output_width, output_height, framerate);
 		
 		let has_global_header = params.muxer.format().flags().contains(format::flag::Flags::GLOBAL_HEADER);
 		
@@ -259,6 +261,8 @@ impl VideoTranscoder {
 		let stream_time_base = muxer.stream(out_stream_index).expect("Unknown stream").time_base();
 		
 		for mut out_packet in self.output_packet_queue.drain(..) {
+			// println!("Out DTS: {}, PTS: {}", out_packet.dts().unwrap(), out_packet.pts().unwrap());
+			
 			out_packet.set_stream(out_stream_index);
 			out_packet.rescale_ts(self.rate_time_base, stream_time_base);
 			

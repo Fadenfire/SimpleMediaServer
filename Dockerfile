@@ -1,5 +1,5 @@
 # Use native platform for web-builder since it doesn't produce any platform specific artifacts
-FROM --platform=$BUILDPLATFORM node:22.4.0-alpine AS web-builder
+FROM --platform=$BUILDPLATFORM node:23.3.0-alpine AS web-builder
 
 ENV COREPACK_HOME="/corepack"
 ENV PNPM_HOME="/pnpm"
@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/corepack,sharing=locked \
     pnpm install --frozen-lockfile && \
     pnpm run build
 
-FROM rust:1.79.0-slim-bookworm AS builder
+FROM rust:1.82.0-slim-bookworm AS builder
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /app
 
-ADD 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.0-latest-linux64-gpl-shared-7.0.tar.xz' ffmpeg.tar.xz
+ADD 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2024-08-31-12-50/ffmpeg-n7.0.2-6-g7e69129d2f-linux64-gpl-shared-7.0.tar.xz' ffmpeg.tar.xz
 RUN mkdir ffmpeg &&  \
     tar -xvf ffmpeg.tar.xz -C ffmpeg --strip-components=1 && \
     mv ffmpeg/bin/* /usr/local/bin && \
@@ -42,30 +42,35 @@ RUN --mount=type=cache,sharing=locked,target=/usr/local/cargo/registry \
 
 FROM debian:bookworm-slim AS runtime
 
+# RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+#     --mount=type=cache,target=/var/lib/apt,sharing=locked \
+#     sed -i "s/Components: main/Components: main non-free/" /etc/apt/sources.list.d/debian.sources && \
+#     apt-get update && \
+#     apt-get --no-install-recommends install -y xz-utils && \
+#     case "$(uname -m)" in \
+#     	x86_64|amd64) \
+#     		apt-get --no-install-recommends install -y intel-media-va-driver-non-free libva-drm2 libmfx1 ;; \
+#     	*) ;; \
+#     esac
+
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    sed -i "s/Components: main/Components: main non-free/" /etc/apt/sources.list.d/debian.sources && \
     apt-get update && \
-    apt-get --no-install-recommends install -y xz-utils && \
-    case "$(uname -m)" in \
-    	x86_64|amd64) \
-    		apt-get --no-install-recommends install -y intel-media-va-driver-non-free libva-drm2 libmfx1 ;; \
-    	*) ;; \
-    esac
+    apt-get install --no-install-recommends --no-install-suggests -y ca-certificates gnupg curl && \
+    curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/debian-jellyfin.gpg && \
+    echo "deb [arch=$( dpkg --print-architecture )] https://repo.jellyfin.org/$( awk -F'=' '/^ID=/{ print $NF }' /etc/os-release ) $( awk -F'=' '/^VERSION_CODENAME=/{ print $NF }' /etc/os-release ) main" | tee /etc/apt/sources.list.d/jellyfin.list && \
+    apt-get update && \
+    apt-get install --no-install-recommends --no-install-suggests -y mesa-va-drivers jellyfin-ffmpeg7 && \
+    apt-get remove gnupg -y
 
 WORKDIR /app
 
-ADD 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.0-latest-linux64-gpl-shared-7.0.tar.xz' ffmpeg.tar.xz
-RUN mkdir ffmpeg &&  \
-    tar -xvf ffmpeg.tar.xz -C ffmpeg --strip-components=1 && \
-    mv ffmpeg/bin/* /usr/local/bin && \
-    mv ffmpeg/lib/* /usr/local/lib && \
-    rm -rf ffmpeg/ ffmpeg.tar.xz && \
-    ldconfig
-
 COPY --from=builder /app/media-server media-server
 COPY --from=web-builder /app/build/ web-ui
+
+ENV LD_LIBRARY_PATH="/usr/lib/jellyfin-ffmpeg/lib/"
 
 WORKDIR /data
 ENTRYPOINT ["/app/media-server"]

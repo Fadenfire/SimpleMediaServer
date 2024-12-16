@@ -48,7 +48,7 @@ impl QuickSyncVideoBackend {
 		
 		tracing::error!("The VA API pixel format is not offered in get_format()");
 		
-		return AV_PIX_FMT_NONE;
+		AV_PIX_FMT_NONE
 	}
 }
 
@@ -65,7 +65,7 @@ impl VideoBackend for QuickSyncVideoBackend {
 			.ok_or_else(|| anyhow!("Unable to find encoder"))?;
 		
 		params.encoder_options.set("low_power", "1");
-		params.encoder_options.set("look_ahead", "1");
+		params.encoder_options.set("look_ahead", "0");
 		
 		let mut encoder = codec::context::Context::new_with_codec(encoder_codec)
 			.encoder()

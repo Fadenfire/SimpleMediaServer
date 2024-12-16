@@ -38,7 +38,8 @@ async fn main() {
 	// 	audio_bitrate: 160_000,
 	// }).unwrap();
 	// 
-	// tokio::fs::write("output.ts", &data).await.unwrap();
+	// println!("Writing out {}", data.len());
+	// tokio::fs::write("/datas/output.ts", &data).await.unwrap();
 	
 	info!("Starting server");
 	
