@@ -5,13 +5,21 @@ use ffmpeg_next::format::Pixel;
 
 use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 
-pub struct SoftwareVideoBackend;
+pub struct SoftwareVideoBackendFactory;
 
-impl SoftwareVideoBackend {
+impl SoftwareVideoBackendFactory {
 	pub fn new() -> Self {
 		Self
 	}
 }
+
+impl BackendFactory for SoftwareVideoBackendFactory {
+	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
+		Ok(Box::new(SoftwareVideoBackend))
+	}
+}
+
+pub struct SoftwareVideoBackend;
 
 impl VideoBackend for SoftwareVideoBackend {
 	fn encoder_pixel_format(&self) -> Pixel {
@@ -61,13 +69,5 @@ impl VideoBackend for SoftwareVideoBackend {
 		decoder.set_packet_time_base(params.packet_time_base);
 		
 		Ok(decoder)
-	}
-}
-
-pub struct SoftwareBackendFactory;
-
-impl BackendFactory for SoftwareBackendFactory {
-	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
-		Ok(Box::new(SoftwareVideoBackend::new()))
 	}
 }

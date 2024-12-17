@@ -1,29 +1,27 @@
 use crate::config::TranscodingBackend;
+use crate::media_manipulation::backends::intel_quick_sync::QuickSyncVideoBackendFactory;
+use crate::media_manipulation::backends::software::SoftwareVideoBackendFactory;
+use crate::media_manipulation::backends::video_toolbox::VideoToolboxVideoBackendFactory;
 use crate::media_manipulation::backends::{BackendFactory, VideoBackend};
-use crate::media_manipulation::backends::intel_quick_sync::QuickSyncVideoBackend;
-use crate::media_manipulation::backends::software::SoftwareVideoBackend;
-use crate::media_manipulation::backends::video_toolbox::VideoToolboxVideoBackend;
 
 pub struct MediaBackendFactory {
-	backend_type: TranscodingBackend,
+	backend_factory: Box<dyn BackendFactory + Send + Sync>,
 }
 
 impl MediaBackendFactory {
 	pub fn new(backend_type: TranscodingBackend) -> anyhow::Result<Self> {
 		Ok(Self {
-			backend_type,
+			backend_factory: match backend_type {
+				TranscodingBackend::Software => Box::new(SoftwareVideoBackendFactory::new()),
+				TranscodingBackend::VideoToolbox => Box::new(VideoToolboxVideoBackendFactory::new()),
+				TranscodingBackend::IntelQuickSync => Box::new(QuickSyncVideoBackendFactory::new()),
+			},
 		})
 	}
 }
 
 impl BackendFactory for MediaBackendFactory {
 	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
-		let video_backend: Box<dyn VideoBackend> = match self.backend_type {
-			TranscodingBackend::Software => Box::new(SoftwareVideoBackend::new()),
-			TranscodingBackend::VideoToolbox => Box::new(VideoToolboxVideoBackend::new()),
-			TranscodingBackend::IntelQuickSync => Box::new(QuickSyncVideoBackend::new()?),
-		};
-		
-		Ok(video_backend)
+		self.backend_factory.create_video_backend()
 	}
 }

@@ -24,8 +24,8 @@ pub fn calculate_output_width(source_width: u32, source_height: u32, target_heig
 	source_width * target_height / source_height / 2 * 2
 }
 
-pub struct TranscodingOptions<'a, B: BackendFactory> {
-	pub backend_factory: &'a B,
+pub struct TranscodingOptions<'a> {
+	pub backend_factory: &'a dyn BackendFactory,
 	pub media_path: PathBuf,
 	pub time_range: Range<i64>,
 	pub target_video_height: u32,
@@ -34,7 +34,7 @@ pub struct TranscodingOptions<'a, B: BackendFactory> {
 	pub audio_bitrate: usize,
 }
 
-pub fn transcode_segment(opts: TranscodingOptions<'_, impl BackendFactory>) -> anyhow::Result<Bytes> {
+pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 	let mut demuxer = format::input(&opts.media_path).context("Opening video file")?;
 	let mut muxer = InMemoryMuxer::new("mpegts").context("Opening output")?;
 	

@@ -1,17 +1,25 @@
-use std::ffi::c_int;
 use anyhow::{anyhow, Context};
-use ffmpeg_next::{codec, decoder, encoder};
 use ffmpeg_next::format::Pixel;
+use ffmpeg_next::{codec, decoder, encoder};
+use std::ffi::c_int;
 
-use crate::media_manipulation::backends::{VideoBackend, VideoDecoderParams, VideoEncoderParams};
+use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 
-pub struct VideoToolboxVideoBackend;
+pub struct VideoToolboxVideoBackendFactory;
 
-impl VideoToolboxVideoBackend {
+impl VideoToolboxVideoBackendFactory {
 	pub fn new() -> Self {
 		Self
 	}
 }
+
+impl BackendFactory for VideoToolboxVideoBackendFactory {
+	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
+		Ok(Box::new(VideoToolboxVideoBackend))
+	}
+}
+
+pub struct VideoToolboxVideoBackend;
 
 impl VideoBackend for VideoToolboxVideoBackend {
 	fn encoder_pixel_format(&self) -> Pixel {

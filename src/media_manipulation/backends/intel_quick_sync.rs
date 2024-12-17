@@ -1,29 +1,45 @@
 use std::ffi::c_int;
+use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use ffmpeg_next::{codec, decoder, encoder};
 use ffmpeg_next::format::Pixel;
 use ffmpeg_sys_next::{av_buffer_ref, AVCodecContext, AVPixelFormat};
 use ffmpeg_sys_next::AVHWDeviceType::AV_HWDEVICE_TYPE_VAAPI;
 use ffmpeg_sys_next::AVPixelFormat::{AV_PIX_FMT_NONE, AV_PIX_FMT_VAAPI};
-
-use crate::media_manipulation::backends::{VideoBackend, VideoDecoderParams, VideoEncoderParams};
+use tracing::info;
+use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 use crate::media_manipulation::media_utils::check_alloc;
-use crate::media_manipulation::media_utils::hardware_device::HardwareDeviceContext;
+use crate::media_manipulation::media_utils::hardware_device::{BorrowedDevice, DevicePool, HardwareDeviceContext};
+
+pub struct QuickSyncVideoBackendFactory {
+	device_pool: Arc<DevicePool>,
+}
+
+impl QuickSyncVideoBackendFactory {
+	pub fn new() -> Self {
+		Self {
+			device_pool: DevicePool::new(|| {
+				info!("Creating new QSV device for the pool");
+				
+				HardwareDeviceContext::create(AV_HWDEVICE_TYPE_VAAPI).map_err(Into::into)
+			}),
+		}
+	}
+}
+
+impl BackendFactory for QuickSyncVideoBackendFactory {
+	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
+		Ok(Box::new(QuickSyncVideoBackend {
+			hw_context: self.device_pool.take_device()?,
+		}))
+	}
+}
 
 pub struct QuickSyncVideoBackend {
-	hw_context: HardwareDeviceContext,
+	hw_context: BorrowedDevice,
 }
 
 impl QuickSyncVideoBackend {
-	pub fn new() -> anyhow::Result<Self> {
-		let hw_context = HardwareDeviceContext::create(AV_HWDEVICE_TYPE_VAAPI)
-			.context("Creating VA API device")?;
-		
-		Ok(Self {
-			hw_context
-		})
-	}
-	
 	fn get_codec_name(codec: codec::Id) -> Option<&'static str> {
 		match codec {
 			codec::Id::H264 => Some("h264_qsv"),

@@ -1,6 +1,5 @@
-use std::path::PathBuf;
-
 use argh::FromArgs;
+use std::path::PathBuf;
 use tracing::{info, Level};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
