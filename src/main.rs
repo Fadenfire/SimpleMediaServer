@@ -28,18 +28,6 @@ async fn main() {
 	setup_logging();
 	ffmpeg_next::log::set_level(ffmpeg_next::log::Level::Warning);
 	
-	// let data = transcode_segment(TranscodingOptions {
-	// 	backend_factory: &MediaBackendFactory::new(TranscodingBackend::IntelQuickSync).unwrap(),
-	// 	media_path: PathBuf::from(std::env::args().nth(1).unwrap()),
-	// 	time_range: 100..105,
-	// 	target_video_height: 1080,
-	// 	video_bitrate: 12_000_000,
-	// 	audio_bitrate: 160_000,
-	// }).unwrap();
-	// 
-	// println!("Writing out {}", data.len());
-	// tokio::fs::write("/datas/output.ts", &data).await.unwrap();
-	
 	info!("Starting server");
 	
 	let config = ServerConfig::load(args.data_dir, args.cache_dir).await.expect("Loading config");

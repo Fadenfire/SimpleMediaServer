@@ -71,6 +71,7 @@ pub async fn run(config: ServerConfig) {
 	
 	if config.main_config.server.enable_http {
 		let http_addr = SocketAddr::new(config.main_config.server.host, config.main_config.server.http_port);
+		
 		servers.push(serve(http_addr, server_state.clone(), None));
 	}
 	
