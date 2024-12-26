@@ -42,18 +42,6 @@ RUN --mount=type=cache,sharing=locked,target=/usr/local/cargo/registry \
 
 FROM debian:bookworm-slim AS runtime
 
-# RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
-# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-#     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-#     sed -i "s/Components: main/Components: main non-free/" /etc/apt/sources.list.d/debian.sources && \
-#     apt-get update && \
-#     apt-get --no-install-recommends install -y xz-utils && \
-#     case "$(uname -m)" in \
-#     	x86_64|amd64) \
-#     		apt-get --no-install-recommends install -y intel-media-va-driver-non-free libva-drm2 libmfx1 ;; \
-#     	*) ;; \
-#     esac
-
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
