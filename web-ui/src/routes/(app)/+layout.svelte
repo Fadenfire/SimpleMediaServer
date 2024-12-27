@@ -1,5 +1,6 @@
 <script lang="ts">
-    import FeatherIcon from "$lib/components/FeatherIcon.svelte";
+    import Dropdown from "$lib/components/Dropdown.svelte";
+	import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     // import { isStandalone } from "$lib/utils";
     import type { PageData } from "./$types";
 	
@@ -14,7 +15,13 @@
 	
 	<div style="flex: 1;"></div>
 	
-	<div class="nav-item">{data.userInfo.display_name}</div>
+	<Dropdown>
+		<div class="nav-item" slot="summary">{data.userInfo.display_name}</div>
+		
+		<div slot="dropdown" class="dropdown-menu">
+			<a class="nav-item" href="/api/logout">Logout</a>
+		</div>
+	</Dropdown>
 </nav>
 
 <slot/>
@@ -30,8 +37,9 @@
 	}
 	
 	.nav-item {
-		display: block;
-		// width: var(--nav-bar-height);
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		height: $nav-bar-height;
 		color: var(--main-text-color);
 		text-decoration: none;
@@ -40,5 +48,12 @@
 	
 	.nav-item:hover {
 		background-color: var(--foreground-inset-color);
+	}
+	
+	.dropdown-menu {
+		display: flex;
+		flex-direction: column;
+		background-color: var(--foreground-color);
+		min-width: 100px;
 	}
 </style>

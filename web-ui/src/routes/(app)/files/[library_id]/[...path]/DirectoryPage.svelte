@@ -24,7 +24,7 @@
     import TileGrid from "$lib/components/tile_grid/TileGrid.svelte";
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     import DimStripe from "$lib/components/DimStripe.svelte";
-    import Dropdown from "$lib/components/Dropdown.svelte";
+    import SelectionDropdown from "$lib/components/SelectionDropdown.svelte";
 	import dayjs from "dayjs";
     import PathComponents from "./PathComponents.svelte";
     import type { Snapshot } from "./$types";
@@ -81,12 +81,12 @@
 <main class="main-content">
 	<PageSection title="{dirInfo.display_name}">
 		<svelte:fragment slot="title-bar">
-			<Dropdown bind:value={sortType} label="Sort by">
+			<SelectionDropdown bind:value={sortType} label="Sort by">
 				<option value={SortType.Name}>Name</option>
 				<option value={SortType.DateAdded}>Date Added</option>
 				<option value={SortType.Duration}>Duration</option>
 				<option value={SortType.WatchProgress}>Watch Progress</option>
-			</Dropdown>
+			</SelectionDropdown>
 		</svelte:fragment>
 		
 		<PathComponents slot="header" info={dirInfo}/>
