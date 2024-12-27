@@ -54,7 +54,7 @@
 	
 	$: videoInfo = mediaInfo.video_info;
 	
-	// Sidedar
+	// Sidebar
 	
 	let sidebarShown = SidebarType.None;
 	
