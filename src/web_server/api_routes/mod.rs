@@ -19,6 +19,7 @@ mod update_watch_progress;
 mod get_watch_history;
 mod delete_watch_progress;
 mod hls_level_manifest;
+mod logout;
 
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
 	if let ["login"] = path {
@@ -30,6 +31,7 @@ pub async fn route_request(request: HyperRequest, path: &[&str], server_state: A
 	}
 	
 	let result = match path {
+		["logout"] => logout::logout_route(&request).await,
 		["get_user"] => get_user::get_user_route(&request, &server_state.auth_manager).await,
 		["libraries"] => list_libraries::list_libraries_route(&server_state, &request).await,
 		["update_watch_progress"] => update_watch_progress::update_watch_progress_route(&server_state, request).await,
