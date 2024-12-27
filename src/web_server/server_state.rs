@@ -4,7 +4,7 @@ use tracing::info;
 
 use crate::config::ServerConfig;
 use crate::utils;
-use crate::web_server::auth::AuthManager;
+use crate::web_server::auth::{AuthManager, AuthSecrets};
 use crate::web_server::libraries::Libraries;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
 use crate::web_server::services::artifact_cache::ArtifactCache;
@@ -30,8 +30,13 @@ pub struct ServerState {
 
 impl ServerState {
 	pub async fn init(config: ServerConfig) -> anyhow::Result<Self> {
+		let secrets_dir = config.paths.data_dir.join("secrets");
+		tokio::fs::create_dir_all(&secrets_dir).await?;
+		
 		let libraries = Libraries::from_config(config.load_libraries_config().await?);
-		let auth_manager = AuthManager::from_config(config.load_users_config().await?);
+		
+		let auth_secrets = AuthSecrets::load_from_file(&secrets_dir.join("auth-secrets.json")).await?;
+		let auth_manager = AuthManager::from_config(config.load_users_config().await?, auth_secrets);
 		
 		let user_watch_histories = UserWatchHistories::load(&auth_manager,
 			config.paths.data_dir.join("watch-histories")).await?;

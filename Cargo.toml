@@ -19,6 +19,7 @@ headers = "0.4"
 bytes = "1.0"
 mime = "0.3"
 mime_guess = "2.0"
+jwt-simple = "0.12"
 figment = { version = "0.10", features = ["yaml", "env"] }
 anyhow = "1.0"
 argh = "0.1"
@@ -30,8 +31,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_urlencoded = "0.7"
 blake3 = "1.0"
-sha2 = "0.10"
-pbkdf2 = { version = "0.12", features = ["simple"] }
+argon2 = "0.5"
 hex = "0.4"
 rand = "0.8"
 rand_chacha = "0.3"

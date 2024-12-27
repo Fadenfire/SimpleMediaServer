@@ -1,31 +1,39 @@
-use std::collections::HashMap;
-
-use headers::{Cookie, HeaderMapExt};
-use hex::ToHex;
-use http::HeaderMap;
-use pbkdf2::pbkdf2_hmac;
-use sha2::Sha256;
-
 use crate::config::UsersConfig;
 use crate::web_server::api_error::ApiError;
+use argon2::password_hash::rand_core::OsRng;
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
+use headers::{Cookie, HeaderMapExt};
+use http::HeaderMap;
+use jwt_simple::algorithms::{HS256Key, MACLike};
+use jwt_simple::claims::{Claims, NoCustomClaims};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs::Permissions;
+use std::path::Path;
+use std::time::Duration;
 
 pub const AUTH_COOKIE_NAME: &str = "media_server_access_token";
-pub const AUTH_TOKEN_LENGTH: usize = 32;
+pub const AUTH_TOKEN_LIFETIME: Duration = Duration::from_secs(60 * 60 * 24 * 365); // 1 year
 
 pub struct AuthManager {
 	users: HashMap<String, User>,
-	token_to_id: HashMap<String, String>,
 	username_to_id: HashMap<String, String>,
+	secrets: AuthSecrets,
+}
+
+pub struct AuthSecrets {
+	jwt_key: HS256Key,
 }
 
 impl AuthManager {
-	pub fn from_config(users_config: UsersConfig) -> Self {
-		let users: HashMap<String, User> = users_config.users.iter()
-			.map(Clone::clone)
+	pub fn from_config(users_config: UsersConfig, secrets: AuthSecrets) -> Self {
+		let argon = Argon2::default();
+		
+		let users: HashMap<String, User> = users_config.users.into_iter()
 			.map(|cfg| {
-				let mut auth_token_bytes = [0u8; AUTH_TOKEN_LENGTH];
-				pbkdf2_hmac::<Sha256>(format!("{}/{}", cfg.username, cfg.password).as_bytes(), b"isasalt", 100_000, &mut auth_token_bytes);
-				let auth_token = auth_token_bytes.encode_hex();
+				let salt = SaltString::generate(&mut OsRng);
+				let password_hash = argon.hash_password(cfg.password.as_bytes(), &salt).unwrap();
 				
 				let user = User {
 					id: cfg.id.clone(),
@@ -33,16 +41,11 @@ impl AuthManager {
 					username: cfg.username,
 					allowed_libraries: cfg.allowed_libraries,
 					
-					password: cfg.password,
-					auth_token,
+					password_hash: password_hash.to_string(),
 				};
 				
 				(cfg.id, user)
 			})
-			.collect();
-		
-		let token_to_id = users.values()
-			.map(|user| (user.auth_token.clone(), user.id.clone()))
 			.collect();
 		
 		let username_to_id = users.values()
@@ -51,8 +54,8 @@ impl AuthManager {
 		
 		Self {
 			users,
-			token_to_id,
 			username_to_id,
+			secrets,
 		}
 	}
 	
@@ -64,15 +67,27 @@ impl AuthManager {
 		self.users.get(id)
 	}
 	
-	pub fn lookup_token(&self, token: &str) -> Option<&User> {
-		let user_id = self.token_to_id.get(token)?;
-		self.get_user_by_id(user_id)
+	pub fn decode_token(&self, token: &str) -> anyhow::Result<&User> {
+		let claims = self.secrets.jwt_key.verify_token::<NoCustomClaims>(token, None)?;
+		let user_id = claims.subject.ok_or_else(|| anyhow::anyhow!("JWT token has no subject"))?;
+		
+		self.get_user_by_id(&user_id).ok_or_else(|| anyhow::anyhow!("Unknown user id"))
 	}
 	
-	pub fn login(&self, username: &str, password: &str) -> Option<&User> {
-		let user_id = self.username_to_id.get(username)?;
+	pub fn login(&self, username: &str, password: &str) -> anyhow::Result<String> {
+		let user_id = self.username_to_id.get(username)
+			.ok_or_else(|| anyhow::anyhow!("Unknown username"))?;
 		
-		self.get_user_by_id(user_id).filter(|user| user.verify_password(password))
+		let user = &self.users[user_id];
+		
+		if !user.verify_password(password) {
+			return Err(anyhow::anyhow!("Invalid password"));
+		}
+		
+		let claims = Claims::create(AUTH_TOKEN_LIFETIME.into())
+			.with_subject(user.id.clone());
+		
+		Ok(self.secrets.jwt_key.authenticate(claims)?)
 	}
 	
 	pub fn lookup_from_headers(&self, headers: &HeaderMap) -> Result<&User, ApiError> {
@@ -80,7 +95,7 @@ impl AuthManager {
 		
 		cookies.as_ref()
 			.and_then(|cookies| cookies.get(AUTH_COOKIE_NAME))
-			.and_then(|auth_token| self.lookup_token(auth_token))
+			.and_then(|auth_token| self.decode_token(auth_token).ok())
 			.ok_or(ApiError::Unauthorized)
 	}
 }
@@ -91,13 +106,14 @@ pub struct User {
 	pub username: String,
 	pub allowed_libraries: Vec<String>,
 	
-	pub auth_token: String,
-	password: String,
+	password_hash: String,
 }
 
 impl User {
 	pub fn verify_password(&self, password: &str) -> bool {
-		self.password == password
+		let password_hash = PasswordHash::new(&self.password_hash).unwrap();
+		
+		Argon2::default().verify_password(password.as_bytes(), &password_hash).is_ok()
 	}
 	
 	pub fn can_see_library(&self, library_id: &str) -> bool {
@@ -105,22 +121,65 @@ impl User {
 	}
 }
 
+impl AuthSecrets {
+	pub fn generate() -> Self {
+		Self {
+			jwt_key: HS256Key::generate(),
+		}
+	}
+	
+	pub async fn load_from_file(path: &Path) -> anyhow::Result<Self> {
+		if let Ok(file_data) = tokio::fs::read(path).await {
+			let secrets: AuthSecretsSerialized = serde_json::from_slice(&file_data)?;
+			
+			Ok(Self {
+				jwt_key: HS256Key::from_bytes(hex::decode(&secrets.jwt_key)?.as_slice())
+			})
+		} else {
+			let secrets = Self::generate();
+			
+			let secrets_ser = AuthSecretsSerialized {
+				jwt_key: hex::encode(&secrets.jwt_key.to_bytes()),
+			};
+			
+			tokio::fs::write(path, serde_json::to_vec_pretty(&secrets_ser)?).await?;
+			
+			#[cfg(unix)] {
+				use std::os::unix::fs::PermissionsExt;
+				
+				tokio::fs::set_permissions(&path, Permissions::from_mode(0o600)).await?;
+			}
+			
+			Ok(secrets)
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize)]
+struct AuthSecretsSerialized {
+	jwt_key: String,
+}
+
 #[cfg(test)]
 mod tests {
+	use crate::config::{UserConfig, UsersConfig};
+	use crate::web_server::auth::{AuthManager, AuthSecrets, User};
+	use argon2::password_hash::rand_core::OsRng;
+	use argon2::password_hash::SaltString;
+	use argon2::{Argon2, PasswordHasher};
 	use http::header::COOKIE;
 	use http::HeaderMap;
 	
-	use crate::config::{UserConfig, UsersConfig};
-	use crate::web_server::auth::{AuthManager, User};
-	
 	fn create_test_user() -> User {
+		let salt = SaltString::generate(&mut OsRng);
+		let password_hash = Argon2::default().hash_password(b"hunter42", &salt).unwrap();
+		
 		User {
 			id: "joe".to_string(),
 			display_name: "Joe".to_string(),
 			username: "joe".to_string(),
 			allowed_libraries: vec!["lib_a".to_string(), "lib_b".to_string()],
-			auth_token: "abcd".to_string(),
-			password: "hunter42".to_string(),
+			password_hash: password_hash.to_string(),
 		}
 	}
 	
@@ -170,30 +229,31 @@ mod tests {
 	
 	#[test]
 	fn test_auth_manager_init() {
-		let auth_manager = AuthManager::from_config(create_test_user_config());
+		let secrets = AuthSecrets::generate();
+		let auth_manager = AuthManager::from_config(create_test_user_config(), secrets);
 		
 		let joe = &auth_manager.users["joe"];
 		let bob = &auth_manager.users["bob"];
 		
 		assert_eq!(joe.id, "joe");
-		assert_eq!(joe.password, "hunter42");
-		assert_eq!(joe.auth_token, "fb27cd4780b060dfb19ac00d27222fa66d8a30c2eb1841a5b74dbf9f2280d014");
+		assert!(joe.verify_password("hunter42"));
 		
 		assert_eq!(bob.id, "bob");
-		assert_eq!(bob.password, "hfudsfh8ffhuuihufu9");
-		assert_eq!(bob.auth_token, "0757dfa7bc5293d296cb48a26df087f9ad1356956d055959e7cbead30b44c18a");
+		assert!(bob.verify_password("hfudsfh8ffhuuihufu9"));
 		
 		assert_eq!(auth_manager.get_user_by_id("joe").unwrap().id, "joe");
 		assert_eq!(auth_manager.get_user_by_id("bob").unwrap().id, "bob");
 		assert!(auth_manager.get_user_by_id("rick").is_none());
 		assert!(auth_manager.get_user_by_id("joe ").is_none());
 		
-		assert_eq!(auth_manager.lookup_token("fb27cd4780b060dfb19ac00d27222fa66d8a30c2eb1841a5b74dbf9f2280d014").unwrap().id, "joe");
-		assert_eq!(auth_manager.lookup_token("0757dfa7bc5293d296cb48a26df087f9ad1356956d055959e7cbead30b44c18a").unwrap().id, "bob");
-		assert!(auth_manager.lookup_token("ababbababababababbabababbbbabababbabababbabbababbabababa").is_none());
+		let joe_token = auth_manager.login("joe", "hunter42").unwrap();
+		
+		assert_eq!(auth_manager.decode_token(&joe_token).unwrap().id, "joe");
+		assert!(auth_manager.decode_token("ababbababababababbabababbbbabababbabababbabbababbabababa").is_err());
+		assert!(auth_manager.decode_token("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.lQlGe-9e923jmy7mx6unjwWX-erhJ7KsNW0H3H8shcA").is_err());
 		
 		let mut headers = HeaderMap::new();
-		headers.insert(COOKIE, "media_server_access_token=fb27cd4780b060dfb19ac00d27222fa66d8a30c2eb1841a5b74dbf9f2280d014".parse().unwrap());
+		headers.insert(COOKIE, format!("media_server_access_token={}", joe_token).parse().unwrap());
 		
 		assert_eq!(auth_manager.lookup_from_headers(&headers).unwrap().id, "joe");
 	}
