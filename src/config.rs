@@ -174,13 +174,13 @@ impl Default for CachesConfig {
 	fn default() -> Self {
 		Self {
 			segments_cache_dir: PathBuf::from("transcoded-segments"),
-			segments_cache_size_limit: 500_000_000,
+			segments_cache_size_limit: 5_000_000_000, // 5 GB
 			
 			thumbnail_cache_dir: PathBuf::from("thumbnails"),
-			thumbnail_cache_size_limit: u64::MAX,
+			thumbnail_cache_size_limit: 500_000_000, // 500 MB
 			
 			thumbnail_sheet_cache_dir: PathBuf::from("thumbnail-sheets"),
-			thumbnail_sheet_cache_size_limit: u64::MAX,
+			thumbnail_sheet_cache_size_limit: 500_000_000, // 500 MB
 		}
 	}
 }
