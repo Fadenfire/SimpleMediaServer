@@ -197,6 +197,7 @@ pub struct LibraryConfig {
 	pub id: String,
 	pub display_name: String,
 	pub path: PathBuf,
+	pub global_connections_file: Option<PathBuf>,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

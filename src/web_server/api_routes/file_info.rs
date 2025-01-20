@@ -118,29 +118,26 @@ pub async fn create_file_info(
 	let description = read_file_maybe(media_path, DESCRIPTION_FILE_EXT).await?
 		.and_then(|data| String::from_utf8(data).ok());
 	
-	let mut connections = media_connections::get_video_connections(&media_path).await?
-		.map(|connection_file| {
-			connection_file.connected_videos.into_iter()
-				.flat_map(|entry| {
-					let other_path = RelativePath::new(&library.id).join(&entry.video_path);
-					let other_thumbnail = thumbnail::create_thumbnail_path(&other_path);
-					let shortcut_thumbnail = entry.shortcut_thumbnail
-						.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(&library.id).join(&path)));
-					
-					entry.connections.into_iter()
-						.map(move |connection| ApiVideoConnection {
-							video_path: other_path.clone(),
-							video_thumbnail: other_thumbnail.clone(),
-							relation: entry.relation.clone(),
-							shortcut_thumbnail: shortcut_thumbnail.clone(),
-							left_start: connection.left_start,
-							left_end: connection.left_start + connection.duration,
-							right_start: connection.right_start,
-						})
+	let mut connections: Vec<ApiVideoConnection> = media_connections::get_video_connections(&media_path, library_path, library).await?
+		.into_iter()
+		.flat_map(|entry| {
+			let other_path = RelativePath::new(&library.id).join(&entry.video_path);
+			let other_thumbnail = thumbnail::create_thumbnail_path(&other_path);
+			let shortcut_thumbnail = entry.shortcut_thumbnail
+				.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(&library.id).join(&path)));
+			
+			entry.connections.into_iter()
+				.map(move |connection| ApiVideoConnection {
+					video_path: other_path.clone(),
+					video_thumbnail: other_thumbnail.clone(),
+					relation: entry.relation.clone(),
+					shortcut_thumbnail: shortcut_thumbnail.clone(),
+					left_start: connection.left_start,
+					left_end: connection.left_start + connection.duration,
+					right_start: connection.right_start,
 				})
-				.collect()
 		})
-		.unwrap_or_else(|| Vec::new());
+		.collect();
 	
 	connections.sort_by_key(|con| con.left_end);
 	

@@ -21,6 +21,7 @@ impl Libraries {
 				id: lib.id,
 				display_name: lib.display_name,
 				root_path: lib.path,
+				global_connections_file: lib.global_connections_file,
 			}))
 			.collect();
 		
@@ -49,11 +50,12 @@ impl Libraries {
 	}
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Library {
 	pub id: String,
 	pub display_name: String,
 	pub root_path: PathBuf,
+	pub global_connections_file: Option<PathBuf>,
 }
 
 impl Library {
