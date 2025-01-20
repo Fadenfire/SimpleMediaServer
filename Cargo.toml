@@ -19,7 +19,7 @@ headers = "0.4"
 bytes = "1.0"
 mime = "0.3"
 mime_guess = "2.0"
-jwt-simple = "0.12"
+jsonwebtoken = "9.0"
 figment = { version = "0.10", features = ["yaml", "env"] }
 anyhow = "1.0"
 argh = "0.1"

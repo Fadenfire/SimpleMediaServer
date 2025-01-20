@@ -14,7 +14,7 @@ pub async fn login_route(request: HyperRequest, auth_manager: &AuthManager) -> R
 	
 	let params: LoginParams = web_utils::parse_form_body(request.into_body()).await?;
 	
-	let Ok(auth_token) = auth_manager.login(&params.username, &params.password) else {
+	let Ok(user) = auth_manager.login(&params.username, &params.password) else {
 		let res = Response::builder()
 			.status(StatusCode::BAD_REQUEST)
 			.body(full_body("Invalid username/password"))
@@ -22,6 +22,8 @@ pub async fn login_route(request: HyperRequest, auth_manager: &AuthManager) -> R
 		
 		return Ok(res)
 	};
+	
+	let auth_token = auth_manager.generate_token(user);
 	
 	const ONE_YEAR: u32 = 60 * 60 * 24 * 365;
 	

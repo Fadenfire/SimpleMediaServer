@@ -1,17 +1,17 @@
 use crate::config::UsersConfig;
 use crate::web_server::api_error::ApiError;
-use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use headers::{Cookie, HeaderMapExt};
 use http::HeaderMap;
-use jwt_simple::algorithms::{HS256Key, MACLike};
-use jwt_simple::claims::{Claims, NoCustomClaims};
+use jsonwebtoken::{DecodingKey, EncodingKey, Validation};
+use rand::rngs::OsRng;
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::Permissions;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 pub const AUTH_COOKIE_NAME: &str = "media_server_access_token";
 pub const AUTH_TOKEN_LIFETIME: Duration = Duration::from_secs(60 * 60 * 24 * 365); // 1 year
@@ -23,7 +23,13 @@ pub struct AuthManager {
 }
 
 pub struct AuthSecrets {
-	jwt_key: HS256Key,
+	jwt_key: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct JwtClaims {
+	sub: String,
+	exp: u64,
 }
 
 impl AuthManager {
@@ -68,13 +74,37 @@ impl AuthManager {
 	}
 	
 	pub fn decode_token(&self, token: &str) -> anyhow::Result<&User> {
-		let claims = self.secrets.jwt_key.verify_token::<NoCustomClaims>(token, None)?;
-		let user_id = claims.subject.ok_or_else(|| anyhow::anyhow!("JWT token has no subject"))?;
+		let claims = jsonwebtoken::decode::<JwtClaims>(
+			token,
+			&DecodingKey::from_secret(&self.secrets.jwt_key),
+			&Validation::default()
+		)?.claims;
+		
+		let user_id = claims.sub;
 		
 		self.get_user_by_id(&user_id).ok_or_else(|| anyhow::anyhow!("Unknown user id"))
 	}
 	
-	pub fn login(&self, username: &str, password: &str) -> anyhow::Result<String> {
+	pub fn generate_token(&self, user: &User) -> String {
+		let expire_time = SystemTime::now() + AUTH_TOKEN_LIFETIME;
+		
+		let expire_time_unix = expire_time.duration_since(std::time::UNIX_EPOCH)
+			.expect("Time went backwards")
+			.as_secs();
+		
+		let claims = JwtClaims {
+			sub: user.id.to_owned(),
+			exp: expire_time_unix,
+		};
+		
+		jsonwebtoken::encode(
+			&jsonwebtoken::Header::default(),
+			&claims,
+			&EncodingKey::from_secret(&self.secrets.jwt_key)
+		).expect("Failed to generate JWT token")
+	}
+	
+	pub fn login(&self, username: &str, password: &str) -> anyhow::Result<&User> {
 		let user_id = self.username_to_id.get(username)
 			.ok_or_else(|| anyhow::anyhow!("Unknown username"))?;
 		
@@ -84,10 +114,7 @@ impl AuthManager {
 			return Err(anyhow::anyhow!("Invalid password"));
 		}
 		
-		let claims = Claims::create(AUTH_TOKEN_LIFETIME.into())
-			.with_subject(user.id.clone());
-		
-		Ok(self.secrets.jwt_key.authenticate(claims)?)
+		Ok(user)
 	}
 	
 	pub fn lookup_from_headers(&self, headers: &HeaderMap) -> Result<&User, ApiError> {
@@ -123,8 +150,11 @@ impl User {
 
 impl AuthSecrets {
 	pub fn generate() -> Self {
+		let mut jwt_key = vec![0u8; 32];
+		OsRng.fill_bytes(&mut jwt_key);
+		
 		Self {
-			jwt_key: HS256Key::generate(),
+			jwt_key,
 		}
 	}
 	
@@ -133,13 +163,13 @@ impl AuthSecrets {
 			let secrets: AuthSecretsSerialized = serde_json::from_slice(&file_data)?;
 			
 			Ok(Self {
-				jwt_key: HS256Key::from_bytes(hex::decode(&secrets.jwt_key)?.as_slice())
+				jwt_key: hex::decode(&secrets.jwt_key)?,
 			})
 		} else {
 			let secrets = Self::generate();
 			
 			let secrets_ser = AuthSecretsSerialized {
-				jwt_key: hex::encode(&secrets.jwt_key.to_bytes()),
+				jwt_key: hex::encode(&secrets.jwt_key),
 			};
 			
 			tokio::fs::write(path, serde_json::to_vec_pretty(&secrets_ser)?).await?;
@@ -164,11 +194,11 @@ struct AuthSecretsSerialized {
 mod tests {
 	use crate::config::{UserConfig, UsersConfig};
 	use crate::web_server::auth::{AuthManager, AuthSecrets, User};
-	use argon2::password_hash::rand_core::OsRng;
 	use argon2::password_hash::SaltString;
 	use argon2::{Argon2, PasswordHasher};
 	use http::header::COOKIE;
 	use http::HeaderMap;
+	use rand::rngs::OsRng;
 	
 	fn create_test_user() -> User {
 		let salt = SaltString::generate(&mut OsRng);
@@ -212,7 +242,7 @@ mod tests {
 				UserConfig {
 					id: "joe".to_string(),
 					display_name: "Joe Moe".to_string(),
-					username: "joe".to_string(),
+					username: "joemoe".to_string(),
 					password: "hunter42".to_string(),
 					allowed_libraries: vec!["lib_a".to_string(), "lib_b".to_string()],
 				},
@@ -246,7 +276,17 @@ mod tests {
 		assert!(auth_manager.get_user_by_id("rick").is_none());
 		assert!(auth_manager.get_user_by_id("joe ").is_none());
 		
-		let joe_token = auth_manager.login("joe", "hunter42").unwrap();
+		assert!(auth_manager.login("zoe", "dnjsdnjsanj").is_err());
+		assert!(auth_manager.login("bob", "dnjsdnjsanj").is_err());
+		assert!(auth_manager.login("joemoe", "dnjsdnjsanj").is_err());
+		assert!(auth_manager.login("bob", "hunter42").is_err());
+		assert!(auth_manager.login("fsdfdss", "hunter42").is_err());
+		assert!(auth_manager.login("joemoe", "hunter43").is_err());
+		
+		let joe_login = auth_manager.login("joemoe", "hunter42").unwrap();
+		assert_eq!(joe_login.id, "joe");
+		
+		let joe_token = auth_manager.generate_token(joe_login);
 		
 		assert_eq!(auth_manager.decode_token(&joe_token).unwrap().id, "joe");
 		assert!(auth_manager.decode_token("ababbababababababbabababbbbabababbabababbabbababbabababa").is_err());
