@@ -1,4 +1,4 @@
-# Rust Media Server
+# Simple Media Server
 
 This is a Rust-based lightweight media server mainly intended for hosting home videos or downloaded YouTube videos.
 

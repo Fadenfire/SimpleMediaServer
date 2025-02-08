@@ -1,9 +1,9 @@
 services:
   media_server:
-    container_name: media-server
-    image: media-server:latest
+    container_name: simple-media-server
+    image: simple-media-server:latest
     build: .
-    platform: ${BUILD_PLATFORM:-}
+    platform: linux/amd64
     init: true
     tty: true
     volumes:
