@@ -1,4 +1,42 @@
+# Example config file
+
 server:
+  # The host to listen for web connections on
+  # host: 0.0.0.0
+
+  # Enable/disable the HTTP server
+  # enable_http: true
+
+  # Enable/disable the HTTPS server
   enable_https: true
+
+  # HTTP port
   http_port: 8000
+  # HTTPS port
   https_port: 8001
+
+transcoding:
+  # Video transcoding backend, options: software, video_toolbox, intel_quick_sync
+  # backend: software
+
+  # Maximum concurrent transcoding operations
+  # concurrent_tasks: 2
+
+caches:
+  # Transcoded segments cache dir, relative to the cache-dir argument
+  # segments_cache_dir: transcoded-segments
+
+  # Transcoded segments cache size limit
+  # segments_cache_size_limit: 5G
+
+  # Thumbnail cache dir, relative to the cache-dir argument
+  # thumbnail_cache_dir: thumbnails
+
+  # Thumbnail cache size limit
+  # thumbnail_cache_size_limit: 500M
+  
+  # Thumbnail sheet cache dir, relative to the cache-dir argument
+  # thumbnail_sheet_cache_dir: thumbnail-sheets
+
+  # Thumbnail sheet cache size limit
+  # thumbnail_sheet_cache_size_limit: 500M

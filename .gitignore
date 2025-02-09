@@ -5,7 +5,10 @@
 /target
 /run
 
-/example
-!/example/config
+/example/*
+!/example/config/
+!/example/example-library/
+/example/example-library/*
+!/example/example-library/README.txt
 
 .DS_Store

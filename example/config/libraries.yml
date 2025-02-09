@@ -1,3 +1,5 @@
+# Example libraries config file
+
 libraries:
   - id: example_lib
     display_name: Example Library

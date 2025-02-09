@@ -1,3 +1,5 @@
+# Example users config file
+
 users:
   - id: test_user
     display_name: Test User
