@@ -21,19 +21,19 @@ YouTube videos.
 
 ## Gallery
 
-![Home page](images/home_page.png "Home page")
+![Home page](images/home_page.jpg "Home page")
 _Home page_
 
-![Inside a library](images/library.png "Inside a library")
+![Inside a library](images/library.jpg "Inside a library")
 _Viewing a library_
 
-![Inside a directory](images/directory.png "Inside a directory")
+![Inside a directory](images/directory.jpg "Inside a directory")
 _Viewing a directory_
 
-![Watching a video](images/video.png "Watching a video")
+![Watching a video](images/video.jpg "Watching a video")
 _Watching a video_
 
-![Watch history](images/watch_history.png "Watch history")
+![Watch history](images/watch_history.jpg "Watch history")
 _Viewing watch history_
 
 ## Building
