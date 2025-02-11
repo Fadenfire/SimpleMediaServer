@@ -15,14 +15,14 @@ server:
   # HTTPS port
   https_port: 8001
 
-transcoding:
+# transcoding:
   # Video transcoding backend, options: software, video_toolbox, intel_quick_sync
   # backend: software
 
   # Maximum concurrent transcoding operations
   # concurrent_tasks: 2
 
-caches:
+# caches:
   # Transcoded segments cache dir, relative to the cache-dir argument
   # segments_cache_dir: transcoded-segments
 
