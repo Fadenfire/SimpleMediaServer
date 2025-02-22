@@ -49,7 +49,7 @@ impl VideoTranscoder {
 			stream_params: params.in_stream.parameters(),
 			packet_time_base: params.in_stream.time_base(),
 			..Default::default()
-		})?;
+		}).context("Creating decoder")?;
 		
 		let framerate = decoder.frame_rate().unwrap_or(params.in_stream.rate());
 		let rate_time_base = framerate.invert();
@@ -88,23 +88,23 @@ impl VideoTranscoder {
 	
 	pub fn receive_input_packet(&mut self, in_stream: &ffmpeg::Stream, mut in_packet: Packet, time_bounds: Range<i64>) -> anyhow::Result<()> {
 		in_packet.rescale_ts(in_stream.time_base(), self.in_stream_time_base);
-		self.decoder.send_packet(&in_packet)?;
+		self.decoder.send_packet(&in_packet).context("Passing packet to decoder")?;
 		
-		self.decode_frames(time_bounds)
+		self.decode_frames(time_bounds).context("Decoding frames")
 	}
 	
 	pub fn send_eof(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		self.decoder.send_eof()?;
-		self.decode_frames(time_bounds.clone())?;
+		self.decoder.send_eof().context("Closing decoder")?;
+		self.decode_frames(time_bounds.clone()).context("Decoding frames")?;
 		
 		if let Some(filter) = &mut self.filter {
-			filter.get("in").unwrap().source().flush()?;
-			self.drain_filter(time_bounds.clone())?;
+			filter.get("in").unwrap().source().flush().context("Flushing filter")?;
+			self.drain_filter(time_bounds.clone()).context("Draining filter")?;
 		}
 		
 		if let Some(encoder) = &mut self.encoder {
-			encoder.send_eof()?;
-			self.process_output_packets(time_bounds.clone())?;
+			encoder.send_eof().context("Closing encoder")?;
+			self.process_output_packets(time_bounds.clone()).context("Writing packets")?;
 		}
 		
 		Ok(())
@@ -139,10 +139,13 @@ impl VideoTranscoder {
 					);
 					
 					unsafe {
-						let mut in_filter = filter.add(&filter::find("buffer").unwrap(), "in", &in_params)?;
+						let mut in_filter = filter.add(&filter::find("buffer").unwrap(), "in", &in_params)
+							.context("Adding input filter")?;
+						
 						let hw_frames_ctx = (*self.decoder.as_ptr()).hw_frames_ctx;
 						
-						let par = check_alloc(av_buffersrc_parameters_alloc())?;
+						let par = check_alloc(av_buffersrc_parameters_alloc())
+							.context("Allocating buffersrc params")?;
 						let mut par = scopeguard::guard(par, |ptr| av_free(ptr.cast()));
 						
 						if !hw_frames_ctx.is_null() {
@@ -154,20 +157,22 @@ impl VideoTranscoder {
 					}
 					
 					{
-						let mut out_filter = filter.add(&filter::find("buffersink").unwrap(), "out", "")?;
+						let mut out_filter = filter.add(&filter::find("buffersink").unwrap(), "out", "")
+							.context("Adding output filter")?;
+						
 						out_filter.set_pixel_format(self.backend.encoder_pixel_format());
 					}
 					
 					let filter_spec = self.backend.create_filter_chain(self.output_width, self.output_height);
 					
-					filter.output("in", 0)?.input("out", 0)?.parse(&filter_spec)?;
-					filter.validate()?;
+					filter.output("in", 0)?.input("out", 0)?.parse(&filter_spec).context("Building filter graph")?;
+					filter.validate().context("Validating filter graph")?;
 					
 					self.filter = Some(filter);
 				}
 				
-				self.filter.as_mut().unwrap().get("in").unwrap().source().add(&in_frame)?;
-				self.drain_filter(time_bounds.clone())?;
+				self.filter.as_mut().unwrap().get("in").unwrap().source().add(&in_frame).context("Passing frame to filter graph")?;
+				self.drain_filter(time_bounds.clone()).context("Draining filter")?;
 			}
 		}
 		
@@ -214,8 +219,8 @@ impl VideoTranscoder {
 				// 	out_frame.set_color_range(ffmpeg::color::Range::JPEG);
 				// }
 				
-				self.encoder.as_mut().unwrap().send_frame(&out_frame)?;
-				self.process_output_packets(time_bounds.clone())?;
+				self.encoder.as_mut().unwrap().send_frame(&out_frame).context("Passing frame to encoder")?;
+				self.process_output_packets(time_bounds.clone()).context("Writing packets")?;
 			}
 		}
 		
