@@ -2,14 +2,14 @@ use std::ops::Range;
 
 use anyhow::{anyhow, Context};
 use ffmpeg_next as ffmpeg;
-use ffmpeg_next::{codec, Dictionary, filter, format, frame, Packet, picture, Rational, Rescale};
+use ffmpeg_next::{codec, filter, format, frame, picture, Dictionary, Packet, Rational, Rescale};
 use ffmpeg_sys_next::{av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVColorRange, AVColorSpace, AVPixelFormat};
 use tracing::debug;
 
-use crate::media_manipulation::backends::{VideoBackend, VideoDecoderParams, VideoEncoderParams};
+use crate::media_manipulation::backends::{FilterGraphParams, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 use crate::media_manipulation::media_utils;
-use crate::media_manipulation::media_utils::{check_alloc, SECONDS_TIME_BASE};
 use crate::media_manipulation::media_utils::av_error;
+use crate::media_manipulation::media_utils::{check_alloc, SECONDS_TIME_BASE};
 
 pub struct VideoTranscoder {
 	decoder: codec::decoder::Video,
@@ -163,9 +163,12 @@ impl VideoTranscoder {
 						out_filter.set_pixel_format(self.backend.encoder_pixel_format());
 					}
 					
-					let filter_spec = self.backend.create_filter_chain(self.output_width, self.output_height);
+					self.backend.build_filter_graph(&mut filter, FilterGraphParams {
+						output_width: self.output_width,
+						output_height: self.output_height,
+						input_pixel_format: pixel_format,
+					}).context("Building filter graph")?;
 					
-					filter.output("in", 0)?.input("out", 0)?.parse(&filter_spec).context("Building filter graph")?;
 					filter.validate().context("Validating filter graph")?;
 					
 					self.filter = Some(filter);

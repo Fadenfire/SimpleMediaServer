@@ -1,8 +1,8 @@
 use std::ffi::c_uint;
 
-use ffmpeg_next::{codec, Dictionary, Rational};
 use ffmpeg_next::format::Pixel;
-use ffmpeg_sys_next::AVBufferRef;
+use ffmpeg_next::{codec, filter, Dictionary, Rational};
+use ffmpeg_sys_next::{AVBufferRef, AVPixelFormat};
 
 pub mod software;
 pub mod video_toolbox;
@@ -54,6 +54,13 @@ impl Default for VideoDecoderParams {
 	}
 }
 
+#[non_exhaustive]
+pub struct FilterGraphParams {
+	pub output_width: u32,
+	pub output_height: u32,
+	pub input_pixel_format: AVPixelFormat,
+}
+
 pub trait VideoBackend {
 	fn encoder_pixel_format(&self) -> Pixel;
 	
@@ -61,8 +68,12 @@ pub trait VideoBackend {
 	
 	fn create_decoder(&mut self, params: VideoDecoderParams) -> anyhow::Result<codec::decoder::Video>;
 	
-	fn create_filter_chain(&self, width: u32, height: u32) -> String {
-		format!("scale=w={}:h={}", width, height)
+	fn build_filter_graph(&self, filter: &mut filter::graph::Graph, params: FilterGraphParams) -> anyhow::Result<()> {
+		let filter_spec = format!("scale=w={}:h={}", params.output_width, params.output_height);
+		
+		filter.output("in", 0)?.input("out", 0)?.parse(&filter_spec)?;
+		
+		Ok(())
 	}
 }
 

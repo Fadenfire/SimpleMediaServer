@@ -1,15 +1,15 @@
-use std::ffi::c_int;
-use std::sync::Arc;
-use anyhow::{anyhow, Context};
-use ffmpeg_next::{codec, decoder, encoder};
-use ffmpeg_next::format::Pixel;
-use ffmpeg_sys_next::{av_buffer_ref, AVCodecContext, AVPixelFormat};
-use ffmpeg_sys_next::AVHWDeviceType::AV_HWDEVICE_TYPE_VAAPI;
-use ffmpeg_sys_next::AVPixelFormat::{AV_PIX_FMT_NONE, AV_PIX_FMT_VAAPI};
-use tracing::info;
-use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams, VideoEncoderParams};
+use crate::media_manipulation::backends::{BackendFactory, FilterGraphParams, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 use crate::media_manipulation::media_utils::check_alloc;
 use crate::media_manipulation::media_utils::hardware_device::{BorrowedDevice, DevicePool, HardwareDeviceContext};
+use anyhow::{anyhow, Context};
+use ffmpeg_next::format::Pixel;
+use ffmpeg_next::{codec, decoder, encoder, filter};
+use ffmpeg_sys_next::AVHWDeviceType::AV_HWDEVICE_TYPE_VAAPI;
+use ffmpeg_sys_next::AVPixelFormat::{AV_PIX_FMT_NONE, AV_PIX_FMT_VAAPI};
+use ffmpeg_sys_next::{av_buffer_ref, AVCodecContext, AVPixelFormat};
+use std::ffi::c_int;
+use std::sync::Arc;
+use tracing::info;
 
 pub struct QuickSyncVideoBackendFactory {
 	device_pool: Arc<DevicePool>,
@@ -125,7 +125,29 @@ impl VideoBackend for QuickSyncVideoBackend {
 		Ok(decoder)
 	}
 	
-	fn create_filter_chain(&self, width: u32, height: u32) -> String {
-		format!("scale_vaapi=w={}:h={}:format=nv12:extra_hw_frames=24,hwmap=derive_device=qsv,format=qsv", width, height)
+	fn build_filter_graph(&self, filter: &mut filter::graph::Graph, params: FilterGraphParams) -> anyhow::Result<()> {
+		let mut filter_spec = format!(
+			"scale_vaapi=w={}:h={}:format=nv12:extra_hw_frames=24,hwmap=derive_device=qsv,format=qsv",
+			params.output_width,
+			params.output_height
+		);
+		
+		let needs_hw_upload = params.input_pixel_format != AV_PIX_FMT_VAAPI;
+		
+		if needs_hw_upload {
+			filter_spec = format!("hwupload@vaapi,format=vaapi,{}", filter_spec);
+		}
+		
+		filter.output("in", 0)?.input("out", 0)?.parse(&filter_spec)?;
+		
+		if needs_hw_upload {
+			let mut hw_uploader_filter = filter.get("hwupload@vaapi").context("Unable to find uploader filter")?;
+			
+			unsafe {
+				(*hw_uploader_filter.as_mut_ptr()).hw_device_ctx = self.hw_context.add_ref()?;
+			}
+		}
+		
+		Ok(())
 	}
 }
