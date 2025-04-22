@@ -121,8 +121,7 @@ pub async fn create_file_entry(
 	library_path: &RelativePath,
 	media_path: &Path
 ) -> anyhow::Result<ApiFileEntry> {
-	let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(media_path,
-		&server_state.thumbnail_sheet_generator).await?;
+	let media_metadata = server_state.video_metadata_cache.fetch_basic_metadata(media_path).await?;
 	
 	let full_path = RelativePath::new(library_id).join(&library_path);
 	let thumbnail_path = thumbnail::create_thumbnail_path(&full_path);

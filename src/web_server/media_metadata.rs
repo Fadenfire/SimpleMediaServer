@@ -18,7 +18,19 @@ use crate::web_server::services::artifact_cache::ArtifactCache;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 
 pub struct MediaMetadataCache {
-	metadata_cache: Mutex<HashMap<PathBuf, MediaMetadata>>,
+	metadata_cache: Mutex<HashMap<PathBuf, MetadataEntry>>,
+}
+
+struct MetadataEntry {
+	basic: BasicMediaMetadata,
+	advanced: Option<AdvancedMediaMetadata>,
+}
+
+impl MetadataEntry {
+	fn still_valid(&self, file_metadata: &std::fs::Metadata) -> bool {
+		self.basic.file_size == file_metadata.len() &&
+			Some(self.basic.mod_time) == file_metadata.modified().ok()
+	}
 }
 
 impl MediaMetadataCache {
@@ -28,16 +40,54 @@ impl MediaMetadataCache {
 		}
 	}
 	
-	pub async fn fetch_media_metadata(&self, media_path: impl AsRef<Path>, thumbnail_sheet_cache: &ArtifactCache<ThumbnailSheetGenerator>) -> anyhow::Result<MediaMetadata> {
+	pub async fn fetch_basic_metadata(&self, media_path: impl AsRef<Path>) -> anyhow::Result<BasicMediaMetadata> {
 		let media_path = media_path.as_ref().to_owned();
 		let file_metadata = tokio::fs::metadata(&media_path).await?;
 		
 		{
 			let cache = self.metadata_cache.lock().unwrap();
 			
-			if let Some(media_metadata) = cache.get(&media_path) {
-				if media_metadata.file_size == file_metadata.len() && Some(media_metadata.mod_time) == file_metadata.modified().ok() {
-					return Ok(media_metadata.clone());
+			if let Some(entry) = cache.get(&media_path) {
+				if entry.still_valid(&file_metadata) {
+					return Ok(entry.basic.clone());
+				}
+			}
+		}
+		
+		let media_path2 = media_path.clone();
+		
+		let basic_metadata = tokio::task::spawn_blocking(move || {
+			extract_basic_metadata(&media_path2, &file_metadata).map(|r| r.0)
+		}).await.unwrap()?;
+		
+		{
+			let mut cache = self.metadata_cache.lock().unwrap();
+			
+			cache.insert(media_path.to_owned(), MetadataEntry {
+				basic: basic_metadata.clone(),
+				advanced: None,
+			});
+		}
+		
+		Ok(basic_metadata)
+	}
+	
+	pub async fn fetch_full_metadata(&self,
+		media_path: impl AsRef<Path>,
+		thumbnail_sheet_cache: &ArtifactCache<ThumbnailSheetGenerator>
+	) -> anyhow::Result<(BasicMediaMetadata, AdvancedMediaMetadata)> {
+		let media_path = media_path.as_ref().to_owned();
+		let file_metadata = tokio::fs::metadata(&media_path).await?;
+		
+		{
+			let cache = self.metadata_cache.lock().unwrap();
+			
+			if let Some(entry @ MetadataEntry {
+				basic,
+				advanced: Some(advanced)
+			}) = cache.get(&media_path) {
+				if entry.still_valid(&file_metadata) {
+					return Ok((basic.clone(), advanced.clone()));
 				}
 			}
 		}
@@ -45,21 +95,25 @@ impl MediaMetadataCache {
 		let thumbnail_sheet_params = thumbnail_sheet_cache.get(&media_path).await?.map(|entry| entry.metadata);
 		let media_path2 = media_path.clone();
 		
-		let media_metadata = tokio::task::spawn_blocking(move || {
-			extract_media_metadata(media_path2, file_metadata, thumbnail_sheet_params)
+		let (basic_metadata, advanced_metadata) = tokio::task::spawn_blocking(move || {
+			extract_full_metadata(&media_path2, &file_metadata, thumbnail_sheet_params)
 		}).await.unwrap()?;
 		
 		{
 			let mut cache = self.metadata_cache.lock().unwrap();
-			cache.insert(media_path.to_owned(), media_metadata.clone());
+			
+			cache.insert(media_path.to_owned(), MetadataEntry {
+				basic: basic_metadata.clone(),
+				advanced: Some(advanced_metadata.clone()),
+			});
 		}
 		
-		Ok(media_metadata)
+		Ok((basic_metadata, advanced_metadata))
 	}
 }
 
 #[derive(Clone, Debug)]
-pub struct MediaMetadata {
+pub struct BasicMediaMetadata {
 	pub file_size: u64,
 	pub mod_time: SystemTime,
 	pub path_name: String,
@@ -67,6 +121,10 @@ pub struct MediaMetadata {
 	pub title: String,
 	pub artist: Option<String>,
 	pub creation_date: OffsetDateTime,
+}
+
+#[derive(Clone, Debug)]
+pub struct AdvancedMediaMetadata {
 	pub video_metadata: Option<VideoMetadata>,
 }
 
@@ -85,11 +143,10 @@ pub struct Dimension {
 
 const YT_DLP_DATE_FORMAT: &[BorrowedFormatItem] = format_description!("[year][month][day]");
 
-fn extract_media_metadata(
-	media_path: PathBuf,
-	file_metadata: std::fs::Metadata,
-	cached_thumbnail_sheet_params: Option<ThumbnailSheetParams>
-) -> anyhow::Result<MediaMetadata> {
+fn extract_basic_metadata(
+	media_path: &Path,
+	file_metadata: &std::fs::Metadata,
+) -> anyhow::Result<(BasicMediaMetadata, Option<format::context::Input>)> {
 	let demuxer = format::input(&media_path).context("Opening video file")?;
 	
 	let mod_time = file_metadata.modified().context("FS doesn't support mod time")?;
@@ -123,6 +180,33 @@ fn extract_media_metadata(
 		})
 		.unwrap_or_else(|| mod_time.into());
 	
+	let ffmpeg_demuxer = Some(demuxer);
+	
+	let basic_metadata = BasicMediaMetadata {
+		file_size: file_metadata.len(),
+		mod_time,
+		path_name,
+		duration,
+		title,
+		artist,
+		creation_date,
+	};
+	
+	Ok((basic_metadata, ffmpeg_demuxer))
+}
+
+fn extract_full_metadata(
+	media_path: &Path,
+	file_metadata: &std::fs::Metadata,
+	cached_thumbnail_sheet_params: Option<ThumbnailSheetParams>
+) -> anyhow::Result<(BasicMediaMetadata, AdvancedMediaMetadata)> {
+	let (basic_metadata, demuxer) = extract_basic_metadata(media_path, file_metadata)?;
+	
+	let demuxer = match demuxer {
+		Some(demuxer) => demuxer,
+		None => format::input(media_path).context("Opening video file")?,
+	};
+	
 	let video_metadata = match demuxer.streams().best(Type::Video) {
 		Some(video_stream) => {
 			let decoder = codec::context::Context::from_parameters(video_stream.parameters())?
@@ -144,14 +228,9 @@ fn extract_media_metadata(
 		None => None
 	};
 	
-	Ok(MediaMetadata {
-		file_size: file_metadata.len(),
-		mod_time,
-		path_name,
-		duration,
-		title,
-		artist,
-		creation_date,
+	let advanced_metadata = AdvancedMediaMetadata {
 		video_metadata,
-	})
+	};
+	
+	Ok((basic_metadata, advanced_metadata))
 }

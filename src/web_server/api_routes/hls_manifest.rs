@@ -21,13 +21,14 @@ pub async fn hls_manifest_route(
 		server_state, library_id, library_path.iter().collect(), request.headers())?;
 	let media_path = video_locator::locate_video(&resolved_path).await?.file()?;
 	
-	let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&media_path, &server_state.thumbnail_sheet_generator).await?;
+	let advanced_metadata = server_state.video_metadata_cache
+		.fetch_full_metadata(&media_path, &server_state.thumbnail_sheet_generator).await?.1;
 	
 	let mut manifest = String::new();
 	
 	manifest.push_str("#EXTM3U\n");
 	
-	if let Some(video_metadata) = &media_metadata.video_metadata {
+	if let Some(video_metadata) = &advanced_metadata.video_metadata {
 		let levels = hls_segment_service::QUALITY_LEVELS.iter()
 			.filter(|lvl| lvl.supported(video_metadata));
 		

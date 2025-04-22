@@ -81,12 +81,14 @@ pub async fn create_file_info(
 	media_path: &Path
 ) -> anyhow::Result<ApiFileInfo> {
 	let file_metadata = tokio::fs::metadata(&media_path).await?;
-	let media_metadata = server_state.video_metadata_cache.fetch_media_metadata(&media_path, &server_state.thumbnail_sheet_generator).await?;
+	
+	let (basic_metadata, advanced_metadata) = server_state.video_metadata_cache
+		.fetch_full_metadata(&media_path, &server_state.thumbnail_sheet_generator).await?;
 	
 	let adjacent_files = list_dir::collect_video_list(&media_path.parent().context("No parent")?).await?;
 	let this_index = adjacent_files.iter().position(|path| path == &media_path).context("Can't find self in file list")?;
 	
-	let video_info = media_metadata.video_metadata.map(|video_metadata| {
+	let video_info = advanced_metadata.video_metadata.map(|video_metadata| {
 		ApiVideoInfo {
 			video_size: video_metadata.video_size,
 			sheet_thumbnail_size: Dimension {
@@ -149,11 +151,11 @@ pub async fn create_file_info(
 	Ok(ApiFileInfo {
 		full_path: RelativePath::new(&library.id).join(&library_path),
 		library_display_name: library.display_name.clone(),
-		display_name: media_metadata.title,
+		display_name: basic_metadata.title,
 		file_size: file_metadata.len(),
-		duration: media_metadata.duration.as_secs(),
-		artist: media_metadata.artist,
-		creation_date: media_metadata.creation_date,
+		duration: basic_metadata.duration.as_secs(),
+		artist: basic_metadata.artist,
+		creation_date: basic_metadata.creation_date,
 		video_info,
 		prev_video,
 		next_video,
