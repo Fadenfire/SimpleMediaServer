@@ -16,6 +16,7 @@ use crate::media_manipulation::thumbnail_sheet;
 use crate::media_manipulation::thumbnail_sheet::ThumbnailSheetParams;
 use crate::web_server::services::artifact_cache::ArtifactCache;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
+use crate::web_server::video_locator::MP4_EXTENSIONS;
 
 pub struct MediaMetadataCache {
 	metadata_cache: Mutex<HashMap<PathBuf, MetadataEntry>>,
@@ -147,29 +148,52 @@ fn extract_basic_metadata(
 	media_path: &Path,
 	file_metadata: &std::fs::Metadata,
 ) -> anyhow::Result<(BasicMediaMetadata, Option<format::context::Input>)> {
-	let demuxer = format::input(&media_path).context("Opening video file")?;
+	let mut ffmpeg_demuxer = None;
 	
 	let mod_time = file_metadata.modified().context("FS doesn't support mod time")?;
-	
-	let duration_millis = demuxer.duration()
-		.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)
-		.try_into()
-		.unwrap_or(0);
-	let duration = Duration::from_millis(duration_millis);
 	
 	let path_name = media_path.file_stem()
 		.and_then(OsStr::to_str)
 		.ok_or_else(|| anyhow!("Path name is invalid"))?
 		.to_owned();
 	
-	let title = demuxer.metadata().get("title")
-		.map(ToOwned::to_owned)
-		.unwrap_or_else(|| path_name.clone());
+	let duration;
+	let title;
+	let artist;
+	let creation_date;
 	
-	let artist = demuxer.metadata().get("artist").map(ToOwned::to_owned);
+	if media_path.extension().and_then(OsStr::to_str).is_some_and(|ext| MP4_EXTENSIONS.contains(&ext)) {
+		let mut read_config = mp4ameta::ReadConfig::NONE;
+		read_config.read_meta_items = true;
+		
+		let tag = mp4ameta::Tag::read_with_path(media_path, &read_config).context("Reading mp4 metadata")?;
+		
+		duration = tag.duration();
+		
+		title = tag.title().map(ToOwned::to_owned);
+		artist = tag.artist().map(ToOwned::to_owned);
+		creation_date = tag.year().map(ToOwned::to_owned);
+	} else {
+		let demuxer = format::input(media_path).context("Opening video file")?;
+		
+		let duration_millis = demuxer.duration()
+			.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)
+			.try_into()
+			.unwrap_or(0);
+		
+		duration = Duration::from_millis(duration_millis);
+		
+		title = demuxer.metadata().get("title").map(ToOwned::to_owned);
+		artist = demuxer.metadata().get("artist").map(ToOwned::to_owned);
+		creation_date = demuxer.metadata().get("date").map(ToOwned::to_owned);
+		
+		ffmpeg_demuxer = Some(demuxer);
+	}
 	
-	let creation_date = demuxer.metadata().get("date")
-		.and_then(|date| Date::parse(date, YT_DLP_DATE_FORMAT).ok())
+	let title = title.unwrap_or_else(|| path_name.clone());
+	
+	let creation_date = creation_date
+		.and_then(|date| Date::parse(&date, YT_DLP_DATE_FORMAT).ok())
 		.map(|date| date.midnight().assume_utc())
 		.or_else(|| {
 			file_metadata.created().ok()
@@ -179,8 +203,6 @@ fn extract_basic_metadata(
 				.map(Into::into)
 		})
 		.unwrap_or_else(|| mod_time.into());
-	
-	let ffmpeg_demuxer = Some(demuxer);
 	
 	let basic_metadata = BasicMediaMetadata {
 		file_size: file_metadata.len(),

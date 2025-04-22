@@ -54,12 +54,14 @@ impl QuickSyncVideoBackend {
 	}
 	
 	unsafe extern "C" fn get_format(_ctx: *mut AVCodecContext, mut formats: *const AVPixelFormat) -> AVPixelFormat {
-		while *formats != AV_PIX_FMT_NONE {
-			if *formats == AV_PIX_FMT_VAAPI {
-				return AV_PIX_FMT_VAAPI;
+		unsafe {
+			while *formats != AV_PIX_FMT_NONE {
+				if *formats == AV_PIX_FMT_VAAPI {
+					return AV_PIX_FMT_VAAPI;
+				}
+				
+				formats = formats.add(1);
 			}
-			
-			formats = formats.add(1);
 		}
 		
 		tracing::error!("The VA API pixel format is not offered in get_format()");

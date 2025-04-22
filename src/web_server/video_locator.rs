@@ -11,6 +11,11 @@ pub const MEDIA_EXTENSIONS: &[&str] = &[
 	"mov",
 ];
 
+pub const MP4_EXTENSIONS: &[&str] = &[
+	"mp4",
+	"mov",
+];
+
 pub enum LocatedFile {
 	File(PathBuf),
 	Directory(PathBuf),

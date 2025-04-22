@@ -57,13 +57,15 @@ impl InMemoryMuxer {
 	unsafe extern "C" fn write_packet(opaque: *mut libc::c_void, buf_ptr: *const u8, buf_size: libc::c_int) -> libc::c_int {
 		let output_buffer_ref: *mut Option<Vec<u8>> = opaque.cast();
 		
-		if let Some(ref mut output_buffer) = *output_buffer_ref {
-			let buf = &*slice_from_raw_parts(buf_ptr, buf_size as usize);
-			output_buffer.extend_from_slice(buf);
-			
-			buf_size
-		} else {
-			AVERROR_EOF
+		unsafe {
+			if let Some(ref mut output_buffer) = *output_buffer_ref {
+				let buf = &*slice_from_raw_parts(buf_ptr, buf_size as usize);
+				output_buffer.extend_from_slice(buf);
+				
+				buf_size
+			} else {
+				AVERROR_EOF
+			}
 		}
 	}
 }

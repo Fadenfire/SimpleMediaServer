@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fmt::Debug;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
@@ -17,7 +18,7 @@ use crate::web_server::services::task_pool::TaskPool;
 
 pub trait ArtifactGenerator {
 	type Input;
-	type ValidityKey: Eq + Serialize + DeserializeOwned;
+	type ValidityKey: Eq + Serialize + DeserializeOwned + Debug;
 	type Metadata: Serialize + DeserializeOwned;
 	
 	fn create_cache_key(&self, input: &Self::Input) -> String;
@@ -224,7 +225,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			}
 		}
 		
-		return Ok(QueryResult::Invalid);
+		Ok(QueryResult::Invalid)
 	}
 	
 	fn get_entry_lock(&self, cache_key: &str) -> Arc<tokio::sync::Mutex<CacheEntry>> {
