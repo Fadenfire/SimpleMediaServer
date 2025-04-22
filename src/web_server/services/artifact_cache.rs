@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
-
+use std::time::SystemTime;
 use anyhow::Context;
 use bytes::Bytes;
 use hashlink::LinkedHashMap;
@@ -368,8 +368,7 @@ impl EntryTracker {
 pub struct FileValidityKey {
 	source_path: PathBuf,
 	file_size: u64,
-	#[serde(with = "time::serde::iso8601")]
-	mod_time: OffsetDateTime,
+	mod_time: SystemTime,
 }
 
 impl FileValidityKey {
@@ -379,7 +378,7 @@ impl FileValidityKey {
 		Ok(Self {
 			source_path: source_path.as_ref().to_owned(),
 			file_size: metadata.len(),
-			mod_time: metadata.modified().context("FS doesn't support mod time")?.into(),
+			mod_time: metadata.modified().context("FS doesn't support mod time")?,
 		})
 	}
 }
