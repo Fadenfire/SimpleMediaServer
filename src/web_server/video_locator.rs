@@ -16,6 +16,11 @@ pub const MP4_EXTENSIONS: &[&str] = &[
 	"mov",
 ];
 
+pub const MKV_EXTENSIONS: &[&str] = &[
+	"mkv",
+	"webm",
+];
+
 pub enum LocatedFile {
 	File(PathBuf),
 	Directory(PathBuf),

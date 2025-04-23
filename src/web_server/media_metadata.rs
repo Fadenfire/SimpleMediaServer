@@ -7,6 +7,7 @@ use std::time::{Duration, SystemTime};
 use anyhow::{anyhow, Context};
 use ffmpeg_next::{codec, format, Rational, Rescale, rescale};
 use ffmpeg_next::media::Type;
+use matroska::TagValue;
 use serde::{Deserialize, Serialize};
 use time::format_description::BorrowedFormatItem;
 use time::macros::format_description;
@@ -16,7 +17,7 @@ use crate::media_manipulation::thumbnail_sheet;
 use crate::media_manipulation::thumbnail_sheet::ThumbnailSheetParams;
 use crate::web_server::services::artifact_cache::ArtifactCache;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
-use crate::web_server::video_locator::MP4_EXTENSIONS;
+use crate::web_server::video_locator::{MKV_EXTENSIONS, MP4_EXTENSIONS};
 
 pub struct MediaMetadataCache {
 	metadata_cache: Mutex<HashMap<PathBuf, MetadataEntry>>,
@@ -157,22 +158,50 @@ fn extract_basic_metadata(
 		.ok_or_else(|| anyhow!("Path name is invalid"))?
 		.to_owned();
 	
+	let extension = media_path.extension().and_then(OsStr::to_str);
+	
 	let duration;
 	let title;
-	let artist;
-	let creation_date;
+	let mut artist;
+	let mut creation_date;
 	
-	if media_path.extension().and_then(OsStr::to_str).is_some_and(|ext| MP4_EXTENSIONS.contains(&ext)) {
+	if extension.is_some_and(|ext| MP4_EXTENSIONS.contains(&ext)) {
 		let mut read_config = mp4ameta::ReadConfig::NONE;
 		read_config.read_meta_items = true;
 		
-		let tag = mp4ameta::Tag::read_with_path(media_path, &read_config).context("Reading mp4 metadata")?;
+		let tag = mp4ameta::Tag::read_with_path(media_path, &read_config)
+			.context("Reading mp4 metadata")?;
 		
 		duration = tag.duration();
 		
 		title = tag.title().map(ToOwned::to_owned);
 		artist = tag.artist().map(ToOwned::to_owned);
 		creation_date = tag.year().map(ToOwned::to_owned);
+	} else if extension.is_some_and(|ext| MKV_EXTENSIONS.contains(&ext)) {
+		let mkv = matroska::open(media_path).context("Reading mkv metadata")?;
+		
+		duration = mkv.info.duration.ok_or_else(|| anyhow!("MKV is missing duration"))?;
+		title = mkv.info.title;
+		
+		artist = None;
+		creation_date = None;
+		
+		fn convert_tag_value(value: Option<TagValue>) -> Option<String> {
+			match value {
+				Some(TagValue::String(s)) => Some(s),
+				_ => None,
+			}
+		}
+		
+		for tag in mkv.tags {
+			for simple_tag in tag.simple {
+				match simple_tag.name.as_str() {
+					"ARTIST" => artist = convert_tag_value(simple_tag.value),
+					"DATE" => creation_date = convert_tag_value(simple_tag.value),
+					_ => {}
+				}
+			}
+		}
 	} else {
 		let demuxer = format::input(media_path).context("Opening video file")?;
 		

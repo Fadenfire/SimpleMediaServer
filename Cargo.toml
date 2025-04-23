@@ -26,6 +26,7 @@ argh = "0.1"
 ffmpeg-next = "7.0"
 ffmpeg-sys-next = "7.0"
 mp4ameta = "0.12"
+matroska = "0.30"
 image = { version = "^0.25", default-features = false }
 turbojpeg = { version = "1.0", features = ["image"] }
 serde = { version = "1.0", features = ["derive"] }
