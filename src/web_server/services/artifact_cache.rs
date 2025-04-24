@@ -1,15 +1,16 @@
+use anyhow::Context;
+use bytes::Bytes;
+use hashlink::LinkedHashMap;
+use serde::de::{DeserializeOwned, Error, MapAccess};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::SystemTime;
-use anyhow::Context;
-use bytes::Bytes;
-use hashlink::LinkedHashMap;
-use serde::{Deserialize, Serialize};
-use serde::de::DeserializeOwned;
+use time::format_description::well_known::Iso8601;
 use time::OffsetDateTime;
 use tracing::debug;
 
@@ -368,6 +369,10 @@ impl EntryTracker {
 pub struct FileValidityKey {
 	source_path: PathBuf,
 	file_size: u64,
+	
+	// This used to be serialized using iso8601 in a previous version.
+	// Continue to accept iso8601 to prevent a breaking change.
+	#[serde(deserialize_with = "deserialize_time_maybe_iso8601")]
 	mod_time: SystemTime,
 }
 
@@ -383,6 +388,37 @@ impl FileValidityKey {
 	}
 }
 
+fn deserialize_time_maybe_iso8601<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
+where
+	D: Deserializer<'de>
+{
+	struct Visitor;
+	
+	impl<'de> serde::de::Visitor<'de> for Visitor {
+		type Value = SystemTime;
+		
+		fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+			formatter.write_str("Iso8601 or SystemTime")
+		}
+		
+		fn visit_str<E>(self, val: &str) -> Result<Self::Value, E>
+		where E: Error
+		{
+			OffsetDateTime::parse(val, &Iso8601::DEFAULT)
+				.map(SystemTime::from)
+				.map_err(E::custom)
+		}
+		
+		fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+		where A: MapAccess<'de>
+		{
+			Deserialize::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+		}
+	}
+	
+	deserializer.deserialize_any(Visitor)
+}
+
 #[cfg(test)]
 mod tests {
 	use std::sync::Arc;
@@ -394,7 +430,7 @@ mod tests {
 	use tempfile::TempDir;
 	use time::macros::datetime;
 	
-	use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, CacheEntryMetadata, CacheQuery, ENTRY_METADATA_EXTENSION, EntryTracker, LockPool, EntryDesc};
+	use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, CacheEntryMetadata, CacheQuery, EntryDesc, EntryTracker, LockPool, ENTRY_METADATA_EXTENSION};
 	use crate::web_server::services::task_pool::TaskPool;
 	
 	#[test]
