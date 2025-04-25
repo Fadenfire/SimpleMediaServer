@@ -93,6 +93,9 @@
 		
 		{#await listDirPromise}
 			<DimStripe>Loading</DimStripe>
+			
+			<!-- Hack to allow scoll position to be retained when navigating through history -->
+			<div style="height: 50000px;"></div>
 		{:then dirList}
 			{#if !dirList.directories.length && !dirList.files.length}
 				<DimStripe>
