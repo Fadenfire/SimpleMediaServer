@@ -10,10 +10,14 @@
 
 <BaseTile title="{title}" link="{link}">
 	<svelte:fragment slot="card">
-		{#if thumbnail !== undefined}
-			<img class="thumbnail" src="{thumbnail}" alt="{title}">
-		{:else}
+		<div class="thumbnail-backdrop">
 			<FeatherIcon name="folder" size="4em"/>
+		</div>
+		
+		{#if thumbnail !== undefined}
+			{#key thumbnail}
+				<img class="thumbnail" src="{thumbnail}" alt="{title}">
+			{/key}
 		{/if}
 		
 		{#if child_count > 0}
@@ -23,16 +27,30 @@
 </BaseTile>
 
 <style lang="scss">
+	.thumbnail-backdrop {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	
 	.thumbnail {
 		object-fit: cover;
 		width: 100%;
 		height: 100%;
+		z-index: 1;
 	}
 	
 	.count-container {
 		position: absolute;
 		left: 0px;
 		bottom: 0px;
+		z-index: 2;
 		display: flex;
 		align-items: center;
 		justify-content: center;

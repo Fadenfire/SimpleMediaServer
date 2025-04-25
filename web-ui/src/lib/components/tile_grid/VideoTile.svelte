@@ -2,6 +2,7 @@
     import { escapePath, formatDuration } from "$lib/utils";
     import dayjs from "dayjs";
     import BaseTile from "./BaseTile.svelte";
+    import FeatherIcon from "../FeatherIcon.svelte";
 
 	export let fileEntry: ApiFileEntry;
 	
@@ -22,7 +23,14 @@
 
 <BaseTile title={fileEntry.display_name} link="/files/{escapePath(fileEntry.full_path)}/">
 	<svelte:fragment slot="card">
-		<img class="thumbnail" src={escapePath(fileEntry.thumbnail_path)} alt="{fileEntry.display_name}">
+		<div class="thumbnail-backdrop">
+			<FeatherIcon name="file" size="4em"/>
+		</div>
+		
+		{#key fileEntry.thumbnail_path}
+			<img class="thumbnail" src={escapePath(fileEntry.thumbnail_path)} alt="{fileEntry.display_name}">
+		{/key}
+		
 		<div class="duration-container">{formatDuration(fileEntry.duration)}</div>
 		
 		{#if fileEntry.watch_progress !== null}
@@ -41,16 +49,30 @@
 </BaseTile>
 
 <style lang="scss">
+	.thumbnail-backdrop {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	
 	.thumbnail {
 		object-fit: cover;
 		width: 100%;
 		height: 100%;
+		z-index: 1;
 	}
 	
 	.duration-container {
 		position: absolute;
 		right: 4px;
 		bottom: 4px;
+		z-index: 2;
 		background-color: rgba(#000, 0.7);
 		font-size: 12px;
 		padding: 3px 5px;
@@ -63,6 +85,7 @@
 		left: 0px;
 		bottom: 0px;
 		width: 100%;
+		z-index: 2;
 		height: var(--bar-width);
 		background-color: #DDD9;
 		
