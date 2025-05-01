@@ -11,7 +11,7 @@ use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::thumbnail;
 use crate::web_server::api_types::{ApiDirectoryEntry, ApiFileEntry};
 use crate::web_server::auth::User;
-use crate::web_server::media_metadata::BasicMediaMetadata;
+use crate::web_server::media_metadata::{BasicMediaMetadata, MediaMetadata};
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
 use crate::web_server::{libraries, video_locator};
@@ -82,15 +82,12 @@ pub async fn list_dir_route(
 			let mut child_count: u32 = 0;
 			let mut thumbnail_path: Option<String> = None;
 			
-			if let Ok(video_paths) = collect_video_list(&path).await {
-				child_count = video_paths.len() as u32;
+			if let Ok(dir_metadata) = server_state.video_metadata_cache.fetch_metadata::<BasicDirMetadata>(&path).await {
+				child_count = dir_metadata.child_count;
 				
-				thumbnail_path = video_paths.first()
-					.and_then(|path| path.file_stem())
-					.and_then(OsStr::to_str)
-					.map(|thumbnail_path_name| {
-						thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&library_path).join(path_name).join(thumbnail_path_name))
-					});
+				thumbnail_path = dir_metadata.first_media_file.map(|thumbnail_path_name| {
+					thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&library_path).join(path_name).join(thumbnail_path_name))
+				});
 			}
 			
 			directories.push(ApiDirectoryEntry {
@@ -170,6 +167,28 @@ pub async fn collect_video_list(dir_path: &Path) -> anyhow::Result<Vec<PathBuf>>
 	));
 	
 	Ok(video_paths)
+}
+
+#[derive(Clone)]
+struct BasicDirMetadata {
+	first_media_file: Option<String>,
+	child_count: u32,
+}
+
+impl MediaMetadata for BasicDirMetadata {
+	async fn fetch_metadata(path: &Path, _file_metadata: &std::fs::Metadata) -> anyhow::Result<Self> {
+		let video_paths = collect_video_list(&path).await?;
+		
+		let first_media_file = video_paths.first()
+			.and_then(|path| path.file_stem())
+			.and_then(OsStr::to_str)
+			.map(ToOwned::to_owned);
+		
+		Ok(Self {
+			first_media_file,
+			child_count: video_paths.len() as u32,
+		})
+	}
 }
 
 #[derive(Debug, Serialize)]
