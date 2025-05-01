@@ -11,10 +11,11 @@ use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::thumbnail;
 use crate::web_server::api_types::{ApiDirectoryEntry, ApiFileEntry};
 use crate::web_server::auth::User;
-use crate::web_server::media_metadata::{BasicMediaMetadata, MediaMetadata};
+use crate::web_server::media_metadata::BasicMediaMetadata;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
 use crate::web_server::{libraries, video_locator};
+use crate::web_server::metadata_cache::FileMetadata;
 
 #[instrument(skip(server_state, request))]
 pub async fn list_dir_route(
@@ -82,7 +83,7 @@ pub async fn list_dir_route(
 			let mut child_count: u32 = 0;
 			let mut thumbnail_path: Option<String> = None;
 			
-			if let Ok(dir_metadata) = server_state.video_metadata_cache.fetch_metadata::<BasicDirMetadata>(&path).await {
+			if let Ok(dir_metadata) = server_state.metadata_cache.fetch_metadata::<BasicDirMetadata>(&path).await {
 				child_count = dir_metadata.child_count;
 				
 				thumbnail_path = dir_metadata.first_media_file.map(|thumbnail_path_name| {
@@ -119,7 +120,7 @@ pub async fn create_file_entry(
 	library_path: &RelativePath,
 	media_path: &Path
 ) -> anyhow::Result<ApiFileEntry> {
-	let media_metadata = server_state.video_metadata_cache
+	let media_metadata = server_state.metadata_cache
 		.fetch_metadata::<BasicMediaMetadata>(&media_path).await?;
 	
 	let full_path = RelativePath::new(library_id).join(&library_path);
@@ -175,7 +176,7 @@ struct BasicDirMetadata {
 	child_count: u32,
 }
 
-impl MediaMetadata for BasicDirMetadata {
+impl FileMetadata for BasicDirMetadata {
 	async fn fetch_metadata(path: &Path, _file_metadata: &std::fs::Metadata) -> anyhow::Result<Self> {
 		let video_paths = collect_video_list(&path).await?;
 		

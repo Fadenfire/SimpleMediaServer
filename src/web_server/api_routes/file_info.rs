@@ -82,9 +82,9 @@ pub async fn create_file_info(
 ) -> anyhow::Result<ApiFileInfo> {
 	let file_metadata = tokio::fs::metadata(&media_path).await?;
 	
-	let basic_metadata = server_state.video_metadata_cache
+	let basic_metadata = server_state.metadata_cache
 		.fetch_metadata_with_meta::<BasicMediaMetadata>(&media_path, &file_metadata).await?;
-	let advanced_metadata = server_state.video_metadata_cache
+	let advanced_metadata = server_state.metadata_cache
 		.fetch_metadata_with_meta::<AdvancedMediaMetadata>(&media_path, &file_metadata).await?;
 	
 	let adjacent_files = list_dir::collect_video_list(&media_path.parent().context("No parent")?).await?;

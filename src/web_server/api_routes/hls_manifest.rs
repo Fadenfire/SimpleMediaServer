@@ -22,7 +22,7 @@ pub async fn hls_manifest_route(
 		server_state, library_id, library_path.iter().collect(), request.headers())?;
 	let media_path = video_locator::locate_video(&resolved_path).await?.file()?;
 	
-	let advanced_metadata = server_state.video_metadata_cache
+	let advanced_metadata = server_state.metadata_cache
 		.fetch_metadata::<AdvancedMediaMetadata>(&media_path).await?;
 	
 	let mut manifest = String::new();

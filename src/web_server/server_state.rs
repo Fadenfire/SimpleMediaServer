@@ -12,7 +12,7 @@ use crate::web_server::services::hls_segment_service::HlsSegmentGenerator;
 use crate::web_server::services::task_pool::TaskPool;
 use crate::web_server::services::thumbnail_service::ThumbnailGenerator;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
-use crate::web_server::media_metadata::MediaMetadataCache;
+use crate::web_server::metadata_cache::FileMetadataCache;
 use crate::web_server::watch_history::UserWatchHistories;
 
 pub struct ServerState {
@@ -21,7 +21,7 @@ pub struct ServerState {
 	pub libraries: Libraries,
 	pub auth_manager: AuthManager,
 	pub user_watch_histories: Arc<Mutex<UserWatchHistories>>,
-	pub video_metadata_cache: MediaMetadataCache,
+	pub metadata_cache: FileMetadataCache,
 	
 	pub hls_segment_generator: ArtifactCache<HlsSegmentGenerator>,
 	pub thumbnail_generator: ArtifactCache<ThumbnailGenerator>,
@@ -77,7 +77,7 @@ impl ServerState {
 			utils::abbreviate_number(thumbnail_sheet_generator.cache_size()),
 			utils::abbreviate_number(config.main_config.caches.thumbnail_sheet_cache_size_limit));
 		
-		let video_metadata_cache = MediaMetadataCache::new();
+		let metadata_cache = FileMetadataCache::new();
 		
 		Ok(Self {
 			config,
@@ -85,7 +85,7 @@ impl ServerState {
 			libraries,
 			auth_manager,
 			user_watch_histories,
-			video_metadata_cache,
+			metadata_cache,
 			
 			hls_segment_generator,
 			thumbnail_generator,

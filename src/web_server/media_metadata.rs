@@ -1,11 +1,9 @@
-use std::any::{Any, TypeId};
-use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::time::{Duration, SystemTime};
+use std::path::Path;
+use std::time::Duration;
 
 use crate::media_manipulation::media_utils::MILLIS_TIME_BASE;
+use crate::web_server::metadata_cache::FileMetadata;
 use crate::web_server::video_locator::{MKV_EXTENSIONS, MP4_EXTENSIONS};
 use anyhow::{anyhow, Context};
 use ffmpeg_next::media::Type;
@@ -15,85 +13,6 @@ use serde::{Deserialize, Serialize};
 use time::format_description::BorrowedFormatItem;
 use time::macros::format_description;
 use time::{Date, OffsetDateTime};
-
-pub struct MediaMetadataCache {
-	cache_tables: Mutex<HashMap<TypeId, Box<dyn Any + Sync + Send>>>,
-}
-
-struct MetadataEntry<T> {
-	file_size: u64,
-	last_modified: Option<SystemTime>,
-	metadata: T,
-}
-
-pub trait MediaMetadata: Sized + Clone {
-	async fn fetch_metadata(media_path: &Path, file_metadata: &std::fs::Metadata) -> anyhow::Result<Self>;
-}
-
-impl<T> MetadataEntry<T> {
-	fn still_valid(&self, file_metadata: &std::fs::Metadata) -> bool {
-		self.file_size == file_metadata.len() &&
-			self.last_modified == file_metadata.modified().ok()
-	}
-}
-
-impl MediaMetadataCache {
-	pub fn new() -> Self {
-		Self {
-			cache_tables: Mutex::new(HashMap::new()),
-		}
-	}
-	
-	pub async fn fetch_metadata<T>(&self, media_path: impl AsRef<Path>) -> anyhow::Result<T>
-	where
-		T: MediaMetadata + Sync + Send + 'static
-	{
-		let file_metadata = tokio::fs::metadata(&media_path).await?;
-		
-		self.fetch_metadata_with_meta(media_path, &file_metadata).await
-	}
-	
-	pub async fn fetch_metadata_with_meta<T>(&self, media_path: impl AsRef<Path>, file_metadata: &std::fs::Metadata) -> anyhow::Result<T>
-	where
-		T: MediaMetadata + Sync + Send + 'static
-	{
-		let media_path = media_path.as_ref();
-		
-		{
-			let mut cache_tables = self.cache_tables.lock().unwrap();
-			
-			if let Some(entry) = Self::get_table::<T>(&mut *cache_tables).get(media_path) {
-				if entry.still_valid(file_metadata) {
-					return Ok(entry.metadata.clone());
-				}
-			}
-		}
-		
-		let media_metadata = T::fetch_metadata(media_path, file_metadata).await?;
-		
-		{
-			let mut cache_tables = self.cache_tables.lock().unwrap();
-			
-			Self::get_table::<T>(&mut *cache_tables).insert(media_path.to_owned(), MetadataEntry {
-				file_size: file_metadata.len(),
-				last_modified: file_metadata.modified().ok(),
-				metadata: media_metadata.clone(),
-			});
-		}
-		
-		Ok(media_metadata)
-	}
-	
-	fn get_table<T>(cache_tables: &mut HashMap<TypeId, Box<dyn Any + Sync + Send>>) -> &mut HashMap<PathBuf, MetadataEntry<T>>
-	where
-		T: MediaMetadata + Sync + Send + 'static
-	{
-		cache_tables.entry(TypeId::of::<T>())
-			.or_insert_with(|| Box::new(HashMap::<PathBuf, MetadataEntry<T>>::new()))
-			.downcast_mut()
-			.expect("")
-	}
-}
 
 #[derive(Clone, Debug)]
 pub struct BasicMediaMetadata {
@@ -105,7 +24,7 @@ pub struct BasicMediaMetadata {
 	pub creation_date: OffsetDateTime,
 }
 
-impl MediaMetadata for BasicMediaMetadata {
+impl FileMetadata for BasicMediaMetadata {
 	async fn fetch_metadata(media_path: &Path, file_metadata: &std::fs::Metadata) -> anyhow::Result<Self> {
 		let media_path = media_path.to_owned();
 		let file_metadata = file_metadata.clone();
@@ -132,7 +51,7 @@ pub struct Dimension {
 	pub height: u32,
 }
 
-impl MediaMetadata for AdvancedMediaMetadata {
+impl FileMetadata for AdvancedMediaMetadata {
 	async fn fetch_metadata(media_path: &Path, _file_metadata: &std::fs::Metadata) -> anyhow::Result<Self> {
 		let media_path = media_path.to_owned();
 		
