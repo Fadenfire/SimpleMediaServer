@@ -28,9 +28,7 @@ pub struct ThumbnailSheetParams {
 	pub interval: u32,
 }
 
-pub fn calculate_sheet_params(duration: i64, video_width: u32, video_height: u32) -> ThumbnailSheetParams {
-	let video_duration_millis = duration.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE).try_into().unwrap();
-	let video_duration = Duration::from_millis(video_duration_millis);
+pub fn calculate_sheet_params(video_duration: Duration, video_width: u32, video_height: u32) -> ThumbnailSheetParams {
 	let interval = (video_duration.as_secs() / 500).max(5) as u32;
 	
 	let thumbnail_count = (video_duration.as_secs_f64() / interval as f64).ceil() as u32;
@@ -63,7 +61,13 @@ pub fn generate_sheet(backend_factory: &impl BackendFactory, media_path: PathBuf
 	
 	media_utils::discard_all_but_keyframes(&mut demuxer, video_stream_index);
 	
-	let sheet_params = calculate_sheet_params(demuxer.duration(), decoder.width(), decoder.height());
+	let duration_millis = demuxer.duration()
+		.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)
+		.try_into()
+		.context("Duration is negative")?;
+	
+	let duration = Duration::from_millis(duration_millis);
+	let sheet_params = calculate_sheet_params(duration, decoder.width(), decoder.height());
 	
 	let mut sprite_sheet = RgbImage::new(
 		sheet_params.sheet_cols * sheet_params.thumbnail_width,

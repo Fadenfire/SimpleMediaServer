@@ -4,6 +4,7 @@ use tracing::instrument;
 
 use crate::web_server::{libraries, video_locator};
 use crate::web_server::api_error::ApiError;
+use crate::web_server::media_metadata::AdvancedMediaMetadata;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::services::hls_segment_service;
 use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse, restrict_method};
@@ -22,7 +23,7 @@ pub async fn hls_manifest_route(
 	let media_path = video_locator::locate_video(&resolved_path).await?.file()?;
 	
 	let advanced_metadata = server_state.video_metadata_cache
-		.fetch_full_metadata(&media_path, &server_state.thumbnail_sheet_generator).await?.1;
+		.fetch_metadata::<AdvancedMediaMetadata>(&media_path).await?;
 	
 	let mut manifest = String::new();
 	

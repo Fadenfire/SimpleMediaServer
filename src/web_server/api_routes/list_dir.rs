@@ -7,13 +7,14 @@ use relative_path::{RelativePath, RelativePathBuf};
 use serde::Serialize;
 use tracing::{error, instrument};
 
-use crate::web_server::{libraries, video_locator};
 use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::thumbnail;
 use crate::web_server::api_types::{ApiDirectoryEntry, ApiFileEntry};
 use crate::web_server::auth::User;
+use crate::web_server::media_metadata::BasicMediaMetadata;
 use crate::web_server::server_state::ServerState;
-use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
+use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::{libraries, video_locator};
 
 #[instrument(skip(server_state, request))]
 pub async fn list_dir_route(
@@ -121,7 +122,8 @@ pub async fn create_file_entry(
 	library_path: &RelativePath,
 	media_path: &Path
 ) -> anyhow::Result<ApiFileEntry> {
-	let media_metadata = server_state.video_metadata_cache.fetch_basic_metadata(media_path).await?;
+	let media_metadata = server_state.video_metadata_cache
+		.fetch_metadata::<BasicMediaMetadata>(&media_path).await?;
 	
 	let full_path = RelativePath::new(library_id).join(&library_path);
 	let thumbnail_path = thumbnail::create_thumbnail_path(&full_path);

@@ -7,7 +7,7 @@ use http::{Method, StatusCode};
 use relative_path::{RelativePath, RelativePathBuf};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
-
+use crate::media_manipulation::thumbnail_sheet;
 use crate::web_server::{libraries, media_connections, video_locator};
 use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::{list_dir, thumbnail};
@@ -16,7 +16,7 @@ use crate::web_server::auth::User;
 use crate::web_server::libraries::Library;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
-use crate::web_server::media_metadata::Dimension;
+use crate::web_server::media_metadata::{AdvancedMediaMetadata, BasicMediaMetadata, Dimension};
 use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
 
 #[instrument(skip(server_state, request))]
@@ -82,24 +82,37 @@ pub async fn create_file_info(
 ) -> anyhow::Result<ApiFileInfo> {
 	let file_metadata = tokio::fs::metadata(&media_path).await?;
 	
-	let (basic_metadata, advanced_metadata) = server_state.video_metadata_cache
-		.fetch_full_metadata(&media_path, &server_state.thumbnail_sheet_generator).await?;
+	let basic_metadata = server_state.video_metadata_cache
+		.fetch_metadata_with_meta::<BasicMediaMetadata>(&media_path, &file_metadata).await?;
+	let advanced_metadata = server_state.video_metadata_cache
+		.fetch_metadata_with_meta::<AdvancedMediaMetadata>(&media_path, &file_metadata).await?;
 	
 	let adjacent_files = list_dir::collect_video_list(&media_path.parent().context("No parent")?).await?;
 	let this_index = adjacent_files.iter().position(|path| path == &media_path).context("Can't find self in file list")?;
 	
-	let video_info = advanced_metadata.video_metadata.map(|video_metadata| {
-		ApiVideoInfo {
-			video_size: video_metadata.video_size,
-			sheet_thumbnail_size: Dimension {
-				width: video_metadata.thumbnail_sheet_params.thumbnail_width,
-				height: video_metadata.thumbnail_sheet_params.thumbnail_height,
-			},
-			thumbnail_sheet_rows: video_metadata.thumbnail_sheet_params.sheet_rows,
-			thumbnail_sheet_cols: video_metadata.thumbnail_sheet_params.sheet_cols,
-			thumbnail_sheet_interval: video_metadata.thumbnail_sheet_params.interval,
-		}
-	});
+	let video_info = match &advanced_metadata.video_metadata {
+		Some(video_metadata) => {
+			let thumbnail_sheet_params = server_state.thumbnail_sheet_generator.get(&media_path.to_owned()).await?
+				.map(|entry| entry.metadata)
+				.unwrap_or_else(|| thumbnail_sheet::calculate_sheet_params(
+					advanced_metadata.ffmpeg_duration,
+					video_metadata.video_size.width,
+					video_metadata.video_size.height
+				));
+			
+			Some(ApiVideoInfo {
+				video_size: video_metadata.video_size.clone(),
+				sheet_thumbnail_size: Dimension {
+					width: thumbnail_sheet_params.thumbnail_width,
+					height: thumbnail_sheet_params.thumbnail_height,
+				},
+				thumbnail_sheet_rows: thumbnail_sheet_params.sheet_rows,
+				thumbnail_sheet_cols: thumbnail_sheet_params.sheet_cols,
+				thumbnail_sheet_interval: thumbnail_sheet_params.interval,
+			})
+		},
+		None => None,
+	};
 	
 	let prev_video = this_index
 		.checked_sub(1)
