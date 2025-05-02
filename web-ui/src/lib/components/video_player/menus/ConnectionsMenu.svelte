@@ -5,11 +5,17 @@
     import { followLink } from "../buttons/ConnectionsButton.svelte";
     import SidebarMenu from "./SidebarMenu.svelte";
 
-	export let mediaInfo: ApiFileInfo;
-	export let videoElement: HTMLVideoElement;
-	export let videoCurrentTime: number;
+	interface Props {
+		mediaInfo: ApiFileInfo;
+		videoElement: HTMLVideoElement | undefined;
+		videoCurrentTime: number;
+	}
+
+	let { mediaInfo, videoElement = $bindable(), videoCurrentTime = $bindable() }: Props = $props();
 	
 	function seekTo(time: number) {
+		if (videoElement === undefined) return;
+		
 		videoCurrentTime = time;
 		videoElement.currentTime = time;
 	}
@@ -36,7 +42,7 @@
 		{@const active = connection.left_start <= videoCurrentTime && videoCurrentTime < connection.left_end}
 		
 		<div class="link-entry" class:active>
-			<button class="custom-button" on:click={() => seekTo(connection.left_start)}>
+			<button class="custom-button" onclick={() => seekTo(connection.left_start)}>
 				<img class="link-thumbnail" src="{escapePath(connection.video_thumbnail)}" alt=""/>
 			</button>
 			
@@ -46,7 +52,7 @@
 				<span class="info">{formatDuration(connection.right_start)} - {formatDuration(connection.right_start + (connection.left_end - connection.left_start))}</span>
 			</div>
 			
-			<Button disabled={!active} on:click={() => followLink(connection, videoCurrentTime)}>
+			<Button disabled={!active} onclick={() => followLink(connection, videoCurrentTime)}>
 				<FeatherIcon name="external-link" size="1em"/>
 			</Button>
 		</div>

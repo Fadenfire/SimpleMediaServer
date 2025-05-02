@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	export const NEWLINE: unique symbol = Symbol("newline");
 	
 	export interface FormattedTextFragment {
@@ -12,7 +12,11 @@
 </script>
 
 <script lang="ts">
-	export let text: FormattedText;
+	interface Props {
+		text: FormattedText;
+	}
+
+	let { text }: Props = $props();
 </script>
 
 {#each text as fragment}
@@ -25,7 +29,7 @@
 			href={fragment.href}
 			class="normal-link"
 			style={fragment.style}
-			on:click={fragment.onclick}
+			onclick={fragment.onclick}
 		>{fragment.text}</a>
 	{:else}
 		<span style={fragment.style}>{fragment.text}</span>

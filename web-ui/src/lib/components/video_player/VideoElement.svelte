@@ -1,37 +1,50 @@
 <script lang="ts">
-    import type { SvelteMediaTimeRange } from 'svelte/elements';
+	import type { SvelteMediaTimeRange } from 'svelte/elements';
     import { NATIVE_LEVEL_INDEX, VideoBackend } from './video_backend';
     import { onMount } from 'svelte';
     import { escapePath, splitLibraryPath } from '$lib/utils';
     import { page } from '$app/stores';
     import { invalidate } from '$app/navigation';
 
-	export let mediaInfo: ApiFileInfo;
+	interface Props {
+		mediaInfo: ApiFileInfo;
+		playerBackend?: VideoBackend | undefined;
+		thumbSheetUrl?: string | undefined;
+		videoBuffering?: boolean;
+		videoElement: HTMLVideoElement | undefined;
+		videoPaused: boolean;
+		videoEnded: boolean;
+		videoDuration: number;
+		videoCurrentTime: number;
+		videoBuffered: SvelteMediaTimeRange[];
+	}
+
+	let {
+		mediaInfo,
+		playerBackend = $bindable(),
+		thumbSheetUrl = $bindable(),
+		videoBuffering = $bindable(),
+		videoElement = $bindable(),
+		videoPaused = $bindable(),
+		videoEnded = $bindable(),
+		videoDuration = $bindable(),
+		videoCurrentTime = $bindable(),
+		videoBuffered = $bindable()
+	}: Props = $props();
 	
-	export let playerBackend: VideoBackend | undefined = undefined;
-	export let thumbSheetUrl: string | undefined = undefined;
-	export let videoBuffering = true;
+	let innerVideoElement: HTMLVideoElement | undefined = $state();
+	let innerPaused = $state(true);
+	let innerEnded = $state(false);
+	let innerDuration = $state(mediaInfo.duration);
+	let innerCurrentTime = $state(0);
+	let innerBuffered: SvelteMediaTimeRange[] = $state([]);
 	
-	export let videoElement: HTMLVideoElement;
-	export let videoPaused: boolean;
-	export let videoEnded: boolean;
-	export let videoDuration: number;
-	export let videoCurrentTime: number;
-	export let videoBuffered: SvelteMediaTimeRange[];
-	
-	let innerVideoElement: HTMLVideoElement;
-	let innerPaused = true;
-	let innerEnded = false;
-	let innerDuration = mediaInfo.duration;
-	let innerCurrentTime = 0;
-	let innerBuffered: SvelteMediaTimeRange[] = [];
-	
-	$: videoElement = innerVideoElement;
-	$: videoPaused = innerPaused;
-	$: videoEnded = innerEnded;
-	$: videoDuration = innerDuration;
-	$: videoCurrentTime = innerCurrentTime;
-	$: videoBuffered = innerBuffered;
+	$effect(() => { videoElement = innerVideoElement; });
+	$effect(() => { videoPaused = innerPaused; });
+	$effect(() => { videoEnded = innerEnded; });
+	$effect(() => { videoDuration = innerDuration; });
+	$effect(() => { videoCurrentTime = innerCurrentTime; });
+	$effect(() => { videoBuffered = innerBuffered; });
 	
 	let mounted = false;	
 	
@@ -63,7 +76,12 @@
 	
 	// Buffering
 	
+	let initialLoad = true;
+	
 	function onVideoLoadedData() {
+		if (!initialLoad) return;
+		
+		initialLoad = false;
 		videoBuffering = false;
 	}
 	
@@ -77,6 +95,8 @@
 	
 	onMount(() => {
 		mounted = true;
+		
+		if (innerVideoElement === undefined) throw Error("Video element is undefined");
 		
 		playerBackend = new VideoBackend(innerVideoElement, mediaInfo);
 		playerBackend.currentLevelIndex.set(NATIVE_LEVEL_INDEX);
@@ -120,9 +140,9 @@
 	})
 </script>
 
-<svelte:window on:beforeunload={updateWatchProgress}/>
+<svelte:window onbeforeunload={updateWatchProgress}/>
 
-<!-- svelte-ignore a11y-media-has-caption -->
+<!-- svelte-ignore a11y_media_has_caption -->
 <video
 	bind:this={innerVideoElement}
 	bind:paused={innerPaused}
@@ -131,9 +151,9 @@
 	bind:currentTime={innerCurrentTime}
 	bind:buffered={innerBuffered}
 
-	on:loadeddata|once={onVideoLoadedData}
-	on:waiting={onVideoWaiting}
-	on:playing={onVideoPlaying}
+	onloadeddata={onVideoLoadedData}
+	onwaiting={onVideoWaiting}
+	onplaying={onVideoPlaying}
 
 	autoplay
 ></video>

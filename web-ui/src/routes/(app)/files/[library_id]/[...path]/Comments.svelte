@@ -1,19 +1,24 @@
 <script lang="ts">
     import Comment from "./Comment.svelte";
 
-	export let commentThreads: ApiCommentThread[];
+	interface Props {
+		commentThreads: ApiCommentThread[];
+		seekTo: (time: number) => void;
+	}
+
+	let { commentThreads, seekTo }: Props = $props();
 </script>
 
 <div class="comments">
 	{#each commentThreads as thread}
-		<Comment comment={thread.comment} on:seekTo>
+		<Comment comment={thread.comment} {seekTo}>
 			{#if thread.replies.length > 0}
 				<details>
 					<summary class="replies-dropdown">{thread.replies.length} {thread.replies.length == 1 ? "Reply" : "Replies"}</summary>
 					
 					<div class="replies comments">
 						{#each thread.replies as reply}
-							<Comment comment={reply} on:seekTo/>
+							<Comment comment={reply} {seekTo}/>
 						{/each}
 					</div>
 				</details>

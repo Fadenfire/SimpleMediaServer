@@ -1,11 +1,23 @@
 <script lang="ts">
-	export let startValue = 0;
-	export let endValue = 1;
-	export let color: string;
+	import { type Snippet } from "svelte";
+	
+	interface Props {
+		startValue?: number;
+		endValue?: number;
+		color: string;
+		children?: Snippet;
+	}
+
+	let {
+		startValue = 0,
+		endValue = 1,
+		color,
+		children
+	}: Props = $props();
 </script>
 
 <div class="bar" style="transform: translateX({startValue * 100}%) scaleX({endValue - startValue}); background-color: {color}">
-	<slot></slot>
+	{@render children?.()}
 </div>
 
 <style lang="scss">

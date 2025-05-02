@@ -6,7 +6,13 @@
     import type { PageData } from "./$types";
     import HistoryTile from "./HistoryTile.svelte";
 	
-	export let data: PageData;
+	interface Props {
+		data: PageData;
+	}
+
+	let { data }: Props = $props();
+	
+	let updatedEntries: ApiWatchHistoryEntry[] | undefined = $state();
 </script>
 
 <svelte:head>
@@ -19,12 +25,12 @@
 			<DimStripe>Loading</DimStripe>
 		{:then watchHistory}
 			<TileGrid>
-				{#each watchHistory.entries as entry}
+				{#each updatedEntries ?? watchHistory.entries as entry}
 					<HistoryTile
 						historyEntry={entry}
 						showDeleteButton={true}
 						showLastWatched={true}
-						on:deleteEntry={() => watchHistory.entries = watchHistory.entries.filter(e => e !== entry)}
+						deleteEntry={() => updatedEntries = (updatedEntries ?? watchHistory.entries).filter(e => e !== entry)}
 					/>
 				{/each}
 			</TileGrid>

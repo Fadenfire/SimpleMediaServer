@@ -5,33 +5,50 @@
     import dayjs from "dayjs";
     import EntryDeleteButton from "./EntryDeleteButton.svelte";
 	
-	export let historyEntry: ApiWatchHistoryEntry;
-	export let showDeleteButton = false;
-	export let showLastWatched = false;
+	interface Props {
+		historyEntry: ApiWatchHistoryEntry;
+		showDeleteButton?: boolean;
+		showLastWatched?: boolean;
+		deleteEntry?: () => void;
+	}
+
+	let {
+		historyEntry,
+		showDeleteButton = false,
+		showLastWatched = false,
+		deleteEntry
+	}: Props = $props();
 	
-	$: lastWatched = showLastWatched ? dayjs(historyEntry.last_watched).fromNow() : undefined;
+	let lastWatched = $derived(showLastWatched ? dayjs(historyEntry.last_watched).fromNow() : undefined);
 </script>
 
 {#if historyEntry.file !== null}
 	<VideoTile fileEntry={historyEntry.file}>
-		<EntryDeleteButton slot="descRow" {historyEntry} {showDeleteButton} on:deleteEntry/>
+		{#snippet descRow()}
+			<EntryDeleteButton {historyEntry} {showDeleteButton} {deleteEntry}/>
+		{/snippet}
 		
-		<svelte:fragment slot="desc">
+		{#snippet desc()}
 			{#if lastWatched}
 				<span class="extra-info">Last watched {lastWatched}</span>
 			{/if}
-		</svelte:fragment>
+		{/snippet}
 	</VideoTile>
 {:else}
 	<BaseTile title="Removed Video">
-		<FeatherIcon slot="card" name="file" size="4em"/>
-		<EntryDeleteButton slot="descRow" {historyEntry} {showDeleteButton} on:deleteEntry/>
+		{#snippet card()}
+			<FeatherIcon  name="file" size="4em"/>
+		{/snippet}
 		
-		<svelte:fragment slot="desc">
+		{#snippet descRow()}
+			<EntryDeleteButton {historyEntry} {showDeleteButton} {deleteEntry}/>
+		{/snippet}
+		
+		{#snippet desc()}
 			{#if lastWatched}
 				<span class="extra-info">Last watched {lastWatched}</span>
 			{/if}
-		</svelte:fragment>
+		{/snippet}
 	</BaseTile>
 {/if}
 

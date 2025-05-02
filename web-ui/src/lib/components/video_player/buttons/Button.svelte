@@ -1,9 +1,25 @@
 <script lang="ts">
-	export let tooltip: string | undefined = undefined;
-    export let floating = false;
-	export let large = false;
-	export let disabled = false;
-	export let extraStyles = "";
+	import { type Snippet } from "svelte";
+
+	interface Props {
+		tooltip?: string | undefined;
+		floating?: boolean;
+		large?: boolean;
+		disabled?: boolean;
+		extraStyles?: string;
+		children?: Snippet;
+		onclick: () => void;
+	}
+
+	let {
+		tooltip = undefined,
+		floating = false,
+		large = false,
+		disabled = false,
+		extraStyles = "",
+		children,
+		onclick,
+	}: Props = $props();
 </script>
 
 <button
@@ -13,9 +29,9 @@
 	disabled={disabled}
 	style={extraStyles}
 	title={tooltip}
-	on:click
+	onclick={() => onclick()}
 >
-	<slot/>
+	{@render children?.()}
 </button>
 
 <style lang="scss">

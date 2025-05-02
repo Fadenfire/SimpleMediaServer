@@ -1,6 +1,21 @@
 <script lang="ts">
-	export let title: string;
-	export let titleLink: string | undefined = undefined;
+	import { type Snippet } from "svelte";
+	
+	interface Props {
+		title: string;
+		titleLink?: string | undefined;
+		titleBar?: Snippet;
+		header?: Snippet;
+		children?: Snippet;
+	}
+
+	let {
+		title,
+		titleLink = undefined,
+		titleBar,
+		header,
+		children
+	}: Props = $props();
 </script>
 
 <section>
@@ -14,13 +29,13 @@
 				{/if}
 			</h1>
 			
-			<slot name="titleBar"></slot>
+			{@render titleBar?.()}
 		</div>
 		
-		<slot name="header"></slot>
+		{@render header?.()}
 	</div>
 	
-	<slot/>
+	{@render children?.()}
 </section>
 
 <style lang="scss">

@@ -1,20 +1,35 @@
 <script lang="ts">
-	export let title: string;
-	export let link: string | undefined = undefined;
+	import { type Snippet } from "svelte";
+	
+	interface Props {
+		title: string;
+		link?: string;
+		card?: Snippet;
+		desc?: Snippet;
+		descRow?: Snippet;
+	}
+	
+	let {
+		title,
+		link = undefined,
+		card,
+		desc,
+		descRow
+	}: Props = $props();
 </script>
 
 <div class="tile">
 	<a class="card-link" href={link}>
 		<div class="card">
-			<slot name="card"/>
+			{@render card?.()}
 		</div>
 	</a>
 	<div class="card-info">
 		<div class="desc-text">
 			<a class="title" href={link}>{title}</a>
-			<slot name="desc"></slot>
+			{@render desc?.()}
 		</div>
-		<slot name="descRow"></slot>
+		{@render descRow?.()}
 	</div>
 </div>
 

@@ -2,10 +2,15 @@
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     import Button from "./Button.svelte";
 
-    export let isFullscreen;
+	interface Props {
+		isFullscreen: boolean;
+		onclick: () => void;
+	}
+	
+	let { isFullscreen, onclick }: Props = $props();
 </script>
 
-<Button on:click tooltip="Toggle Fullscreen">
+<Button {onclick} tooltip="Toggle Fullscreen">
 	{#if isFullscreen}
 		<FeatherIcon name="minimize" size="1em"/>
 	{:else}

@@ -2,14 +2,23 @@
 	import FeatherIcon from "../FeatherIcon.svelte";
 	import BaseTile from "./BaseTile.svelte";
 	
-	export let title: string;
-	export let link: string;
-	export let thumbnail: string | undefined = undefined;
-	export let child_count: number = 0;
+	interface Props {
+		title: string;
+		link: string;
+		thumbnail?: string;
+		child_count?: number;
+	}
+
+	let {
+		title,
+		link,
+		thumbnail = undefined,
+		child_count = 0
+	}: Props = $props();
 </script>
 
-<BaseTile title="{title}" link="{link}">
-	<svelte:fragment slot="card">
+<BaseTile title={title} link={link}>
+	{#snippet card()}
 		<div class="thumbnail-backdrop">
 			<FeatherIcon name="folder" size="4em"/>
 		</div>
@@ -23,7 +32,7 @@
 		{#if child_count > 0}
 			<div class="count-container"><FeatherIcon name="list"/> {child_count}</div>
 		{/if}
-	</svelte:fragment>
+	{/snippet}
 </BaseTile>
 
 <style lang="scss">

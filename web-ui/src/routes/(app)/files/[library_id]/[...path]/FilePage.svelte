@@ -1,5 +1,5 @@
 <script lang="ts">
-    import FormattedText from "$lib/components/FormattedText.svelte";
+	import FormattedText from "$lib/components/FormattedText.svelte";
 	import VideoPlayer from "$lib/components/video_player/VideoPlayer.svelte";
     import { formatRichText } from "$lib/format_text";
     import dayjs from "dayjs";
@@ -7,21 +7,23 @@
     import { abbreviateNumber } from "$lib/utils";
 	import PathComponents from "./PathComponents.svelte";
 
-	export let mediaInfo: ApiFileInfo;
+	interface Props {
+		mediaInfo: ApiFileInfo;
+	}
+
+	let { mediaInfo }: Props = $props();
 	
-	let videoPlayer: VideoPlayer;
+	let videoPlayer: VideoPlayer | undefined = $state();
 	
 	function seekTo(time: number) {
-		videoPlayer.seekTo(time);
+		videoPlayer?.seekTo(time);
 		window.scrollTo(0, 0);
 	}
 	
-	$: videoAspectRadio = mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0;
-	$: description = mediaInfo.description ? formatRichText(mediaInfo.description, seekTo) : undefined;
-	
-	let extraInfo: string;
-	
-	$: {
+	let videoAspectRadio = $derived(mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0);
+	let description = $derived(mediaInfo.description ? formatRichText(mediaInfo.description, seekTo) : undefined);
+		
+	let extraInfo = $derived.by(() => {
 		const frags = [];
 		const creationDate = dayjs(mediaInfo.creation_date);
 		
@@ -29,8 +31,8 @@
 		frags.push(creationDate.format("MMM D, YYYY"));
 		frags.push(abbreviateNumber(mediaInfo.file_size, 1) + "B");
 		
-		extraInfo = frags.join(" • ");
-	}
+		return frags.join(" • ");
+	});
 </script>
 
 <div class="main-container" style="--video-aspect-radio: {videoAspectRadio}">
@@ -56,7 +58,7 @@
 		{#if mediaInfo.comments.length > 0}
 			<section class="comments">
 				<h3>Comments</h3>
-				<Comments commentThreads={mediaInfo.comments} on:seekTo={event => seekTo(event.detail)}/>
+				<Comments commentThreads={mediaInfo.comments} {seekTo}/>
 			</section>
 		{/if}
 	</main>

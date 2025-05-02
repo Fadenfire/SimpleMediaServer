@@ -1,28 +1,34 @@
 <script lang="ts">
+	import { type Snippet } from "svelte";
     import { escapePath, formatDuration } from "$lib/utils";
     import dayjs from "dayjs";
     import BaseTile from "./BaseTile.svelte";
     import FeatherIcon from "../FeatherIcon.svelte";
 
-	export let fileEntry: ApiFileEntry;
+	interface Props {
+		fileEntry: ApiFileEntry;
+		descRow?: Snippet;
+		desc?: Snippet;
+	}
+
+	let { fileEntry, descRow, desc: descIn }: Props = $props();
 	
-	let extraInfo: string;
-	let extraInfoTooltip: string;
-	
-	$: {
+	let [extraInfo, extraInfoTooltip] = $derived.by(() => {
 		const frags = [];
 		const creationDate = dayjs(fileEntry.creation_date);
 		
 		if (fileEntry.artist) frags.push(fileEntry.artist);
 		frags.push(creationDate.fromNow());
 		
-		extraInfo = frags.join(" • ");
-		extraInfoTooltip = creationDate.format("YYYY-MM-DD");
-	}
+		const extraInfo = frags.join(" • ");
+		const extraInfoTooltip = creationDate.format("YYYY-MM-DD");
+		
+		return [extraInfo, extraInfoTooltip];
+	});
 </script>
 
-<BaseTile title={fileEntry.display_name} link="/files/{escapePath(fileEntry.full_path)}/">
-	<svelte:fragment slot="card">
+<BaseTile title={fileEntry.display_name} link="/files/{escapePath(fileEntry.full_path)}/" {descRow}>
+	{#snippet card()}
 		<div class="thumbnail-backdrop">
 			<FeatherIcon name="file" size="4em"/>
 		</div>
@@ -38,14 +44,12 @@
 				<div class="bar" style="width: calc(max(10px, {fileEntry.watch_progress / fileEntry.duration * 100}%));"></div>
 			</div>
 		{/if}
-	</svelte:fragment>
+	{/snippet}
 	
-	<slot name="descRow" slot="descRow"></slot>
-	
-	<svelte:fragment slot="desc">
+	{#snippet desc()}
 		<span class="extra-info" title={extraInfoTooltip}>{extraInfo}</span>
-		<slot name="desc"></slot>
-	</svelte:fragment>
+		{@render descIn?.()}
+	{/snippet}
 </BaseTile>
 
 <style lang="scss">

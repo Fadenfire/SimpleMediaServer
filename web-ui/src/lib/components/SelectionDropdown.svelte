@@ -1,13 +1,20 @@
 <script lang="ts">
-	export let label: string;
-	export let value: any = undefined;
+	import { type Snippet } from "svelte";
+	
+	interface Props {
+		label: string;
+		value?: any;
+		children?: Snippet;
+	}
+
+	let { label, value = $bindable(undefined), children }: Props = $props();
 </script>
 
 <label>
 	{label}
 	<div class="dropdown">
 		<select bind:value>
-			<slot/>
+			{@render children?.()}
 		</select>
 	</div>
 </label>

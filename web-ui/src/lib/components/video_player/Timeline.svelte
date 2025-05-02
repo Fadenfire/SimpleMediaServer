@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	export const PRECISE_SCRUBBING_START_DIST = 20;
 	export const PRECISE_SCRUBBING_SPEEDS = [60, 30, 10, 5, 1];
 </script>
@@ -10,28 +10,41 @@
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
     import { isMobile } from "./VideoPlayer.svelte";
 	
-	export let mediaInfo: ApiFileInfo;
-	export let thumbSheetUrl: string | undefined;
-	export let playerElement: HTMLElement;
+	interface Props {
+		mediaInfo: ApiFileInfo;
+		thumbSheetUrl: string | undefined;
+		playerElement: HTMLElement | undefined;
+		videoElement: HTMLVideoElement | undefined;
+		videoPaused: boolean;
+		videoCurrentTime: number;
+		videoDuration: number;
+		videoBuffered: SvelteMediaTimeRange[];
+		scrubbingTime?: number | null;
+		preciseScrubbing?: boolean;
+	}
+
+	let {
+		mediaInfo,
+		thumbSheetUrl,
+		playerElement,
+		videoElement = $bindable(),
+		videoPaused = $bindable(),
+		videoCurrentTime = $bindable(),
+		videoDuration,
+		videoBuffered,
+		scrubbingTime = $bindable(null),
+		preciseScrubbing = $bindable(false)
+	}: Props = $props();
 	
-	export let videoElement: HTMLVideoElement;
-	export let videoPaused: boolean;
-	export let videoCurrentTime: number;
-	export let videoDuration: number;
-	export let videoBuffered: SvelteMediaTimeRange[];
+	let timelineElement: HTMLElement | undefined = $state();
 	
-	export let scrubbingTime: number | null = null;
-	export let preciseScrubbing = false;
-	
-	let timelineElement: HTMLElement;
-	
-	$: videoInfo = mediaInfo.video_info;
+	let videoInfo = $derived(mediaInfo.video_info);
 	
 	const mobile = isMobile();
 	
 	// Hover Effects
 	
-	let pureHoverProgress: number | null = null;
+	let pureHoverProgress: number | null = $state(null);
 	
 	function onTimelinePointerMove(event: PointerEvent) {
 		if (!mobile) {
@@ -43,15 +56,19 @@
 		pureHoverProgress = null;
 	}
 	
-	$: hoverProgress = scrubbingTime !== null ? scrubbingTime / videoDuration : pureHoverProgress;
+	let hoverProgress = $derived(scrubbingTime !== null ? scrubbingTime / videoDuration : pureHoverProgress);
 	
 	// Scrubbing
 	
 	let wasPaused = true;
-	let scrubSpeed = 0;
+	let scrubSpeed = $state(0);
 	let lastTickScrubPos: number | null = null;
 	
 	function updateScrub(pointerX: number, pointerY: number) {
+		if (timelineElement === undefined) return;
+		if (playerElement === undefined) return;
+		if (videoElement === undefined) return;
+		
 		const normPos = normalizePointerPos(pointerX);
 		
 		if (lastTickScrubPos === null) {
@@ -84,6 +101,8 @@
 	
 	function onTimelinePointerDown(event: PointerEvent) {
 		if (event.button == 0) {
+			if (videoElement === undefined) return;
+			
 			wasPaused = videoPaused;
 			videoElement.pause();
 			
@@ -100,6 +119,8 @@
 	}
 	
 	function onWindowPointerUp() {
+		if (videoElement === undefined) return;
+		
 		if (scrubbingTime !== null) {
 			videoElement.currentTime = scrubbingTime;
 			scrubbingTime = null;
@@ -115,22 +136,24 @@
 	}
 	
 	function normalizePointerPos(pointerX: number): number {
+		if (timelineElement === undefined) return 0.0;
+		
 		const rect = timelineElement.getBoundingClientRect();
 		
 		return Math.min(1.0, Math.max(0.0, (pointerX - rect.x) / rect.width));
 	}
 </script>
 
-<svelte:window on:pointermove={onWindowPointerMove} on:pointerup={onWindowPointerUp} />
+<svelte:window onpointermove={onWindowPointerMove} onpointerup={onWindowPointerUp} />
 
 <div class="timeline" bind:this={timelineElement}>
 	<div
 		class="bounding-box"
 		class:mobile={mobile}
 		class:scrubbing={scrubbingTime !== null}
-		on:pointerdown={onTimelinePointerDown}
-		on:pointermove={onTimelinePointerMove}
-		on:pointerleave={onTimelinePointerLeave}
+		onpointerdown={onTimelinePointerDown}
+		onpointermove={onTimelinePointerMove}
+		onpointerleave={onTimelinePointerLeave}
 	>
 		<div class="bars">
 			<Bar color="var(--background-bar-color)"/>

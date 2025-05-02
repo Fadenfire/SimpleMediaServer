@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	export const TAP_SEEK_AMOUNT = 10;
 
 	export function isMobile() {
@@ -14,6 +14,8 @@
 </script>
 
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
     import { formatDuration, replayAnimations } from "$lib/utils";
     import type { SvelteMediaTimeRange } from "svelte/elements";
     import Timeline from "./Timeline.svelte";
@@ -30,33 +32,37 @@
     import SettingsButton from "./buttons/SettingsButton.svelte";
 	import SettingsMenu from "./menus/SettingsMenu.svelte";
 
-	export let mediaInfo: ApiFileInfo;
+	interface Props {
+		mediaInfo: ApiFileInfo;
+	}
+
+	let { mediaInfo }: Props = $props();
 	
 	// Video properties
-	let playerBackend: VideoBackend | undefined;
-	let videoElement: HTMLVideoElement;
-	let videoPaused = true;
-	let videoEnded = false;
-	let videoDuration = mediaInfo.duration;
-	let videoCurrentTime = 0;
-	let videoBuffered: SvelteMediaTimeRange[] = [];
-	let videoBuffering = true;
+	let playerBackend: VideoBackend | undefined = $state();
+	let videoElement: HTMLVideoElement | undefined = $state();
+	let videoPaused = $state(true);
+	let videoEnded = $state(false);
+	let videoDuration = $state(mediaInfo.duration);
+	let videoCurrentTime = $state(0);
+	let videoBuffered: SvelteMediaTimeRange[] = $state([]);
+	let videoBuffering = $state(true);
 	
-	let playerElement: HTMLElement;
-	let scrubbingTime: number | null = null;
-	let preciseScrubbing = false;
-	let thumbSheetUrl: string | undefined;
+	let playerElement: HTMLElement | undefined = $state();
+	let scrubbingTime: number | null = $state(null);
+	let preciseScrubbing = $state(false);
+	let thumbSheetUrl: string | undefined = $state();
 	
-	let tapBackIndicatorElement: HTMLElement | undefined;
-	let tapForwardIndicatorElement: HTMLElement | undefined;
+	let tapBackIndicatorElement: HTMLElement | undefined = $state();
+	let tapForwardIndicatorElement: HTMLElement | undefined = $state();
 	
 	const mobile = isMobile();
 	
-	$: videoInfo = mediaInfo.video_info;
+	let videoInfo = $derived(mediaInfo.video_info);
 	
 	// Sidebar
 	
-	let sidebarShown = SidebarType.None;
+	let sidebarShown = $state(SidebarType.None);
 	
 	function toggleSidebar(sidebar: SidebarType) {
 		sidebarShown = sidebarShown == sidebar ? SidebarType.None : sidebar;
@@ -64,7 +70,7 @@
 	
 	// Idleness
 	
-	let isIdle = true;
+	let isIdle = $state(true);
 	let idleTimeout: number | undefined;
 	
 	function setIdle() {
@@ -80,14 +86,17 @@
 	
 	// Show Controls
 	
-	let controlsContainerElement: HTMLElement;
+	let controlsContainerElement: HTMLElement | undefined = $state();
 	
-	let showControls = false;
-	$: showControls = !isIdle || sidebarShown != SidebarType.None || (!mobile && controlsContainerElement?.matches(":hover"));
+	let showControls = $derived(
+		!isIdle || sidebarShown != SidebarType.None || (!mobile && controlsContainerElement?.matches(":hover"))
+	);
 	
 	// Player Actions
 	
 	function playPause() {
+		if (videoElement === undefined) return;
+		
 		if (videoPaused || videoEnded) {
 			videoElement.play();
 			videoPaused = false;
@@ -98,6 +107,8 @@
 	}
 	
 	function jump(amount: number) {
+		if (videoElement === undefined) return;
+		
 		const newTime = Math.max(0, Math.min(videoDuration, videoCurrentTime + amount));
 		videoCurrentTime = newTime;
 		
@@ -109,6 +120,8 @@
 	}
 	
 	export function seekTo(time: number) {
+		if (videoElement === undefined) return;
+		
 		const newTime = Math.max(0, Math.min(videoDuration, time));
 		
 		videoCurrentTime = newTime;
@@ -117,9 +130,11 @@
 	
 	// Fullscreen
 	
-	let isFullscreen = false;
+	let isFullscreen = $state(false);
 	
 	function toggleFullscreen() {
+		if (playerElement === undefined) return;
+		
 		if (document.fullscreenElement !== null) {
 			document.exitFullscreen();
 		} else {
@@ -134,11 +149,12 @@
 	// Tap Seeking
 	
 	let lastTapTime: number | null = null;
-	let tapSeekBackAmount = 0;
-	let tapSeekForwardAmount = 0;
+	let tapSeekBackAmount = $state(0);
+	let tapSeekForwardAmount = $state(0);
 	
 	function playerClick(event: PointerEvent) {
 		if (event.button != 0) return;
+		if (playerElement === undefined) return;
 		
 		if (!mobile) {
 			playPause();
@@ -221,18 +237,18 @@
 	}
 </script>
 
-<svelte:window on:keydown={onWindowKeyPressed}/>
+<svelte:window onkeydown={onWindowKeyPressed}/>
 
 <figure
 	class="video-player"
 	class:fullscreen={isFullscreen}
 	class:mobile
 	bind:this={playerElement}
-	on:pointermove={resetIdleness}
-	on:pointerdown={resetIdleness}
-	on:fullscreenchange={onFullscreenChange}
+	onpointermove={resetIdleness}
+	onpointerdown={resetIdleness}
+	onfullscreenchange={onFullscreenChange}
 >
-	<div class="video-container" on:pointerdown={playerClick}>
+	<div class="video-container" onpointerdown={playerClick}>
 		{#key mediaInfo.full_path}
 			<VideoElement
 				{mediaInfo}
@@ -266,7 +282,7 @@
 	{#if mobile}
 		<div class="center-controls hideable" class:hidden={!showControls}>
 			<SkipButton floating={true} direction=back {mediaInfo}/>
-			<PlayPauseButton floating={true} {videoPaused} on:click={playPause}/>
+			<PlayPauseButton floating={true} {videoPaused} onclick={playPause}/>
 			<SkipButton floating={true} direction=forward {mediaInfo}/>
 		</div>
 		
@@ -294,7 +310,7 @@
 				
 				<div class="flex-spacer"></div>
 				
-				<ConnectionsButton {mediaInfo} {videoCurrentTime} on:click={() => toggleSidebar(SidebarType.Connections)}/>
+				<ConnectionsButton {mediaInfo} {videoCurrentTime} onclick={() => toggleSidebar(SidebarType.Connections)}/>
 			</div>
 		</div>
 		
@@ -305,8 +321,8 @@
 					
 					<div class="flex-spacer"></div>
 					
-					<SettingsButton on:click={() => toggleSidebar(SidebarType.Settings)}/>
-					<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
+					<SettingsButton onclick={() => toggleSidebar(SidebarType.Settings)}/>
+					<FullscreenButton {isFullscreen} onclick={toggleFullscreen}/>
 				</div>
 			{/if}
 			
@@ -330,14 +346,14 @@
 			{#if !mobile}
 				<div class="control-row">
 					<SkipButton direction=back {mediaInfo}/>
-					<PlayPauseButton {videoPaused} on:click={playPause}/>
+					<PlayPauseButton {videoPaused} onclick={playPause}/>
 					<SkipButton direction=forward {mediaInfo}/>
 					<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
 					
 					<div class="flex-spacer"></div>
 					
-					<SettingsButton on:click={() => toggleSidebar(SidebarType.Settings)}/>
-					<FullscreenButton {isFullscreen} on:click={toggleFullscreen}/>
+					<SettingsButton onclick={() => toggleSidebar(SidebarType.Settings)}/>
+					<FullscreenButton {isFullscreen} onclick={toggleFullscreen}/>
 				</div>
 			{/if}
 		</div>

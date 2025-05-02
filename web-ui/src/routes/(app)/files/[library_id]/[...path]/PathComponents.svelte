@@ -1,22 +1,25 @@
 <script lang="ts">
-	export let info: ApiInfoCommon;
+	interface Props {
+		info: ApiInfoCommon;
+	}
+
+	let { info }: Props = $props();
 	
-	let pathComponents: string[];
-	let pathComponentLinks: string[];
-	
-	$: {
+	let [pathComponents, pathComponentLinks] = $derived.by(() => {
 		let url = "/files/";
 		
-		pathComponents = info.full_path.split("/").filter(it => it.length > 0);
+		const pathComponents = info.full_path.split("/").filter(it => it.length > 0);
 		pathComponents.pop();
 		
-		pathComponentLinks = pathComponents.map(comp => {
+		const pathComponentLinks = pathComponents.map(comp => {
 			url += encodeURIComponent(comp) + "/";
 			return url;
 		});
 		
 		if (pathComponents.length > 0) pathComponents[0] = info.library_display_name;
-	}
+		
+		return [pathComponents, pathComponentLinks];
+	});
 </script>
 
 <div class="path-components">

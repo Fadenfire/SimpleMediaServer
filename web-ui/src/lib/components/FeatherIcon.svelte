@@ -1,25 +1,41 @@
 <script lang="ts">
 	import feather from "feather-icons";
 
-	export let name: string;
-	export let rotation: number = 0;
-	export let size: string | undefined = undefined;
-	export let width = "1em";
-	export let height = "1em";
-	export let strokeWidth: string | undefined = undefined;
-	export let style: string = "";
-	
-	$: if (size) {
-		width = size;
-		height = size;
+	interface Props {
+		name: string;
+		rotation?: number;
+		size?: string | undefined;
+		width?: string;
+		height?: string;
+		strokeWidth?: string | undefined;
+		style?: string;
 	}
+
+	let {
+		name,
+		rotation = 0,
+		size = undefined,
+		width = $bindable("1em"),
+		height = $bindable("1em"),
+		strokeWidth = undefined,
+		style = ""
+	}: Props = $props();
 	
-	$: icon = feather.icons[name];
-	$: attrs = Object.assign({}, icon.attrs);
+	$effect(() => {
+		if (size) {
+			width = size;
+			height = size;
+		}
+	});
 	
-	$: if (strokeWidth) {
-		attrs["stroke-width"] = strokeWidth;
-	}
+	let icon = $derived(feather.icons[name]);
+	let attrs = $derived(Object.assign({}, icon.attrs));
+	
+	$effect(() => {
+		if (strokeWidth) {
+			attrs["stroke-width"] = strokeWidth;
+		}
+	});
 </script>
 
 <svg

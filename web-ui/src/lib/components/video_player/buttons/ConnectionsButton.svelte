@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	export function followLink(connection: ApiVideoConnection, currentTime: number) {
 		if (!(connection.left_start <= currentTime && currentTime < connection.left_end)) return;
 		
@@ -19,27 +19,34 @@
     import { escapePath } from "$lib/utils";
     import Button from "./Button.svelte";
 
-	export let mediaInfo: ApiFileInfo;
-	export let videoCurrentTime: number;
-	
-	$: shortcutLinks = mediaInfo.connections.filter(connection => connection.shortcut_thumbnail !== null);
-	
-	let linkTargets: ApiVideoConnection[] = [];
-	let lastCurrentTime = -1;
-	
-	$: if (Math.floor(videoCurrentTime) != lastCurrentTime) {
-		lastCurrentTime = Math.floor(videoCurrentTime);
-		linkTargets = shortcutLinks.filter(connection => connection.left_start <= videoCurrentTime && videoCurrentTime < connection.left_end);
+	interface Props {
+		mediaInfo: ApiFileInfo;
+		videoCurrentTime: number;
+		onclick: () => void;
 	}
+
+	let { mediaInfo, videoCurrentTime, onclick }: Props = $props();
+	
+	let shortcutLinks = $derived(mediaInfo.connections.filter(connection => connection.shortcut_thumbnail !== null));
+	
+	let linkTargets: ApiVideoConnection[] = $state([]);
+	let lastCurrentTime = $state(-1);
+	
+	$effect(() => {
+		if (Math.floor(videoCurrentTime) != lastCurrentTime) {
+			lastCurrentTime = Math.floor(videoCurrentTime);
+			linkTargets = shortcutLinks.filter(connection => connection.left_start <= videoCurrentTime && videoCurrentTime < connection.left_end);
+		}
+	});
 </script>
 
 {#each linkTargets as connection (connection.video_path)}
-	<Button large={true} tooltip="Jump to {connection.relation}" on:click={() => followLink(connection, videoCurrentTime)}>
+	<Button large={true} tooltip="Jump to {connection.relation}" onclick={() => followLink(connection, videoCurrentTime)}>
 		<img class="shortcut-thumbnail" src={escapePath(connection.shortcut_thumbnail ?? "")} alt=""/>
 	</Button>
 {/each}
 
-<Button disabled={mediaInfo.connections.length == 0} tooltip="Connections" on:click>
+<Button disabled={mediaInfo.connections.length == 0} tooltip="Connections" {onclick}>
 	<FeatherIcon name="link" size="1em"/>
 </Button>
 

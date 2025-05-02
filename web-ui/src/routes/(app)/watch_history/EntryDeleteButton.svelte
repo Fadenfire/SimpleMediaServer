@@ -1,11 +1,17 @@
 <script lang="ts">
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
-    import { createEventDispatcher } from "svelte";
 
-	export let historyEntry: ApiWatchHistoryEntry;
-	export let showDeleteButton;
-	
-	const dispatch = createEventDispatcher();
+	interface Props {
+		historyEntry: ApiWatchHistoryEntry;
+		showDeleteButton: boolean;
+		deleteEntry?: () => void;
+	}
+
+	let {
+		historyEntry,
+		showDeleteButton,
+		deleteEntry: deleteEntryCallback
+	}: Props = $props();
 	
 	function deleteEntry() {
 		const msg: DeleteWatchProgressParams = {
@@ -18,12 +24,12 @@
 			body: JSON.stringify(msg)
 		});
 		
-		dispatch("deleteEntry");
+		deleteEntryCallback?.();
 	}
 </script>
 
 {#if showDeleteButton}
-	<button class="custom-button delete-button" on:click={deleteEntry} title="Delete entry">
+	<button class="custom-button delete-button" onclick={() => deleteEntry()} title="Delete entry">
 		<FeatherIcon name="trash-2" size="1em"/>
 	</button>
 {/if}

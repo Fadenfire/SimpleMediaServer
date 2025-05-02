@@ -1,30 +1,42 @@
 <script lang="ts">
+	import { type Snippet } from "svelte";
+	
     import Dropdown from "$lib/components/Dropdown.svelte";
 	import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     // import { isStandalone } from "$lib/utils";
     import type { PageData } from "./$types";
 	
-	export let data: PageData;
+	interface Props {
+		data: PageData;
+		children?: Snippet;
+	}
+
+	let { data, children }: Props = $props();
 </script>
+
 <nav>
 	<a class="nav-item" href="/"><FeatherIcon name="home" size="100%"/></a>
 	<a class="nav-item" href="/watch_history"><FeatherIcon name="clock" size="100%"/></a>
 	
-	<!-- svelte-ignore a11y-invalid-attribute -->
+	<!-- svelte-ignore a11y_invalid_attribute -->
 	<a class="nav-item" href="javascript:window.history.back()"><FeatherIcon name="arrow-left" size="100%"/></a>
 	
 	<div style="flex: 1;"></div>
 	
 	<Dropdown>
-		<div class="nav-item" slot="summary">{data.userInfo.display_name}</div>
+		{#snippet summary()}
+			<div class="nav-item" >{data.userInfo.display_name}</div>
+		{/snippet}
 		
-		<div slot="dropdown" class="dropdown-menu">
-			<a class="nav-item" href="/api/logout">Logout</a>
-		</div>
+		{#snippet dropdown()}
+			<div  class="dropdown-menu">
+				<a class="nav-item" href="/api/logout">Logout</a>
+			</div>
+		{/snippet}
 	</Dropdown>
 </nav>
 
-<slot/>
+{@render children?.()}
 
 <style lang="scss">
 	$nav-bar-height: 40px;

@@ -1,19 +1,26 @@
 <script lang="ts">
-	export let videoInfo: ApiVideoInfo;
-	export let thumbSheetUrl: string;
-	export let currentTime: number;
+	interface Props {
+		videoInfo: ApiVideoInfo;
+		thumbSheetUrl: string;
+		currentTime: number;
+		extraStyles?: string;
+	}
+
+	let {
+		videoInfo,
+		thumbSheetUrl,
+		currentTime,
+		extraStyles = ""
+	}: Props = $props();
 	
-	export let extraStyles = "";
-	
-	let spriteX = 0;
-	let spriteY = 0;
-	
-	$: {
+	let [spriteX, spriteY] = $derived.by(() => {
 		const offset = Math.floor(currentTime / videoInfo.thumbnail_sheet_interval);
 		
-		spriteX = Math.floor(offset % videoInfo.thumbnail_sheet_cols);
-		spriteY = Math.floor(offset / videoInfo.thumbnail_sheet_rows);
-	}
+		const spriteX = Math.floor(offset % videoInfo.thumbnail_sheet_cols);
+		const spriteY = Math.floor(offset / videoInfo.thumbnail_sheet_rows);
+		
+		return [spriteX, spriteY];
+	});
 </script>
 
 <div

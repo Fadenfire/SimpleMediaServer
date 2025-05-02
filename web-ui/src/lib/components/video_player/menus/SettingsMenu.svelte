@@ -2,16 +2,20 @@
 	import type { VideoBackend } from "../video_backend";
     import SidebarMenu from "./SidebarMenu.svelte";
 
-	export let playerBackend: VideoBackend;
+	interface Props {
+		playerBackend: VideoBackend;
+	}
+
+	let { playerBackend }: Props = $props();
 	
-	$: levels = playerBackend.qualityLevels;
-	$: currentLevel = playerBackend.currentLevelIndex;
+	let levels = $derived(playerBackend.qualityLevels);
+	let currentLevel = $derived(playerBackend.currentLevelIndex);
 </script>
 
 <SidebarMenu>
 	<h3 class="title">Quality</h3>
 	{#each $levels as level}
-		<button class="custom-button quality-button" class:active={level.id === $currentLevel} on:click={() => $currentLevel = level.id}>
+		<button class="custom-button quality-button" class:active={level.id === $currentLevel} onclick={() => $currentLevel = level.id}>
 			{level.displayName}
 			{#if level.desc}
 				<span class="desc">({level.desc})</span>

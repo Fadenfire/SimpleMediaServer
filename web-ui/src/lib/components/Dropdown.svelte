@@ -1,8 +1,19 @@
+<script lang="ts">
+	import { type Snippet } from "svelte";
+	
+	interface Props {
+		summary?: Snippet;
+		dropdown?: Snippet;
+	}
+
+	let { summary, dropdown }: Props = $props();
+</script>
+
 <div class="dropdown-container">
-	<slot name="summary"/>
+	{@render summary?.()}
 	
 	<div class="dropdown">
-		<slot name="dropdown"/>
+		{@render dropdown?.()}
 	</div>
 </div>
 

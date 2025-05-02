@@ -3,12 +3,15 @@
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     import Button from "./Button.svelte";
 
-    export let floating = false;
-	export let direction: "forward" | "back";
+	interface Props {
+		floating?: boolean;
+		direction: "forward" | "back";
+		mediaInfo: ApiFileInfo;
+	}
+
+	let { floating = false, direction, mediaInfo }: Props = $props();
 	
-	export let mediaInfo: ApiFileInfo;
-	
-	$: skipTarget = direction === "forward" ? mediaInfo.next_video : mediaInfo.prev_video;
+	let skipTarget = $derived(direction === "forward" ? mediaInfo.next_video : mediaInfo.prev_video);
 	
 	function onClick() {
 		if (skipTarget !== null) {
@@ -22,7 +25,7 @@
 	}
 </script>
 
-<Button {floating} disabled={skipTarget === null} tooltip={direction === "forward" ? "Next Video" : "Previous Video"} on:click={onClick}>
+<Button {floating} disabled={skipTarget === null} tooltip={direction === "forward" ? "Next Video" : "Previous Video"} onclick={onClick}>
 	{#if direction === "forward"}
 		<FeatherIcon name="skip-forward" size="1em"/>
 	{:else}

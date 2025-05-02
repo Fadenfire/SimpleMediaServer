@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	interface SnapshotObj {
 		dirSnap: DirSnapshotObj | undefined,
 	}
@@ -9,9 +9,13 @@
     import DirectoryPage, { type DirSnapshotObj } from "./DirectoryPage.svelte";
     import FilePage from "./FilePage.svelte";
 
-	export let data: PageData;
+	interface Props {
+		data: PageData;
+	}
+
+	let { data }: Props = $props();
 	
-	let dirPage: DirectoryPage | undefined;
+	let dirPage: DirectoryPage | undefined = $state();
 	
 	export const snapshot: Snapshot<SnapshotObj> = {
 		capture: () => ({

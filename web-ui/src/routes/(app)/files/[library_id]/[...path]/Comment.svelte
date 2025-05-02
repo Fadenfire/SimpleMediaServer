@@ -1,24 +1,28 @@
 <script lang="ts">
+	import { type Snippet } from "svelte";
+
     import FormattedText from "$lib/components/FormattedText.svelte";
     import { formatRichText } from "$lib/format_text";
     import dayjs from "dayjs";
-    import { createEventDispatcher } from "svelte";
 	
-	export let comment: ApiComment;
+	interface Props {
+		comment: ApiComment;
+		children?: Snippet;
+		seekTo: (time: number) => void;
+	}
+
+	let { comment, children, seekTo }: Props = $props();
 	
-	const dispatch = createEventDispatcher();
+	let text = $derived(formatRichText(comment.text, time => seekTo(time)));
 	
-	let publishedAt: string;
-	let publishedAtTooltip: string;
-	
-	$: text = formatRichText(comment.text, time => dispatch("seekTo", time));
-	
-	$: {
+	let [publishedAt, publishedAtTooltip] = $derived.by(() => {
 		const date = dayjs(comment.published_at);
 		
-		publishedAt = date.fromNow();
-		publishedAtTooltip = date.format("YYYY-MM-DD");
-	}
+		const publishedAt = date.fromNow();
+		const publishedAtTooltip = date.format("YYYY-MM-DD");
+		
+		return [publishedAt, publishedAtTooltip];
+	});
 </script>
 
 <div class="comment">
@@ -31,7 +35,7 @@
 		<FormattedText text={text}/>
 	</p>
 	
-	<slot></slot>
+	{@render children?.()}
 </div>
 
 <style lang="scss">

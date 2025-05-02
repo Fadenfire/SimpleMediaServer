@@ -5,7 +5,11 @@
 	import type { PageData } from "./$types";
     import HistoryTile from "./watch_history/HistoryTile.svelte";
 
-	export let data: PageData;
+	interface Props {
+		data: PageData;
+	}
+
+	let { data }: Props = $props();
 </script>
 
 <svelte:head>
@@ -16,7 +20,7 @@
 	<PageSection title="Libraries">
 		<TileGrid>
 			{#each data.libraries as library}
-				<DirectoryTile title="{library.display_name}" link="/files/{encodeURIComponent(library.id)}/" />
+				<DirectoryTile title={library.display_name} link="/files/{encodeURIComponent(library.id)}/" />
 			{/each}
 		</TileGrid>
 	</PageSection>

@@ -1,9 +1,16 @@
 <script lang="ts">
-	export let extraStyles: string | undefined = undefined;
+	import { type Snippet } from "svelte";
+	
+	interface Props {
+		extraStyles?: string | undefined;
+		children?: Snippet;
+	}
+
+	let { extraStyles = undefined, children }: Props = $props();
 </script>
 
 <div class="menu" style={extraStyles}>
-	<slot/>
+	{@render children?.()}
 </div>
 
 <style lang="scss">

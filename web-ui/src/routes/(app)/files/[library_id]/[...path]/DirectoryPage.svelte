@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	enum SortType {
 		Name,
 		DateAdded,
@@ -29,10 +29,14 @@
     import PathComponents from "./PathComponents.svelte";
     import type { Snapshot } from "./$types";
 	
-	export let dirInfo: ApiDirectoryInfo;
-	export let listDirPromise: Promise<ListDirectoryResponse>;
+	interface Props {
+		dirInfo: ApiDirectoryInfo;
+		listDirPromise: Promise<ListDirectoryResponse>;
+	}
+
+	let { dirInfo, listDirPromise }: Props = $props();
 	
-	let sortType = SortType.Name;
+	let sortType = $state(SortType.Name);
 		
 	export const snapshot: Snapshot<DirSnapshotObj> = {
 		capture: () => {
@@ -79,17 +83,19 @@
 </script>
 
 <main class="main-content">
-	<PageSection title="{dirInfo.display_name}">
-		<svelte:fragment slot="titleBar">
+	<PageSection title={dirInfo.display_name}>
+		{#snippet titleBar()}
 			<SelectionDropdown bind:value={sortType} label="Sort by">
 				<option value={SortType.Name}>Name</option>
 				<option value={SortType.DateAdded}>Date Added</option>
 				<option value={SortType.Duration}>Duration</option>
 				<option value={SortType.WatchProgress}>Watch Progress</option>
 			</SelectionDropdown>
-		</svelte:fragment>
+		{/snippet}
 		
-		<PathComponents slot="header" info={dirInfo}/>
+		{#snippet header()}
+			<PathComponents info={dirInfo}/>
+		{/snippet}
 		
 		{#await listDirPromise}
 			<DimStripe>Loading</DimStripe>
