@@ -14,7 +14,7 @@
 			<a class="title" href={link}>{title}</a>
 			<slot name="desc"></slot>
 		</div>
-		<slot name="desc-row"></slot>
+		<slot name="descRow"></slot>
 	</div>
 </div>
 

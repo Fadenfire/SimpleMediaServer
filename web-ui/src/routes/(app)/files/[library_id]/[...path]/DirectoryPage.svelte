@@ -80,7 +80,7 @@
 
 <main class="main-content">
 	<PageSection title="{dirInfo.display_name}">
-		<svelte:fragment slot="title-bar">
+		<svelte:fragment slot="titleBar">
 			<SelectionDropdown bind:value={sortType} label="Sort by">
 				<option value={SortType.Name}>Name</option>
 				<option value={SortType.DateAdded}>Date Added</option>

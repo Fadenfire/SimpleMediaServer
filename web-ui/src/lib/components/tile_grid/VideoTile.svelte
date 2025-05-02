@@ -40,7 +40,7 @@
 		{/if}
 	</svelte:fragment>
 	
-	<slot name="desc-row" slot="desc-row"></slot>
+	<slot name="descRow" slot="descRow"></slot>
 	
 	<svelte:fragment slot="desc">
 		<span class="extra-info" title={extraInfoTooltip}>{extraInfo}</span>

@@ -14,7 +14,7 @@
 
 {#if historyEntry.file !== null}
 	<VideoTile fileEntry={historyEntry.file}>
-		<EntryDeleteButton slot="desc-row" {historyEntry} {showDeleteButton} on:deleteEntry/>
+		<EntryDeleteButton slot="descRow" {historyEntry} {showDeleteButton} on:deleteEntry/>
 		
 		<svelte:fragment slot="desc">
 			{#if lastWatched}
@@ -25,7 +25,7 @@
 {:else}
 	<BaseTile title="Removed Video">
 		<FeatherIcon slot="card" name="file" size="4em"/>
-		<EntryDeleteButton slot="desc-row" {historyEntry} {showDeleteButton} on:deleteEntry/>
+		<EntryDeleteButton slot="descRow" {historyEntry} {showDeleteButton} on:deleteEntry/>
 		
 		<svelte:fragment slot="desc">
 			{#if lastWatched}

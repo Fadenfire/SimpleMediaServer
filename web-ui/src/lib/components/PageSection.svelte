@@ -14,7 +14,7 @@
 				{/if}
 			</h1>
 			
-			<slot name="title-bar"></slot>
+			<slot name="titleBar"></slot>
 		</div>
 		
 		<slot name="header"></slot>
