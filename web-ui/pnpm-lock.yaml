@@ -15,7 +15,7 @@ importers:
         specifier: ^2.20.8
         version: 2.20.8(@sveltejs/vite-plugin-svelte@4.0.4(svelte@5.28.2)(vite@5.4.19(sass@1.87.0)))(svelte@5.28.2)(vite@5.4.19(sass@1.87.0))
       '@sveltejs/vite-plugin-svelte':
-        specifier: ^4.0.0
+        specifier: ^4.0.4
         version: 4.0.4(svelte@5.28.2)(vite@5.4.19(sass@1.87.0))
       dayjs:
         specifier: ^1.11.13
@@ -30,10 +30,10 @@ importers:
         specifier: ^1.87.0
         version: 1.87.0
       svelte:
-        specifier: ^5.0.0
+        specifier: ^5.28.2
         version: 5.28.2
       svelte-check:
-        specifier: ^4.0.0
+        specifier: ^4.1.7
         version: 4.1.7(svelte@5.28.2)(typescript@5.8.3)
       tslib:
         specifier: ^2.8.1
