@@ -4,16 +4,17 @@
 	interface Props {
 		label: string;
 		value?: any;
+		style?: string;
 		children?: Snippet;
 	}
 
-	let { label, value = $bindable(undefined), children }: Props = $props();
+	let { label, value = $bindable(undefined), style, children }: Props = $props();
 </script>
 
 <label>
 	{label}
 	<div class="dropdown">
-		<select bind:value>
+		<select bind:value style={style}>
 			{@render children?.()}
 		</select>
 	</div>
@@ -26,6 +27,7 @@
 		display: flex;
 		flex-direction: row;
 		align-items: center;
+		justify-content: right;
 		gap: 8px;
 	}
 	
