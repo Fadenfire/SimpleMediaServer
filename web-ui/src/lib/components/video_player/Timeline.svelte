@@ -4,34 +4,24 @@
 </script>
 
 <script lang="ts">
-    import type { SvelteMediaTimeRange } from "svelte/elements";
     import Bar from "./Bar.svelte";
     import { formatDuration } from "$lib/utils";
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
     import { isMobile } from "./VideoPlayer.svelte";
+    import type { VideoElementState } from "./VideoElement.svelte";
 	
 	interface Props {
 		mediaInfo: ApiFileInfo;
-		thumbSheetUrl: string | undefined;
+		videoState: VideoElementState;
 		playerElement: HTMLElement | undefined;
-		videoElement: HTMLVideoElement | undefined;
-		videoPaused: boolean;
-		videoCurrentTime: number;
-		videoDuration: number;
-		videoBuffered: SvelteMediaTimeRange[];
 		scrubbingTime?: number | null;
 		preciseScrubbing?: boolean;
 	}
 
 	let {
 		mediaInfo,
-		thumbSheetUrl,
+		videoState,
 		playerElement,
-		videoElement = $bindable(),
-		videoPaused = $bindable(),
-		videoCurrentTime = $bindable(),
-		videoDuration,
-		videoBuffered,
 		scrubbingTime = $bindable(null),
 		preciseScrubbing = $bindable(false)
 	}: Props = $props();
@@ -56,7 +46,7 @@
 		pureHoverProgress = null;
 	}
 	
-	let hoverProgress = $derived(scrubbingTime !== null ? scrubbingTime / videoDuration : pureHoverProgress);
+	let hoverProgress = $derived(scrubbingTime !== null ? scrubbingTime / videoState.duration : pureHoverProgress);
 	
 	// Scrubbing
 	
@@ -67,12 +57,12 @@
 	function updateScrub(pointerX: number, pointerY: number) {
 		if (timelineElement === undefined) return;
 		if (playerElement === undefined) return;
-		if (videoElement === undefined) return;
+		if (videoState.videoElement === undefined) return;
 		
 		const normPos = normalizePointerPos(pointerX);
 		
 		if (lastTickScrubPos === null) {
-			scrubbingTime = normPos * videoDuration;
+			scrubbingTime = normPos * videoState.duration;
 			preciseScrubbing = false;
 		} else {
 			const distAbove = timelineElement.getBoundingClientRect().y - pointerY;
@@ -86,25 +76,25 @@
 				scrubSpeed = PRECISE_SCRUBBING_SPEEDS[index];
 				preciseScrubbing = true;
 			} else {
-				scrubSpeed = videoDuration;
+				scrubSpeed = videoState.duration;
 				preciseScrubbing = false;
 			}
 			
 			scrubbingTime = (scrubbingTime ?? normPos) + (normPos - lastTickScrubPos) * scrubSpeed;
 		}
 		
-		videoCurrentTime = scrubbingTime;
-		if (preciseScrubbing) videoElement.currentTime = scrubbingTime;
+		videoState.currentTime = scrubbingTime;
+		if (preciseScrubbing) videoState.videoElement.currentTime = scrubbingTime;
 		
 		lastTickScrubPos = normPos;
 	}
 	
 	function onTimelinePointerDown(event: PointerEvent) {
 		if (event.button == 0) {
-			if (videoElement === undefined) return;
+			if (videoState.videoElement === undefined) return;
 			
-			wasPaused = videoPaused;
-			videoElement.pause();
+			wasPaused = videoState.isPaused;
+			videoState.videoElement.pause();
 			
 			updateScrub(event.clientX, event.clientY);
 			
@@ -119,18 +109,18 @@
 	}
 	
 	function onWindowPointerUp() {
-		if (videoElement === undefined) return;
+		if (videoState.videoElement === undefined) return;
 		
 		if (scrubbingTime !== null) {
-			videoElement.currentTime = scrubbingTime;
+			videoState.videoElement.currentTime = scrubbingTime;
 			scrubbingTime = null;
 			lastTickScrubPos = null;
 			preciseScrubbing = false;
 			
 			if (wasPaused) {
-				videoElement.pause();
+				videoState.videoElement.pause();
 			} else {
-				videoElement.play();
+				videoState.videoElement.play();
 			}
 		}
 	}
@@ -158,33 +148,33 @@
 		<div class="bars">
 			<Bar color="var(--background-bar-color)"/>
 			
-			{#each videoBuffered as seg}
-				<Bar color="var(--foreground-bar-color)" startValue={seg.start / videoDuration} endValue={seg.end / videoDuration} />
+			{#each videoState.buffered as seg}
+				<Bar color="var(--foreground-bar-color)" startValue={seg.start / videoState.duration} endValue={seg.end / videoState.duration} />
 			{/each}
 			
 			{#if !mobile && hoverProgress !== null}
 				<Bar color="var(--foreground-bar-color)" endValue={hoverProgress} />
 			{/if}
 			
-			<Bar color="var(--accent-bar-color)" endValue={videoCurrentTime / videoDuration} />
+			<Bar color="var(--accent-bar-color)" endValue={videoState.currentTime / videoState.duration} />
 			
-			<div class="thumb-wrapper" style="transform: translateX({videoCurrentTime / videoDuration * 100}cqw);">
+			<div class="thumb-wrapper" style="transform: translateX({videoState.currentTime / videoState.duration * 100}cqw);">
 				<div class="thumb"></div>
 			</div>
 			
 			{#if (!mobile || preciseScrubbing) && hoverProgress !== null}
 				<div class="tooltip" style="transform: translateX({hoverProgress * 100}cqw) translate(-50%, -12px);">
 					{#if !mobile}
-						{#if videoInfo !== null && thumbSheetUrl !== undefined}
+						{#if videoInfo !== null && videoState.thumbSheetUrl !== undefined}
 							<PreviewThumbnail
 								{videoInfo}
-								{thumbSheetUrl}
-								currentTime={hoverProgress * videoDuration}
+								thumbSheetUrl={videoState.thumbSheetUrl}
+								currentTime={hoverProgress * videoState.duration}
 								extraStyles="height: 92px;"
 							/>
 						{/if}
 						
-						<span>{formatDuration((hoverProgress) * videoDuration)}</span>
+						<span>{formatDuration((hoverProgress) * videoState.duration)}</span>
 					{/if}
 					
 					{#if preciseScrubbing}

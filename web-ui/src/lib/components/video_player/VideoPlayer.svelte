@@ -14,15 +14,11 @@
 </script>
 
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
     import { formatDuration, replayAnimations } from "$lib/utils";
-    import type { SvelteMediaTimeRange } from "svelte/elements";
     import Timeline from "./Timeline.svelte";
     import FeatherIcon from "../FeatherIcon.svelte";
     import Spinner from "./Spinner.svelte";
-    import { VideoBackend } from "./video_backend";
-    import VideoElement from "./VideoElement.svelte";
+    import VideoElement, { VideoElementState } from "./VideoElement.svelte";
     import PlayPauseButton from "./buttons/PlayPauseButton.svelte";
     import SkipButton from "./buttons/SkipButton.svelte";
     import FullscreenButton from "./buttons/FullscreenButton.svelte";
@@ -38,20 +34,11 @@
 
 	let { mediaInfo }: Props = $props();
 	
-	// Video properties
-	let playerBackend: VideoBackend | undefined = $state();
-	let videoElement: HTMLVideoElement | undefined = $state();
-	let videoPaused = $state(true);
-	let videoEnded = $state(false);
-	let videoDuration = $state(mediaInfo.duration);
-	let videoCurrentTime = $state(0);
-	let videoBuffered: SvelteMediaTimeRange[] = $state([]);
-	let videoBuffering = $state(true);
+	let videoState: VideoElementState = $state(new VideoElementState());
 	
 	let playerElement: HTMLElement | undefined = $state();
 	let scrubbingTime: number | null = $state(null);
 	let preciseScrubbing = $state(false);
-	let thumbSheetUrl: string | undefined = $state();
 	
 	let tapBackIndicatorElement: HTMLElement | undefined = $state();
 	let tapForwardIndicatorElement: HTMLElement | undefined = $state();
@@ -95,37 +82,35 @@
 	// Player Actions
 	
 	function playPause() {
-		if (videoElement === undefined) return;
+		if (videoState.videoElement === undefined) return;
 		
-		if (videoPaused || videoEnded) {
-			videoElement.play();
-			videoPaused = false;
+		if (videoState.isPaused || videoState.isEnded) {
+			videoState.isPaused = false;
 		} else {
-			videoElement.pause();
-			videoPaused = true;
+			videoState.isPaused = true;
 		}
 	}
 	
 	function jump(amount: number) {
-		if (videoElement === undefined) return;
+		if (videoState.videoElement === undefined) return;
 		
-		const newTime = Math.max(0, Math.min(videoDuration, videoCurrentTime + amount));
-		videoCurrentTime = newTime;
+		const newTime = Math.max(0, Math.min(videoState.duration, videoState.currentTime + amount));
+		videoState.currentTime = newTime;
 		
-		if (videoElement.fastSeek) {
-			videoElement.fastSeek(newTime);
+		if (videoState.videoElement.fastSeek) {
+			videoState.videoElement.fastSeek(newTime);
 		} else {
-			videoElement.currentTime = newTime;
+			videoState.videoElement.currentTime = newTime;
 		}
 	}
 	
 	export function seekTo(time: number) {
-		if (videoElement === undefined) return;
+		if (videoState.videoElement === undefined) return;
 		
-		const newTime = Math.max(0, Math.min(videoDuration, time));
+		const newTime = Math.max(0, Math.min(videoState.duration, time));
 		
-		videoCurrentTime = newTime;
-		videoElement.currentTime = newTime;
+		videoState.currentTime = newTime;
+		videoState.videoElement.currentTime = newTime;
 	}
 	
 	// Fullscreen
@@ -253,27 +238,18 @@
 			<VideoElement
 				{mediaInfo}
 				
-				bind:playerBackend
-				bind:thumbSheetUrl
-				
-				bind:videoElement
-				bind:videoPaused
-				bind:videoEnded
-				bind:videoDuration
-				bind:videoCurrentTime
-				bind:videoBuffered
-				bind:videoBuffering
+				provideState={(state) => videoState = state}
 			/>
 		{/key}
 	</div>
 	
-	{#if scrubbingTime !== null && videoInfo !== null && thumbSheetUrl !== undefined && !preciseScrubbing}
+	{#if scrubbingTime !== null && videoInfo !== null && videoState.thumbSheetUrl !== undefined && !preciseScrubbing}
 		<div class="full-thumbnail-container">
-			<PreviewThumbnail {videoInfo} {thumbSheetUrl} currentTime={scrubbingTime} extraStyles="flex: 1;"/>
+			<PreviewThumbnail {videoInfo} thumbSheetUrl={videoState.thumbSheetUrl} currentTime={scrubbingTime} extraStyles="flex: 1;"/>
 		</div>
 	{/if}
 	
-	{#if videoBuffering}
+	{#if videoState.isBuffering}
 		<div class="spinner-container">
 			<Spinner/>
 		</div>
@@ -282,7 +258,7 @@
 	{#if mobile}
 		<div class="center-controls hideable" class:hidden={!showControls}>
 			<SkipButton floating={true} direction=back {mediaInfo}/>
-			<PlayPauseButton floating={true} {videoPaused} onclick={playPause}/>
+			<PlayPauseButton floating={true} videoPaused={videoState.isPaused} onclick={playPause}/>
 			<SkipButton floating={true} direction=forward {mediaInfo}/>
 		</div>
 		
@@ -310,14 +286,14 @@
 				
 				<div class="flex-spacer"></div>
 				
-				<ConnectionsButton {mediaInfo} {videoCurrentTime} onclick={() => toggleSidebar(SidebarType.Connections)}/>
+				<ConnectionsButton {mediaInfo} videoCurrentTime={videoState.currentTime} onclick={() => toggleSidebar(SidebarType.Connections)}/>
 			</div>
 		</div>
 		
 		<div class="bottom-controls">
 			{#if mobile}
 				<div class="control-row">
-					<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
+					<div class="control-element">{formatDuration(videoState.currentTime)} / {formatDuration(videoState.duration)}</div>
 					
 					<div class="flex-spacer"></div>
 					
@@ -329,14 +305,8 @@
 			<div class:mobile-timeline-container={mobile} class:fullscreen={isFullscreen}>
 				<Timeline
 					{mediaInfo}
-					{thumbSheetUrl}
+					{videoState}
 					{playerElement}
-					
-					{videoElement}
-					bind:videoPaused={videoPaused}
-					bind:videoCurrentTime={videoCurrentTime}
-					{videoDuration}
-					{videoBuffered}
 					
 					bind:scrubbingTime={scrubbingTime}
 					bind:preciseScrubbing={preciseScrubbing}
@@ -346,9 +316,9 @@
 			{#if !mobile}
 				<div class="control-row">
 					<SkipButton direction=back {mediaInfo}/>
-					<PlayPauseButton {videoPaused} onclick={playPause}/>
+					<PlayPauseButton videoPaused={videoState.isPaused} onclick={playPause}/>
 					<SkipButton direction=forward {mediaInfo}/>
-					<div class="control-element">{formatDuration(videoCurrentTime)} / {formatDuration(videoDuration)}</div>
+					<div class="control-element">{formatDuration(videoState.currentTime)} / {formatDuration(videoState.duration)}</div>
 					
 					<div class="flex-spacer"></div>
 					
@@ -360,13 +330,13 @@
 		
 		<div class="right-sidebar">
 			{#if sidebarShown == SidebarType.Connections}
-				<ConnectionsMenu {mediaInfo} {videoElement} {videoCurrentTime}/>
+				<ConnectionsMenu {mediaInfo} videoElement={videoState.videoElement} videoCurrentTime={videoState.currentTime}/>
 			{/if}
 			
 			<div class="flex-spacer"></div>
 			
-			{#if sidebarShown == SidebarType.Settings && playerBackend}
-				<SettingsMenu {playerBackend}/>
+			{#if sidebarShown == SidebarType.Settings && videoState.playerBackend}
+				<SettingsMenu playerBackend={videoState.playerBackend}/>
 			{/if}
 		</div>
 	</div>

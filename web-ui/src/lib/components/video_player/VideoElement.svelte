@@ -1,3 +1,18 @@
+<script lang="ts" module>
+	export class VideoElementState {
+		playerBackend: VideoBackend | undefined = $state();
+		thumbSheetUrl: string | undefined = $state();
+		videoElement: HTMLVideoElement | undefined = $state();
+		
+		isBuffering: boolean = $state(true);
+		isPaused: boolean = $state(true);
+		isEnded: boolean = $state(false);
+		duration: number = $state(0.0);
+		currentTime: number = $state(0.0);
+		buffered: SvelteMediaTimeRange[] = $state([]);
+	}
+</script>
+
 <script lang="ts">
 	import type { SvelteMediaTimeRange } from 'svelte/elements';
     import { NATIVE_LEVEL_INDEX, VideoBackend } from './video_backend';
@@ -8,58 +23,39 @@
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
-		playerBackend?: VideoBackend | undefined;
-		thumbSheetUrl?: string | undefined;
-		videoBuffering?: boolean;
-		videoElement: HTMLVideoElement | undefined;
-		videoPaused: boolean;
-		videoEnded: boolean;
-		videoDuration: number;
-		videoCurrentTime: number;
-		videoBuffered: SvelteMediaTimeRange[];
+		provideState: (state: VideoElementState) => void;
 	}
 
 	let {
-		mediaInfo,
-		playerBackend = $bindable(),
-		thumbSheetUrl = $bindable(),
-		videoBuffering = $bindable(),
-		videoElement = $bindable(),
-		videoPaused = $bindable(),
-		videoEnded = $bindable(),
-		videoDuration = $bindable(),
-		videoCurrentTime = $bindable(),
-		videoBuffered = $bindable()
+		mediaInfo: initialMediaInfo,
+		provideState,
 	}: Props = $props();
 	
-	let innerVideoElement: HTMLVideoElement | undefined = $state();
-	let innerPaused = $state(true);
-	let innerEnded = $state(false);
-	let innerDuration = $state(mediaInfo.duration);
-	let innerCurrentTime = $state(0);
-	let innerBuffered: SvelteMediaTimeRange[] = $state([]);
+	// Prevent media info from being changed
+	const mediaInfo = initialMediaInfo;
 	
-	$effect(() => { videoElement = innerVideoElement; });
-	$effect(() => { videoPaused = innerPaused; });
-	$effect(() => { videoEnded = innerEnded; });
-	$effect(() => { videoDuration = innerDuration; });
-	$effect(() => { videoCurrentTime = innerCurrentTime; });
-	$effect(() => { videoBuffered = innerBuffered; });
+	const videoState = new VideoElementState();
+	videoState.duration = mediaInfo.duration;
+	
+	provideState(videoState);
+	
+	let innerCurrentTime = $state(0.0);
+	$effect(() => { videoState.currentTime = innerCurrentTime; });
 	
 	let mounted = false;	
 	
 	// Watch Progress
 	
 	function updateWatchProgress() {
-		if (!playerBackend) return;
-		if (videoCurrentTime < Math.min(1.0, videoDuration / 20)) return;
+		if (!videoState.playerBackend) return;
+		if (videoState.currentTime < Math.min(1.0, videoState.duration / 20)) return;
 		
 		const [library_id, media_path] = splitLibraryPath(mediaInfo.full_path);
 		
 		const msg: UpdateWatchProgressParams = {
 			library_id,
 			media_path,
-			new_watch_progress: Math.floor(videoCurrentTime),
+			new_watch_progress: Math.floor(videoState.currentTime),
 		};
 		
 		fetch("/api/update_watch_progress", {
@@ -82,57 +78,57 @@
 		if (!initialLoad) return;
 		
 		initialLoad = false;
-		videoBuffering = false;
+		videoState.isBuffering = false;
 	}
 	
 	function onVideoWaiting() {
-		videoBuffering = true;
+		videoState.isBuffering = true;
 	}
 	
 	function onVideoPlaying() {
-		videoBuffering = false;
+		videoState.isBuffering = false;
 	}
 	
 	onMount(() => {
 		mounted = true;
 		
-		if (innerVideoElement === undefined) throw Error("Video element is undefined");
+		if (videoState.videoElement === undefined) throw Error("Video element is undefined");
 		
-		playerBackend = new VideoBackend(innerVideoElement, mediaInfo);
-		playerBackend.currentLevelIndex.set(NATIVE_LEVEL_INDEX);
+		videoState.playerBackend = new VideoBackend(videoState.videoElement, mediaInfo);
+		videoState.playerBackend.currentLevelIndex.set(NATIVE_LEVEL_INDEX);
 		
 		const seekOverride: number | undefined = $page.state?.videoPlayerSeekTo;
 		
 		if (seekOverride !== undefined) {
-			innerCurrentTime = seekOverride;
-			innerVideoElement.currentTime = seekOverride;
+			videoState.currentTime = seekOverride;
+			videoState.videoElement.currentTime = seekOverride;
 		} else if (mediaInfo.watch_progress && mediaInfo.watch_progress < mediaInfo.duration - 10) {
-			innerCurrentTime = mediaInfo.watch_progress;
-			innerVideoElement.currentTime = mediaInfo.watch_progress;
+			videoState.currentTime = mediaInfo.watch_progress;
+			videoState.videoElement.currentTime = mediaInfo.watch_progress;
 		}
 		
-		videoBuffering = true;
+		videoState.isBuffering = true;
 		console.log("Attached player backend");
 		
-		if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
-		thumbSheetUrl = undefined;
+		if (videoState.thumbSheetUrl !== undefined) URL.revokeObjectURL(videoState.thumbSheetUrl);
+		videoState.thumbSheetUrl = undefined;
 		
 		if (mediaInfo.video_info !== null) {
 			fetch(`/api/thumbnail_sheet/${escapePath(mediaInfo.full_path)}`)
 				.then(res => res.blob())
 				.then(blob => {
-					if (mounted) thumbSheetUrl = URL.createObjectURL(blob);
+					if (mounted) videoState.thumbSheetUrl = URL.createObjectURL(blob);
 				});
 		}
 		
 		return () => {
 			mounted = false;
 			
-			if (thumbSheetUrl !== undefined) URL.revokeObjectURL(thumbSheetUrl);
+			if (videoState.thumbSheetUrl !== undefined) URL.revokeObjectURL(videoState.thumbSheetUrl);
 			
 			clearInterval(updateWatchProgressInterval);
 			
-			playerBackend?.detach();
+			videoState.playerBackend?.detach();
 			console.log("Dettached player backend");
 			
 			updateWatchProgress();
@@ -144,13 +140,14 @@
 
 <!-- svelte-ignore a11y_media_has_caption -->
 <video
-	bind:this={innerVideoElement}
-	bind:paused={innerPaused}
-	bind:ended={innerEnded}
-	bind:duration={innerDuration}
+	bind:this={videoState.videoElement}
+	bind:paused={videoState.isPaused}
+	bind:ended={videoState.isEnded}
+	bind:duration={videoState.duration}
+	bind:buffered={videoState.buffered}
+	
 	bind:currentTime={innerCurrentTime}
-	bind:buffered={innerBuffered}
-
+	
 	onloadeddata={onVideoLoadedData}
 	onwaiting={onVideoWaiting}
 	onplaying={onVideoPlaying}
