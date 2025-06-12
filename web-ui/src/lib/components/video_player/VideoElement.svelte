@@ -9,6 +9,7 @@
 		isEnded: boolean = $state(false);
 		duration: number = $state(0.0);
 		currentTime: number = $state(0.0);
+		playbackRate: number = $state(1.0);
 		buffered: SvelteMediaTimeRange[] = $state([]);
 	}
 </script>
@@ -144,6 +145,7 @@
 	bind:paused={videoState.isPaused}
 	bind:ended={videoState.isEnded}
 	bind:duration={videoState.duration}
+	bind:playbackRate={videoState.playbackRate}
 	bind:buffered={videoState.buffered}
 	
 	bind:currentTime={innerCurrentTime}

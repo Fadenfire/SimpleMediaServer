@@ -1,22 +1,18 @@
 <script lang="ts">
     import SelectionDropdown from "$lib/components/SelectionDropdown.svelte";
 	import type { VideoBackend } from "../video_backend";
+    import type { VideoElementState } from "../VideoElement.svelte";
     import SidebarMenu from "./SidebarMenu.svelte";
 
 	interface Props {
+		videoState: VideoElementState;
 		playerBackend: VideoBackend;
 	}
 
-	let { playerBackend }: Props = $props();
+	let { videoState, playerBackend }: Props = $props();
 	
 	let levels = $derived(playerBackend.qualityLevels);
 	let currentLevel = $derived(playerBackend.currentLevelIndex);
-	
-	let currentSpeed = $state(1.0);
-	
-	$effect(() => {
-		playerBackend.videoElement.playbackRate = currentSpeed;
-	});
 </script>
 
 <SidebarMenu>
@@ -33,7 +29,7 @@
 		{/each}
 	</SelectionDropdown>
 	
-	<SelectionDropdown bind:value={currentSpeed} label="Speed" style="width: 180px;">
+	<SelectionDropdown bind:value={videoState.playbackRate} label="Speed" style="width: 180px;">
 		<option value={0.25}>0.25x</option>
 		<option value={0.5}>0.5x</option>
 		<option value={0.75}>0.75x</option>

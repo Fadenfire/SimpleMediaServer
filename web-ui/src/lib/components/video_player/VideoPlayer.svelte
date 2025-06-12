@@ -336,7 +336,7 @@
 			<div class="flex-spacer"></div>
 			
 			{#if sidebarShown == SidebarType.Settings && videoState.playerBackend}
-				<SettingsMenu playerBackend={videoState.playerBackend}/>
+				<SettingsMenu {videoState} playerBackend={videoState.playerBackend}/>
 			{/if}
 		</div>
 	</div>
