@@ -56,5 +56,6 @@
 		width: 1em;
 		height: 1em;
 		border-radius: 50%;
+		box-shadow: 0px 0px 3px 0px white;
 	}
 </style>
