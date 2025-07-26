@@ -21,6 +21,8 @@
 </label>
 
 <style lang="scss">
+	@use "input_styles.scss";
+	
 	$arrows-size: 4px;
 	
 	label {
@@ -60,17 +62,12 @@
 	select {
 		appearance: none;
 		-webkit-appearance: none;
-		display: block;
-		margin: 0;
-		padding: 8px;
 		padding-right: calc(3em + $arrows-size);
-		background-color: var(--foreground-color);
 		border: none;
-		border-radius: 8px;
-		color: var(--main-text-color);
-		font-size: 14px;
 		font-weight: inherit;
 		text-decoration: none;
 		cursor: pointer;
+		
+		@include input_styles.box-input;
 	}
 </style>

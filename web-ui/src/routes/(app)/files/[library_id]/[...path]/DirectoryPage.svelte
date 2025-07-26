@@ -13,6 +13,7 @@
 	
 	export interface DirSnapshotObj {
 		sortType: SortType,
+		searchText: string,
 	}
 </script>
 
@@ -28,6 +29,7 @@
 	import dayjs from "dayjs";
     import PathComponents from "./PathComponents.svelte";
     import type { Snapshot } from "./$types";
+    import SearchBar from "$lib/components/SearchBar.svelte";
 	
 	interface Props {
 		dirInfo: ApiDirectoryInfo;
@@ -37,17 +39,26 @@
 	let { dirInfo, listDirPromise }: Props = $props();
 	
 	let sortType = $state(SortType.Name);
-		
+	let searchText = $state("");
+	
 	export const snapshot: Snapshot<DirSnapshotObj> = {
 		capture: () => {
 			return {
 				sortType,
+				searchText,
 			};
 		},
 		restore: (snapshot) => {
 			sortType = snapshot.sortType;
+			searchText = snapshot.searchText;
 		}
 	};
+	
+	let searchQuery = $derived(
+		searchText
+			.trim()
+			.toLowerCase()
+	);
 	
 	function sortEntries(files: ApiFileEntry[], sortType: SortType): ApiFileEntry[] {
 		if (sortType == SortType.Name) return files;
@@ -80,11 +91,25 @@
 			}
 		});
 	}
+	
+	interface HasDisplayName {
+		display_name: string;
+	}
+	
+	function filterEntries<T extends HasDisplayName>(entries: T[], searchQuery: string): T[] {
+		if (searchQuery.length == 0) return entries;
+		
+		return entries.filter(entry => {
+			return entry.display_name.toLowerCase().includes(searchQuery);
+		});
+	}
 </script>
 
 <main class="main-content">
 	<PageSection title={dirInfo.display_name}>
 		{#snippet titleBar()}
+			<SearchBar bind:contents={searchText}/>
+			
 			<SelectionDropdown bind:value={sortType} label="Sort by">
 				<option value={SortType.Name}>Name</option>
 				<option value={SortType.DateAdded}>Date Added</option>
@@ -110,7 +135,9 @@
 				</DimStripe>
 			{:else}
 				<TileGrid>
-					{#each dirList.directories as dir}
+					{@const filteredDirs = filterEntries(dirList.directories, searchQuery)}
+					
+					{#each filteredDirs as dir}
 						<DirectoryTile
 							title={dir.path_name}
 							link="{encodeURIComponent(dir.path_name)}/"
@@ -119,9 +146,10 @@
 						/>
 					{/each}
 					
-					{@const files = sortEntries(dirList.files, sortType)}
+					{@const filteredFiles = filterEntries(dirList.files, searchQuery)}
+					{@const sortedFiles = sortEntries(filteredFiles, sortType)}
 					
-					{#each files as file}
+					{#each sortedFiles as file}
 						<VideoTile fileEntry={file}/>
 					{/each}
 				</TileGrid>

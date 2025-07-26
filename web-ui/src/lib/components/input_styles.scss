@@ -1,0 +1,12 @@
+$font-size: 14px;
+$box-padding: 8px;
+
+@mixin box-input {
+	display: block;
+	margin: 0;
+	padding: $box-padding;
+	background-color: var(--foreground-color);
+	border-radius: 8px;
+	color: var(--main-text-color);
+	font-size: $font-size;
+}
