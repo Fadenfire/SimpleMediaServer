@@ -3,16 +3,18 @@
 
 	interface Props {
 		contents: string;
+		placeholder: string;
 	}
 	
 	let {
-		contents = $bindable("")
+		contents = $bindable(""),
+		placeholder,
 	}: Props = $props();
 </script>
 
 <div class="box-container">
 	<div class="icon"><FeatherIcon name="search" size="1em"/></div>
-	<input type="text" bind:value={contents} placeholder="Search">
+	<input type="text" bind:value={contents} placeholder={placeholder}>
 </div>
 
 <style lang="scss">

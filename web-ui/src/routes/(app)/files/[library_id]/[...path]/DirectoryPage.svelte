@@ -108,7 +108,7 @@
 <main class="main-content">
 	<PageSection title={dirInfo.display_name}>
 		{#snippet titleBar()}
-			<SearchBar bind:contents={searchText}/>
+			<SearchBar bind:contents={searchText} placeholder="Filter by name"/>
 			
 			<SelectionDropdown bind:value={sortType} label="Sort by">
 				<option value={SortType.Name}>Name</option>
