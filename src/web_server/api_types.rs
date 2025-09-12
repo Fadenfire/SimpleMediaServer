@@ -48,6 +48,7 @@ pub struct ApiFileInfo {
 	pub artist: Option<String>,
 	#[serde(with = "time::serde::iso8601")]
 	pub creation_date: OffsetDateTime,
+	pub thumbnail_path: String,
 	pub video_info: Option<ApiVideoInfo>,
 	pub prev_video: Option<String>,
 	pub next_video: Option<String>,

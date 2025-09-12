@@ -21,6 +21,7 @@
     import { escapePath, splitLibraryPath } from '$lib/utils';
     import { page } from '$app/stores';
     import { invalidate } from '$app/navigation';
+    import { jumpToVideo } from './video_utils';
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -120,6 +121,38 @@
 				.then(blob => {
 					if (mounted) videoState.thumbSheetUrl = URL.createObjectURL(blob);
 				});
+		}
+		
+		if ("mediaSession" in navigator) {
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: mediaInfo.display_name,
+				artist: mediaInfo.artist ?? undefined,
+				artwork: [
+					{
+						src: escapePath(mediaInfo.thumbnail_path),
+					}
+				],
+			});
+			
+			navigator.mediaSession.setActionHandler("play", () => {
+				videoState.videoElement?.play();
+			});
+			
+			navigator.mediaSession.setActionHandler("pause", () => {
+				videoState.videoElement?.pause();
+			});
+			
+			if (mediaInfo.next_video !== null) {
+				navigator.mediaSession.setActionHandler("nexttrack", () => {
+					jumpToVideo(mediaInfo.next_video);
+				});
+			}
+			
+			if (mediaInfo.prev_video !== null) {
+				navigator.mediaSession.setActionHandler("previoustrack", () => {
+					jumpToVideo(mediaInfo.prev_video);
+				});
+			}
 		}
 		
 		return () => {

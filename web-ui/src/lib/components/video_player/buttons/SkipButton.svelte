@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { goto } from "$app/navigation";
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
+    import { jumpToVideo } from "../video_utils";
     import Button from "./Button.svelte";
 
 	interface Props {
@@ -14,14 +14,7 @@
 	let skipTarget = $derived(direction === "forward" ? mediaInfo.next_video : mediaInfo.prev_video);
 	
 	function onClick() {
-		if (skipTarget !== null) {
-			goto(`../${encodeURIComponent(skipTarget)}/`, {
-				replaceState: true,
-				state: {
-					videoPlayerSeekTo: 0
-				}
-			});
-		}
+		jumpToVideo(skipTarget);
 	}
 </script>
 

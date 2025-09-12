@@ -1,7 +1,7 @@
 # ============= Build Frontend =============
 
 # Use native platform for web-builder since it doesn't produce any platform specific artifacts
-FROM --platform=$BUILDPLATFORM node:23.11.0-alpine AS web-builder
+FROM --platform=$BUILDPLATFORM node:24.8.0-alpine AS web-builder
 
 ENV COREPACK_HOME="/corepack"
 ENV PNPM_HOME="/pnpm"
@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/corepack,sharing=locked \
 
 # ============= Build Backend =============
 
-FROM rust:1.86.0-slim-bookworm AS builder
+FROM rust:1.89.0-slim-bookworm AS builder
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \

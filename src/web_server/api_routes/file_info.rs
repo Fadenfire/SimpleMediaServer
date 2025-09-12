@@ -161,14 +161,18 @@ pub async fn create_file_info(
 		.map(|comments_file: CommentsFile| comments_file.comment_threads)
 		.unwrap_or_default();
 	
+	let full_path = RelativePath::new(&library.id).join(&library_path);
+	let thumbnail_path = thumbnail::create_thumbnail_path(&full_path);
+	
 	Ok(ApiFileInfo {
-		full_path: RelativePath::new(&library.id).join(&library_path),
+		full_path,
 		library_display_name: library.display_name.clone(),
 		display_name: basic_metadata.title,
 		file_size: file_metadata.len(),
 		duration: basic_metadata.duration.as_secs(),
 		artist: basic_metadata.artist,
 		creation_date: basic_metadata.creation_date,
+		thumbnail_path,
 		video_info,
 		prev_video,
 		next_video,
