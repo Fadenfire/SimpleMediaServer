@@ -1,7 +1,12 @@
+<script lang="ts" module>
+	const PAGE_SIZE = 48;
+</script>
+
 <script lang="ts">
     import DimStripe from "$lib/components/DimStripe.svelte";
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     import PageSection from "$lib/components/PageSection.svelte";
+    import SearchBar from "$lib/components/SearchBar.svelte";
     import TileGrid from "$lib/components/tile_grid/TileGrid.svelte";
     import type { PageData } from "./$types";
     import HistoryTile from "./HistoryTile.svelte";
@@ -12,7 +17,23 @@
 
 	let { data }: Props = $props();
 	
-	let updatedEntries: ApiWatchHistoryEntry[] | undefined = $state();
+	let deletedEntries: ApiWatchHistoryEntry[] = $state([]);
+	let searchText = $state("");
+	
+	let historyPromise: Promise<ApiWatchHistoryResponse> = $derived.by(async () => {
+		const searchQuery = searchText
+			.trim()
+			.toLowerCase();
+		
+		let url = `/api/watch_history?page=${data.pageIndex}&page_size=${PAGE_SIZE}`;
+		
+		if (searchQuery !== "") {
+			url += `&search_query=${encodeURIComponent(searchQuery)}`;
+		}
+		
+		const res = await fetch(url);
+        return await res.json();
+	});
 </script>
 
 <svelte:head>
@@ -21,17 +42,23 @@
 
 <main class="main-content">
 	<PageSection title="Watch History">
-		{#await data.historyPromise}
+		{#snippet titleBar()}
+			<SearchBar onCommited={(contents) => searchText = contents} placeholder="Filter by name"/>
+		{/snippet}
+		
+		{#await historyPromise}
 			<DimStripe>Loading</DimStripe>
 		{:then watchHistory}
 			<TileGrid>
-				{#each updatedEntries ?? watchHistory.entries as entry}
-					<HistoryTile
-						historyEntry={entry}
-						showDeleteButton={true}
-						showLastWatched={true}
-						deleteEntry={() => updatedEntries = (updatedEntries ?? watchHistory.entries).filter(e => e !== entry)}
-					/>
+				{#each watchHistory.entries as entry}
+					{#if !deletedEntries.some(e => e.media_path === entry.media_path && e.library_id === entry.library_id)}
+						<HistoryTile
+							historyEntry={entry}
+							showDeleteButton={true}
+							showLastWatched={true}
+							deleteEntry={() => deletedEntries = [...deletedEntries, entry]}
+						/>
+					{/if}
 				{/each}
 			</TileGrid>
 			

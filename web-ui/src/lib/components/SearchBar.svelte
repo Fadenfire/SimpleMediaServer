@@ -2,19 +2,21 @@
     import FeatherIcon from "./FeatherIcon.svelte";
 
 	interface Props {
-		contents: string;
+		contents?: string;
 		placeholder: string;
+		onCommited?: (contents: string) => void;
 	}
 	
 	let {
 		contents = $bindable(""),
 		placeholder,
+		onCommited,
 	}: Props = $props();
 </script>
 
 <div class="box-container">
 	<div class="icon"><FeatherIcon name="search" size="1em"/></div>
-	<input type="text" bind:value={contents} placeholder={placeholder}>
+	<input type="text" bind:value={contents} onchange={() => onCommited?.(contents)} placeholder={placeholder}>
 </div>
 
 <style lang="scss">

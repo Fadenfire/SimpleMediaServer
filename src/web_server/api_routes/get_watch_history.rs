@@ -24,15 +24,39 @@ pub async fn get_watch_history_route(server_state: &ServerState, request: &Hyper
 		let mut user_watch_histories = server_state.user_watch_histories.lock().unwrap();
 		let watch_history = user_watch_histories.get_watch_history(&user.id);
 		
-		total_pages = watch_history.entry_count().div_ceil(params.page_size);
-		
-		history_entries = watch_history
-			.iter_entries()
-			.rev()
-			.skip(params.page * params.page_size)
-			.take(params.page_size)
-			.map(Clone::clone)
-			.collect();
+		if let Some(search_query) = &params.search_query {
+			let search_query = search_query.to_lowercase();
+			
+			let mut iter = watch_history
+				.iter_entries()
+				.rev()
+				.filter(|entry| {
+					entry.media_path.file_name()
+						.is_some_and(|file_name| file_name.to_lowercase().contains(&search_query))
+				});
+			
+			let mut total_entries = (&mut iter).take(params.page * params.page_size).count();
+			
+			history_entries = (&mut iter)
+				.take(params.page_size)
+				.map(Clone::clone)
+				.collect();
+			
+			total_entries += history_entries.len();
+			total_entries += iter.count();
+			
+			total_pages = total_entries.div_ceil(params.page_size);
+		} else {
+			total_pages = watch_history.entry_count().div_ceil(params.page_size);
+			
+			history_entries = watch_history
+				.iter_entries()
+				.rev()
+				.skip(params.page * params.page_size)
+				.take(params.page_size)
+				.map(Clone::clone)
+				.collect();
+		}
 	};
 	
 	let mut entries = Vec::new();
@@ -72,6 +96,7 @@ pub async fn get_watch_history_route(server_state: &ServerState, request: &Hyper
 struct WatchHistoryParams {
 	page: usize,
 	page_size: usize,
+	search_query: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
