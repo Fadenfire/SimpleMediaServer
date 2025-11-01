@@ -19,7 +19,9 @@
 		deleteEntry
 	}: Props = $props();
 	
-	let lastWatched = $derived(showLastWatched ? dayjs(historyEntry.last_watched).fromNow() : undefined);
+	let lastWatched = $derived(dayjs(historyEntry.last_watched));
+	let lastWatchedText = $derived(lastWatched.fromNow());
+	let lastWatchedTooltip = $derived(lastWatched.format("YYYY-MM-DD hh:mm A"));
 </script>
 
 {#if historyEntry.file !== null}
@@ -29,8 +31,8 @@
 		{/snippet}
 		
 		{#snippet desc()}
-			{#if lastWatched}
-				<span class="extra-info">Last watched {lastWatched}</span>
+			{#if showLastWatched}
+				<span class="extra-info" title={lastWatchedTooltip}>Last watched {lastWatchedText}</span>
 			{/if}
 		{/snippet}
 	</VideoTile>
@@ -45,8 +47,8 @@
 		{/snippet}
 		
 		{#snippet desc()}
-			{#if lastWatched}
-				<span class="extra-info">Last watched {lastWatched}</span>
+			{#if showLastWatched}
+				<span class="extra-info" title={lastWatchedTooltip}>Last watched {lastWatchedText}</span>
 			{/if}
 		{/snippet}
 	</BaseTile>
