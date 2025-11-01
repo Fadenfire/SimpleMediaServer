@@ -26,7 +26,7 @@ pub struct AuthSecrets {
 	jwt_key: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct JwtClaims {
 	sub: String,
 	exp: u64,

@@ -10,7 +10,7 @@ hyper = { version = "1.0", features = ["http1", "http2", "server"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto"] }
 tokio-rustls = "0.26"
 rustls-pemfile = "2.0"
-rcgen = "0.13"
+rcgen = "0.14"
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs"] }
 http = "1.0"
@@ -19,13 +19,13 @@ headers = "0.4"
 bytes = "1.0"
 mime = "0.3"
 mime_guess = "2.0"
-jsonwebtoken = "9.0"
+jsonwebtoken = { version = "10.0", features = ["aws_lc_rs"] }
 figment = { version = "0.10", features = ["yaml", "env"] }
 anyhow = "1.0"
 argh = "0.1"
 ffmpeg-next = "7.0"
 ffmpeg-sys-next = "7.0"
-mp4ameta = "0.12"
+mp4ameta = "0.13"
 matroska = "0.30"
 image = { version = "^0.25", default-features = false }
 turbojpeg = { version = "1.0", features = ["image"] }
@@ -42,9 +42,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 percent-encoding = "2.3.1"
 scopeguard = "1.0"
-hashlink = "0.10"
+hashlink = "0.11"
 time = { version = "0.3", features = ["macros", "serde-human-readable", "parsing"] }
-relative-path = { version = "1.0", features = ["serde"] }
+relative-path = { version = "2.0", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "3.0"
