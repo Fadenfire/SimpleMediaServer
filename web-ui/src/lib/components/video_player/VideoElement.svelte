@@ -48,9 +48,11 @@
 	
 	// Watch Progress
 	
+	let watchTime = $state(0);
+	
 	function updateWatchProgress() {
 		if (!videoState.playerBackend) return;
-		if (videoState.currentTime < Math.min(1.0, videoState.duration / 20)) return;
+		if (watchTime < Math.min(2.0, videoState.duration / 20)) return;
 		
 		const [library_id, media_path] = splitLibraryPath(mediaInfo.full_path);
 		
@@ -71,6 +73,12 @@
 	}
 	
 	const updateWatchProgressInterval = setInterval(updateWatchProgress, 60 * 1000);
+	
+	const updateWatchTimeInterval = setInterval(() => {
+		if (!videoState.isPaused && !videoState.isEnded && !videoState.isBuffering) {
+			watchTime += 1;
+		}
+	}, 1000);
 	
 	// Buffering
 	
@@ -161,6 +169,7 @@
 			if (videoState.thumbSheetUrl !== undefined) URL.revokeObjectURL(videoState.thumbSheetUrl);
 			
 			clearInterval(updateWatchProgressInterval);
+			clearInterval(updateWatchTimeInterval);
 			
 			videoState.playerBackend?.detach();
 			console.log("Dettached player backend");
