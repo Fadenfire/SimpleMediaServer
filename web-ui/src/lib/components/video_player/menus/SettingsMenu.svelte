@@ -7,9 +7,16 @@
 	interface Props {
 		videoState: VideoElementState;
 		playerBackend: VideoBackend;
+		
+		brightness: number;
 	}
 
-	let { videoState, playerBackend }: Props = $props();
+	let {
+		videoState,
+		playerBackend,
+		
+		brightness = $bindable(1.0),
+	}: Props = $props();
 	
 	let levels = $derived(playerBackend.qualityLevels);
 	let currentLevel = $derived(playerBackend.currentLevelIndex);
@@ -39,6 +46,11 @@
 		<option value={1.75}>1.75x</option>
 		<option value={2.0}>2x</option>
 	</SelectionDropdown>
+	
+	<label>
+		Brightness
+		<input type="range" min="1.0" max="4.0" step="0.2" bind:value={brightness}>
+	</label>
 </SidebarMenu>
 
 <style lang="scss">

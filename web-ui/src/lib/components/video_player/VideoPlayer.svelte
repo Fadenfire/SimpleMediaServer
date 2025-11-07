@@ -27,6 +27,7 @@
     import ConnectionsMenu from "./menus/ConnectionsMenu.svelte";
     import SettingsButton from "./buttons/SettingsButton.svelte";
 	import SettingsMenu from "./menus/SettingsMenu.svelte";
+	import { createLighteningFilter } from "./filters";
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -220,6 +221,12 @@
 		event.stopPropagation();
 		event.preventDefault();
 	}
+	
+	// Filters
+	
+	let brightness = $state(1.0);
+	
+	let filterURI = $derived(brightness > 1.0 ? createLighteningFilter(brightness) : undefined)
 </script>
 
 <svelte:window onkeydown={onWindowKeyPressed}/>
@@ -237,6 +244,8 @@
 		{#key mediaInfo.full_path}
 			<VideoElement
 				{mediaInfo}
+				
+				style={filterURI !== undefined ? `filter: ${filterURI};` : undefined}
 				
 				provideState={(state) => videoState = state}
 			/>
@@ -336,7 +345,7 @@
 			<div class="flex-spacer"></div>
 			
 			{#if sidebarShown == SidebarType.Settings && videoState.playerBackend}
-				<SettingsMenu {videoState} playerBackend={videoState.playerBackend}/>
+				<SettingsMenu {videoState} playerBackend={videoState.playerBackend} bind:brightness={brightness}/>
 			{/if}
 		</div>
 	</div>

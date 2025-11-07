@@ -61,3 +61,7 @@ export function replayAnimations(elem: Element | undefined) {
 		anim.play();
 	});
 }
+
+export function createDataURI(mime_type: string, data: string): string {
+	return `data:${mime_type};base64,${btoa(data)}`;
+}

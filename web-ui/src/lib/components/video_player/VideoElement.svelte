@@ -26,11 +26,15 @@
 	interface Props {
 		mediaInfo: ApiFileInfo;
 		provideState: (state: VideoElementState) => void;
+		
+		style?: string;
 	}
 
 	let {
 		mediaInfo: initialMediaInfo,
 		provideState,
+		
+		style: videoStyle,
 	}: Props = $props();
 	
 	// Prevent media info from being changed
@@ -191,6 +195,8 @@
 	bind:buffered={videoState.buffered}
 	
 	bind:currentTime={innerCurrentTime}
+	
+	style={videoStyle}
 	
 	onloadeddata={onVideoLoadedData}
 	onwaiting={onVideoWaiting}
