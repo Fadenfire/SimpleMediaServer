@@ -254,7 +254,12 @@
 	
 	{#if scrubbingTime !== null && videoInfo !== null && videoState.thumbSheetUrl !== undefined && !preciseScrubbing}
 		<div class="full-thumbnail-container">
-			<PreviewThumbnail {videoInfo} thumbSheetUrl={videoState.thumbSheetUrl} currentTime={scrubbingTime} extraStyles="flex: 1;"/>
+			<PreviewThumbnail 
+				{videoInfo}
+				thumbSheetUrl={videoState.thumbSheetUrl}
+				currentTime={scrubbingTime}
+				extraStyles="flex: 1;"
+			/>
 		</div>
 	{/if}
 	
@@ -286,16 +291,26 @@
 		{/if}
 	{/if}
 	
-	<div bind:this={controlsContainerElement} class="controls-container hideable" class:hidden={!showControls}>
+	<div
+		bind:this={controlsContainerElement}
+		class="controls-container hideable"
+		class:hidden={!showControls}
+	>
 		<div class="top-controls">
 			<div class="control-row">
 				{#if isFullscreen}
-					<div class="control-element"><div class="video-title">{mediaInfo.display_name}</div></div>
+					<div class="control-element">
+						<div class="video-title">{mediaInfo.display_name}</div>
+					</div>
 				{/if}
 				
 				<div class="flex-spacer"></div>
 				
-				<ConnectionsButton {mediaInfo} videoCurrentTime={videoState.currentTime} onclick={() => toggleSidebar(SidebarType.Connections)}/>
+				<ConnectionsButton
+					{mediaInfo}
+					videoCurrentTime={videoState.currentTime}
+					onclick={() => toggleSidebar(SidebarType.Connections)}
+				/>
 			</div>
 		</div>
 		
@@ -339,13 +354,21 @@
 		
 		<div class="right-sidebar">
 			{#if sidebarShown == SidebarType.Connections}
-				<ConnectionsMenu {mediaInfo} videoElement={videoState.videoElement} videoCurrentTime={videoState.currentTime}/>
+				<ConnectionsMenu
+					{mediaInfo}
+					videoElement={videoState.videoElement}
+					videoCurrentTime={videoState.currentTime}
+				/>
 			{/if}
 			
 			<div class="flex-spacer"></div>
 			
 			{#if sidebarShown == SidebarType.Settings && videoState.playerBackend}
-				<SettingsMenu {videoState} playerBackend={videoState.playerBackend} bind:brightness={brightness}/>
+				<SettingsMenu
+					{videoState}
+					playerBackend={videoState.playerBackend}
+					bind:brightness={brightness}
+				/>
 			{/if}
 		</div>
 	</div>
