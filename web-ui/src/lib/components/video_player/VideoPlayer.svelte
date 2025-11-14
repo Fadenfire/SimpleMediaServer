@@ -27,13 +27,15 @@
     import ConnectionsMenu from "./menus/ConnectionsMenu.svelte";
     import SettingsButton from "./buttons/SettingsButton.svelte";
 	import SettingsMenu from "./menus/SettingsMenu.svelte";
-	import { createLighteningFilter } from "./filters";
+    import VideoFilters from "./VideoFilters.svelte";
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
 	}
 
 	let { mediaInfo }: Props = $props();
+	
+	let videoAspectRadio = $derived(mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0);
 	
 	let videoState: VideoElementState = $state(new VideoElementState());
 	
@@ -224,9 +226,7 @@
 	
 	// Filters
 	
-	let brightness = $state(1.0);
-	
-	let filterURI = $derived(brightness > 1.0 ? createLighteningFilter(brightness) : undefined)
+	let gamma = $state(1.0);
 </script>
 
 <svelte:window onkeydown={onWindowKeyPressed}/>
@@ -240,16 +240,17 @@
 	onpointerdown={resetIdleness}
 	onfullscreenchange={onFullscreenChange}
 >
-	<div class="video-container" onpointerdown={playerClick}>
-		{#key mediaInfo.full_path}
-			<VideoElement
-				{mediaInfo}
-				
-				style={filterURI !== undefined ? `filter: ${filterURI};` : undefined}
-				
-				provideState={(state) => videoState = state}
-			/>
-		{/key}
+	<div class="video-container" onpointerdown={playerClick} style="--video-aspect-ratio: {videoAspectRadio};">
+		<div class="inner-video-container">
+			<VideoFilters gamma={gamma}>
+				{#key mediaInfo.full_path}
+					<VideoElement
+						{mediaInfo}
+						provideState={(state) => videoState = state}
+					/>
+				{/key}
+			</VideoFilters>
+		</div>
 	</div>
 	
 	{#if scrubbingTime !== null && videoInfo !== null && videoState.thumbSheetUrl !== undefined && !preciseScrubbing}
@@ -367,7 +368,7 @@
 				<SettingsMenu
 					{videoState}
 					playerBackend={videoState.playerBackend}
-					bind:brightness={brightness}
+					bind:gamma={gamma}
 				/>
 			{/if}
 		</div>
@@ -402,8 +403,17 @@
 	}
 	
 	.video-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		width: 100%;
 		height: 100%;
+		container-type: size;
+		
+		.inner-video-container {
+			height: calc(min(100%, 100cqw / var(--video-aspect-radio)));
+			width: calc(min(100cqh * var(--video-aspect-radio), 100%));
+		}
 	}
 	
 	.hideable {

@@ -8,14 +8,14 @@
 		videoState: VideoElementState;
 		playerBackend: VideoBackend;
 		
-		brightness: number;
+		gamma: number;
 	}
 
 	let {
 		videoState,
 		playerBackend,
 		
-		brightness = $bindable(1.0),
+		gamma = $bindable(1.0),
 	}: Props = $props();
 	
 	let levels = $derived(playerBackend.qualityLevels);
@@ -48,8 +48,8 @@
 	</SelectionDropdown>
 	
 	<label>
-		Brightness
-		<input type="range" min="1.0" max="4.0" step="0.2" bind:value={brightness}>
+		Gamma
+		<input type="range" min="1.0" max="4.0" step="0.2" bind:value={gamma}>
 	</label>
 </SidebarMenu>
 

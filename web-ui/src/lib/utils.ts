@@ -65,3 +65,7 @@ export function replayAnimations(elem: Element | undefined) {
 export function createDataURI(mime_type: string, data: string): string {
 	return `data:${mime_type};base64,${btoa(data)}`;
 }
+
+export function randomId(): string {
+	return (Math.random().toString(36) + "00000000000").slice(2, 8);
+}
