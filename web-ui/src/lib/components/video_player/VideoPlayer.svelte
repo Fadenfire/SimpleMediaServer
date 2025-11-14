@@ -503,7 +503,7 @@
 		padding-bottom: 16px;
 		
 		&.fullscreen {
-			padding-bottom: 32px;
+			padding-bottom: 18px;
 		}
 	}
 	
