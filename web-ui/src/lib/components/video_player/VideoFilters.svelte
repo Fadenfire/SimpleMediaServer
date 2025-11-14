@@ -1,4 +1,11 @@
 <script lang="ts" module>
+	// Safari does not support/has a bug that prevents svg filters from working
+	//  on videos. To get around this, I use a combination of
+	//  mix-blend-mode: color-burn; and the brightness filter to approximate a
+	//  Gamma curve on Safari.
+	
+	// These parameters were found using a Python program to find the
+	//  least-squares fit of the color-burn function to a Gamma curve.
 	const GAMMA_FILTER_PARAMS = [
 		[2.000000, 0.452152, 0.462721, 0.498724], // gamma = 1.0
         [2.000000, 0.499219, 0.495900, 0.467721], // gamma = 1.1
@@ -71,7 +78,7 @@
 	});
 		
 	const svgFilterPrefix = randomId();
-	const avgGammaFilterId = `${svgFilterPrefix}-gammaFilter`;
+	const svgGammaFilterId = `${svgFilterPrefix}-gammaFilter`;
 </script>
 
 {#if isSafari}
@@ -85,11 +92,11 @@
 		</div>
 	</div>
 {:else}
-	<div class="filters-container" style={gamma > 1 ? `filter: url(#${avgGammaFilterId});` : undefined}>
+	<div class="filters-container" style={gamma > 1 ? `filter: url(#${svgGammaFilterId});` : undefined}>
 		{@render children()}
 		
 		<svg width="0" height="0" xmlns="http://www.w3.org/2000/svg">
-			<filter id="{avgGammaFilterId}">
+			<filter id="{svgGammaFilterId}">
 				<feComponentTransfer color-interpolation-filters="sRGB">
 					<feFuncR type="linear" slope="-1.0" intercept="1.0" />
 					<feFuncG type="linear" slope="-1.0" intercept="1.0" />
