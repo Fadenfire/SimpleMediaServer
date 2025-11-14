@@ -24,7 +24,7 @@
 
 <div class="path-components">
 	{#each pathComponents as pathComponent, index}
-		{#if index != 0} <span class="divider">&gt;</span> {/if}
+		{#if index != 0} <span class="divider">/</span> {/if}
 		<a class="normal-link" href={pathComponentLinks[index]}>{pathComponent}</a>
 	{/each}
 </div>
