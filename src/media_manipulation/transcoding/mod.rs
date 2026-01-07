@@ -17,6 +17,7 @@ use crate::media_manipulation::media_utils::in_memory_muxer::InMemoryMuxer;
 
 mod audio;
 mod video;
+pub mod subtitle;
 
 const PADDING_DELTA: i64 = 1;
 
