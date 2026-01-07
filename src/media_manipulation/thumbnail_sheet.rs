@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use bytes::Bytes;
-use ffmpeg_next::{decoder, format, frame, media, rescale, Rescale};
+use ffmpeg_next::{decoder, format, frame, media, rescale, Discard, Rescale};
 use ffmpeg_sys_next::AV_CODEC_FLAG_COPY_OPAQUE;
 use image::{GenericImage, Rgb, RgbImage};
 use serde::{Deserialize, Serialize};
@@ -59,7 +59,8 @@ pub fn generate_sheet(backend_factory: &impl BackendFactory, media_path: PathBuf
 		..Default::default()
 	})?;
 	
-	media_utils::discard_all_but_keyframes(&mut demuxer, video_stream_index);
+	// Discard all packets except for keyframes in the video stream
+	media_utils::discard_all_but_one(&mut demuxer, video_stream_index, Discard::NonKey);
 	
 	let duration_millis = demuxer.duration()
 		.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)

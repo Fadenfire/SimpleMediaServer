@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use std::ops::Range;
 
 use anyhow::Context;
-use ffmpeg_next::{decoder, Discard, format, frame, Rational, Rescale};
+use ffmpeg_next::{decoder, Discard, format, frame, Rational, Rescale, Stream};
 use ffmpeg_next::packet::Mut;
 use ffmpeg_sys_next::{AVERROR, ENOMEM};
 use image::flat::SampleLayout;
@@ -24,9 +24,19 @@ pub fn scale_range(range: Range<i64>, from: Rational, to: Rational) -> Range<i64
 	}
 }
 
-pub fn discard_all_but_keyframes(demuxer: &mut format::context::Input, stream_index: usize) {
+pub fn discard_all_but_one(demuxer: &mut format::context::Input, stream_index: usize, stream_discard: Discard) {
+	discard_streams(demuxer, |stream| {
+		if stream.index() == stream_index { stream_discard } else { Discard::All }
+	});
+}
+
+pub fn discard_streams(
+	demuxer: &mut format::context::Input,
+	mut stream_discard: impl FnMut(&Stream) -> Discard
+) {
 	for mut stream in demuxer.streams_mut() {
-		let discard = if stream.index() == stream_index { Discard::NonKey } else { Discard::All };
+		let discard = stream_discard(&stream);
+		
 		unsafe { (*stream.as_mut_ptr()).discard = discard.into(); }
 	}
 }

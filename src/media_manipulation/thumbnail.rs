@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
-use ffmpeg_next::{decoder, format, frame, media, rescale, Rescale};
+use ffmpeg_next::{decoder, format, frame, media, rescale, Discard, Rescale};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use turbojpeg::Subsamp;
@@ -30,7 +30,8 @@ pub fn extract_thumbnail(backend_factory: &impl BackendFactory, media_path: Path
 		..Default::default()
 	})?;
 	
-	media_utils::discard_all_but_keyframes(&mut demuxer, video_stream_index);
+	// Discard all packets except for keyframes in the video stream
+	media_utils::discard_all_but_one(&mut demuxer, video_stream_index, Discard::NonKey);
 	
 	let video_duration = demuxer.duration().rescale(rescale::TIME_BASE, MICRO_TIME_BASE);
 	let duration_hash = blake3::hash(&video_duration.to_le_bytes());

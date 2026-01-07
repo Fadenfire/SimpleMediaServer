@@ -1,21 +1,25 @@
+use crate::media_manipulation::media_utils;
 use crate::media_manipulation::media_utils::in_memory_muxer::InMemoryMuxer;
 use crate::media_manipulation::media_utils::{av_error, check_alloc, MILLIS_TIME_BASE};
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use ffmpeg_next::codec::Id;
-use ffmpeg_next::{codec, encoder, format, Packet, Rescale, Subtitle};
+use ffmpeg_next::media::Type;
+use ffmpeg_next::{codec, encoder, format, Discard, Packet, Rescale, Subtitle};
 use ffmpeg_sys_next::{av_mallocz, avcodec_encode_subtitle, AV_TIME_BASE_Q};
 use std::ffi::c_int;
 use std::path::PathBuf;
-use ffmpeg_next::media::Type;
 
-pub fn transcode_subtitle_to_webvtt(media_path: PathBuf, track_index: usize) -> anyhow::Result<Bytes> {
+pub fn transcode_subtitle_to_webvtt(media_path: PathBuf, stream_index: usize) -> anyhow::Result<Bytes> {
 	let mut demuxer = format::input(&media_path).context("Opening video file")?;
 	let mut muxer = InMemoryMuxer::new("webvtt").context("Opening output")?;
 	
+	// Discard all packets except for the subtitle stream
+	media_utils::discard_all_but_one(&mut demuxer, stream_index, Discard::None);
+	
 	// Get in stream
 	
-	let in_stream = demuxer.stream(track_index).context("Could not find subtitle stream")?;
+	let in_stream = demuxer.stream(stream_index).context("Could not find subtitle stream")?;
 	let in_time_base = in_stream.time_base();
 	
 	if in_stream.parameters().medium() != Type::Subtitle {
@@ -73,7 +77,7 @@ pub fn transcode_subtitle_to_webvtt(media_path: PathBuf, track_index: usize) -> 
 	let mut out_buf = vec![0; 1024 * 1024];
 	
 	for (stream, packet) in demuxer.packets() {
-		if stream.index() == track_index {
+		if stream.index() == stream_index {
 			let mut subtitle = Subtitle::new();
 			let success = decoder.decode(&packet, &mut subtitle).context("Decoding subtitle")?;
 			
