@@ -48,7 +48,7 @@ pub struct VideoMetadata {
 
 #[derive(Clone, Debug)]
 pub struct SubtitleStream {
-	pub index: usize,
+	pub stream_index: usize,
 	pub language: Option<String>,
 	pub name: Option<String>,
 }
@@ -199,7 +199,7 @@ fn extract_advanced_metadata(media_path: &Path) -> anyhow::Result<AdvancedMediaM
 				.map(ToOwned::to_owned);
 			
 			SubtitleStream {
-				index: stream.index(),
+				stream_index: stream.index(),
 				language,
 				name,
 			}

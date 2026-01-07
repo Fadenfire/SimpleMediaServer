@@ -73,6 +73,7 @@ interface ApiFileInfo extends ApiInfoCommon {
 	creation_date: string,
 	thumbnail_path: string,
 	video_info: ApiVideoInfo | null,
+	subtitle_streams: ApiSubtitleStream[],
 	prev_video: string | null,
 	next_video: string | null,
 	watch_progress: number | null,
@@ -97,6 +98,12 @@ interface ApiVideoConnection {
 	left_start: number,
 	left_end: number,
 	right_start: number,
+}
+
+interface ApiSubtitleStream {
+	track_id: number,
+	language: string | null,
+	name: string | null,
 }
 
 interface ApiCommentThread {

@@ -116,7 +116,7 @@ pub async fn create_file_info(
 	
 	let subtitle_streams = advanced_metadata.subtitle_streams.iter()
 		.map(|stream| ApiSubtitleStream {
-			index: stream.index,
+			track_id: stream.stream_index,
 			language: stream.language.clone(),
 			name: stream.name.clone(),
 		})

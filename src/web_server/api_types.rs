@@ -81,7 +81,7 @@ pub struct ApiVideoConnection {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ApiSubtitleStream {
-	pub index: usize,
+	pub track_id: usize,
 	pub language: Option<String>,
 	pub name: Option<String>,
 }
