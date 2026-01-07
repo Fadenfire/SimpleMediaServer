@@ -37,12 +37,20 @@ impl FileMetadata for BasicMediaMetadata {
 pub struct AdvancedMediaMetadata {
 	pub ffmpeg_duration: Duration,
 	pub video_metadata: Option<VideoMetadata>,
+	pub subtitle_streams: Vec<SubtitleStream>,
 }
 
 #[derive(Clone, Debug)]
 pub struct VideoMetadata {
 	pub video_size: Dimension,
 	pub frame_rate: Rational,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SubtitleStream {
+	pub index: usize,
+	pub language: Option<String>,
+	pub name: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -181,8 +189,26 @@ fn extract_advanced_metadata(media_path: &Path) -> anyhow::Result<AdvancedMediaM
 	
 	let ffmpeg_duration = Duration::from_millis(duration_millis);
 	
+	let subtitle_streams: Vec<_> = demuxer.streams()
+		.filter(|stream| stream.parameters().medium() == Type::Subtitle)
+		.map(|stream| {
+			let language = stream.metadata().get("language").map(ToOwned::to_owned);
+			
+			let name = stream.metadata().get("handler_name")
+				.filter(|name| *name != "SubtitleHandler")
+				.map(ToOwned::to_owned);
+			
+			SubtitleStream {
+				index: stream.index(),
+				language,
+				name,
+			}
+		})
+		.collect();
+	
 	Ok(AdvancedMediaMetadata {
 		ffmpeg_duration,
 		video_metadata,
+		subtitle_streams,
 	})
 }
