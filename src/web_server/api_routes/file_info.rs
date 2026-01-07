@@ -11,7 +11,7 @@ use crate::media_manipulation::thumbnail_sheet;
 use crate::web_server::{libraries, media_connections, video_locator};
 use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::{list_dir, thumbnail};
-use crate::web_server::api_types::{ApiCommentThread, ApiDirectoryInfo, ApiFileInfo, ApiVideoConnection, ApiVideoInfo};
+use crate::web_server::api_types::{ApiCommentThread, ApiDirectoryInfo, ApiFileInfo, ApiSubtitleStream, ApiVideoConnection, ApiVideoInfo};
 use crate::web_server::auth::User;
 use crate::web_server::libraries::Library;
 use crate::web_server::server_state::ServerState;
@@ -114,6 +114,14 @@ pub async fn create_file_info(
 		None => None,
 	};
 	
+	let subtitle_streams = advanced_metadata.subtitle_streams.iter()
+		.map(|stream| ApiSubtitleStream {
+			index: stream.index,
+			language: stream.language.clone(),
+			name: stream.name.clone(),
+		})
+		.collect();
+	
 	let prev_video = this_index
 		.checked_sub(1)
 		.and_then(|i| adjacent_files.get(i))
@@ -174,6 +182,7 @@ pub async fn create_file_info(
 		creation_date: basic_metadata.creation_date,
 		thumbnail_path,
 		video_info,
+		subtitle_streams,
 		prev_video,
 		next_video,
 		watch_progress,

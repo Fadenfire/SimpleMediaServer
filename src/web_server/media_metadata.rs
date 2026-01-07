@@ -46,7 +46,7 @@ pub struct VideoMetadata {
 	pub frame_rate: Rational,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct SubtitleStream {
 	pub index: usize,
 	pub language: Option<String>,

@@ -50,6 +50,7 @@ pub struct ApiFileInfo {
 	pub creation_date: OffsetDateTime,
 	pub thumbnail_path: String,
 	pub video_info: Option<ApiVideoInfo>,
+	pub subtitle_streams: Vec<ApiSubtitleStream>,
 	pub prev_video: Option<String>,
 	pub next_video: Option<String>,
 	pub watch_progress: Option<u64>,
@@ -76,6 +77,13 @@ pub struct ApiVideoConnection {
 	pub left_start: u64,
 	pub left_end: u64,
 	pub right_start: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ApiSubtitleStream {
+	pub index: usize,
+	pub language: Option<String>,
+	pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
