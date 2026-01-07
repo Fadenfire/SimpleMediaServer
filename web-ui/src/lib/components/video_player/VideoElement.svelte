@@ -197,7 +197,16 @@
 	onplaying={onVideoPlaying}
 
 	autoplay
-></video>
+>
+	{#each mediaInfo.subtitle_streams as subtitle_stream, index}
+		<track
+			kind="captions"
+			srclang={subtitle_stream.language ?? undefined}
+			label={subtitle_stream.name ?? (mediaInfo.subtitle_streams.length === 1 ? "Default" : `Track ${index + 1}`)}
+			src={`/api/subtitles/${escapePath(mediaInfo.full_path)}/track/${subtitle_stream.track_id}`}
+		/>
+	{/each}
+</video>
 
 <style lang="scss">
 	video {
