@@ -49,6 +49,7 @@ impl ServerConfig {
 			transcoded_segments_cache_dir: cache_dir.join(&general_config.caches.segments_cache_dir),
 			thumbnail_cache_dir: cache_dir.join(&general_config.caches.thumbnail_cache_dir),
 			thumbnail_sheet_cache_dir: cache_dir.join(&general_config.caches.thumbnail_sheet_cache_dir),
+			subtitles_cache_dir: cache_dir.join(&general_config.caches.subtitles_cache_dir),
 		};
 		
 		Ok(Self {
@@ -86,6 +87,7 @@ pub struct ServerPaths {
 	pub transcoded_segments_cache_dir: PathBuf,
 	pub thumbnail_cache_dir: PathBuf,
 	pub thumbnail_sheet_cache_dir: PathBuf,
+	pub subtitles_cache_dir: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -168,6 +170,10 @@ pub struct CachesConfig {
 	pub thumbnail_sheet_cache_dir: PathBuf,
 	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
 	pub thumbnail_sheet_cache_size_limit: u64,
+	
+	pub subtitles_cache_dir: PathBuf,
+	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
+	pub subtitles_cache_size_limit: u64,
 }
 
 impl Default for CachesConfig {
@@ -181,6 +187,9 @@ impl Default for CachesConfig {
 			
 			thumbnail_sheet_cache_dir: PathBuf::from("thumbnail-sheets"),
 			thumbnail_sheet_cache_size_limit: 500_000_000, // 500 MB
+			
+			subtitles_cache_dir: PathBuf::from("transcoded-subtitles"),
+			subtitles_cache_size_limit: 100_000_000, // 100 MB
 		}
 	}
 }

@@ -13,6 +13,7 @@ use crate::web_server::services::task_pool::TaskPool;
 use crate::web_server::services::thumbnail_service::ThumbnailGenerator;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 use crate::web_server::metadata_cache::FileMetadataCache;
+use crate::web_server::services::subtitle_service::TranscodedSubtitleGenerator;
 use crate::web_server::watch_history::UserWatchHistories;
 
 pub struct ServerState {
@@ -26,6 +27,7 @@ pub struct ServerState {
 	pub hls_segment_generator: ArtifactCache<HlsSegmentGenerator>,
 	pub thumbnail_generator: ArtifactCache<ThumbnailGenerator>,
 	pub thumbnail_sheet_generator: ArtifactCache<ThumbnailSheetGenerator>,
+	pub transcoded_subtitle_generator: ArtifactCache<TranscodedSubtitleGenerator>,
 }
 
 impl ServerState {
@@ -43,6 +45,7 @@ impl ServerState {
 		
 		let media_backend_factory = Arc::new(MediaBackendFactory::new(config.main_config.transcoding.backend)?);
 		let transcoding_task_pool = Arc::new(TaskPool::new(config.main_config.transcoding.concurrent_tasks));
+		let subtitles_task_pool = Arc::new(TaskPool::new(8));
 		
 		let hls_segment_generator = ArtifactCache::builder()
 			.cache_dir(config.paths.transcoded_segments_cache_dir.clone())
@@ -77,6 +80,17 @@ impl ServerState {
 			utils::abbreviate_number(thumbnail_sheet_generator.cache_size()),
 			utils::abbreviate_number(config.main_config.caches.thumbnail_sheet_cache_size_limit));
 		
+		let transcoded_subtitle_generator = ArtifactCache::builder()
+			.cache_dir(config.paths.subtitles_cache_dir.clone())
+			.task_pool(subtitles_task_pool.clone())
+			.file_size_limit(config.main_config.caches.subtitles_cache_size_limit)
+			.build(TranscodedSubtitleGenerator::new())
+			.await?;
+		
+		info!("Transcoded subtitles cache contains {}B, {}B max",
+			utils::abbreviate_number(transcoded_subtitle_generator.cache_size()),
+			utils::abbreviate_number(config.main_config.caches.subtitles_cache_size_limit));
+		
 		let metadata_cache = FileMetadataCache::new();
 		
 		Ok(Self {
@@ -90,6 +104,7 @@ impl ServerState {
 			hls_segment_generator,
 			thumbnail_generator,
 			thumbnail_sheet_generator,
+			transcoded_subtitle_generator,
 		})
 	}
 }

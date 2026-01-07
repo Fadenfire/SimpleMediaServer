@@ -20,6 +20,7 @@ mod get_watch_history;
 mod delete_watch_progress;
 mod hls_level_manifest;
 mod logout;
+mod get_subtitles;
 
 pub async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<ServerState>) -> HyperResponse {
 	if let ["login"] = path {
@@ -49,6 +50,9 @@ pub async fn route_request(request: HyperRequest, path: &[&str], server_state: A
 		
 		["thumbnail_sheet", library_id, library_path @ ..] =>
 			thumbnail_sheet::thumbnail_sheet_route(&server_state, &request, library_id, library_path).await,
+		
+		["subtitles", library_id, library_path @ .., "track", stream_index] =>
+			get_subtitles::subtitles_route(&server_state, &request, library_id, library_path, stream_index).await,
 		
 		["media", "native", library_id, library_path @ ..] =>
 			native_video::native_video_route(&server_state, request, library_id, library_path).await,
