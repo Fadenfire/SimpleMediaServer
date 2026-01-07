@@ -47,7 +47,8 @@ pub fn transcode_subtitle_to_webvtt(media_path: PathBuf, stream_index: usize) ->
 	unsafe {
 		if !(*decoder.as_ptr()).subtitle_header.is_null() {
 			let subtitle_header_size = (*decoder.as_ptr()).subtitle_header_size;
-			let subtitle_header_buf = check_alloc(av_mallocz((subtitle_header_size + 1) as usize).cast())?;
+			// Allocate size + 1 as some encoders expect subtitle_header to be null terminated
+			let subtitle_header_buf = check_alloc(av_mallocz((subtitle_header_size + 1) as usize))?.cast();
 			
 			std::ptr::copy(
 				(*decoder.as_ptr()).subtitle_header,
