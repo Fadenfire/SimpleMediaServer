@@ -47,6 +47,16 @@
 		<option value={2.0}>2x</option>
 	</SelectionDropdown>
 	
+	{#if playerBackend.mediaInfo.subtitle_streams.length > 0}
+		<SelectionDropdown bind:value={videoState.subtitleTrack} label="Captions" style="width: 180px;">
+			<option value={-1}>Off</option>
+			
+			{#each videoState.videoElement?.textTracks as track, index}
+				<option value={index}>{track.label}</option>
+			{/each}
+		</SelectionDropdown>
+	{/if}
+	
 	<label>
 		Gamma
 		<input type="range" min="1.0" max="4.0" step="0.2" bind:value={gamma}>

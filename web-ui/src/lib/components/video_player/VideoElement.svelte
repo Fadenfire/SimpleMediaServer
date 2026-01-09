@@ -11,6 +11,12 @@
 		currentTime: number = $state(0.0);
 		playbackRate: number = $state(1.0);
 		buffered: SvelteMediaTimeRange[] = $state([]);
+		
+		subtitleTrack: number = $state(-1);
+		
+		subtitlesEnabled() {
+			return this.subtitleTrack >= 0;
+		}
 	}
 </script>
 
@@ -22,6 +28,7 @@
     import { page } from '$app/stores';
     import { invalidate } from '$app/navigation';
     import { jumpToVideo } from './video_utils';
+	import { iso6393 } from "iso-639-3";
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -36,6 +43,8 @@
 	// Prevent media info from being changed
 	const mediaInfo = initialMediaInfo;
 	
+	// Set up video state
+	
 	const videoState = new VideoElementState();
 	videoState.duration = mediaInfo.duration;
 	
@@ -44,7 +53,17 @@
 	let innerCurrentTime = $state(0.0);
 	$effect(() => { videoState.currentTime = innerCurrentTime; });
 	
-	let mounted = false;	
+	// Subtitles
+	
+	$effect(() => {
+		if (videoState.videoElement === undefined) return;
+		
+		const textTracks = videoState.videoElement.textTracks;
+		
+		for (let i = 0; i < textTracks.length; i++) {
+			textTracks[i].mode = i == videoState.subtitleTrack ? "showing" : "hidden";
+		}
+	});	
 	
 	// Watch Progress
 	
@@ -84,11 +103,21 @@
 	
 	let initialLoad = true;
 	
-	function onVideoLoadedData() {
-		if (!initialLoad) return;
+	function onVideoLoadedData(this: HTMLVideoElement) {
+		if (initialLoad) {
+			initialLoad = false;
+			videoState.isBuffering = false;
+		}
 		
-		initialLoad = false;
-		videoState.isBuffering = false;
+		// Move subtitle position
+		
+		for (const track of this.textTracks) {
+			if (track.cues === null) return;
+			
+			for (const cue of track.cues) {
+				(cue as VTTCue).line = -3;
+			}
+		}
 	}
 	
 	function onVideoWaiting() {
@@ -99,13 +128,21 @@
 		videoState.isBuffering = false;
 	}
 	
+	// On mount callback
+	
+	let mounted = false;
+	
 	onMount(() => {
 		mounted = true;
 		
 		if (videoState.videoElement === undefined) throw Error("Video element is undefined");
 		
+		// Set up backend
+		
 		videoState.playerBackend = new VideoBackend(videoState.videoElement, mediaInfo);
 		videoState.playerBackend.currentLevelIndex.set(NATIVE_LEVEL_INDEX);
+		
+		// Seek if time override is provided
 		
 		const seekOverride: number | undefined = $page.state?.videoPlayerSeekTo;
 		
@@ -120,6 +157,8 @@
 		videoState.isBuffering = true;
 		console.log("Attached player backend");
 		
+		// Request thumbnail sheet
+		
 		if (videoState.thumbSheetUrl !== undefined) URL.revokeObjectURL(videoState.thumbSheetUrl);
 		videoState.thumbSheetUrl = undefined;
 		
@@ -130,6 +169,8 @@
 					if (mounted) videoState.thumbSheetUrl = URL.createObjectURL(blob);
 				});
 		}
+		
+		// Set up media session
 		
 		if ("mediaSession" in navigator) {
 			navigator.mediaSession.metadata = new MediaMetadata({
@@ -163,6 +204,8 @@
 			}
 		}
 		
+		// Unmount callback
+		
 		return () => {
 			mounted = false;
 			
@@ -176,7 +219,21 @@
 			
 			updateWatchProgress();
 		};
-	})
+	});
+	
+	function getSubtitleStreamLabel(stream: ApiSubtitleStream, index: number): string {
+		if (stream.name !== null) return stream.name;
+		
+		if (stream.language !== null && stream.language !== "und") {
+			const lang = iso6393.find(lang => lang.iso6393 === stream.language);
+			
+			if (lang !== undefined) return lang.name;
+		}
+		
+		if (mediaInfo.subtitle_streams.length === 1) return "Default";
+		
+		return `Track ${index + 1}`;
+	}
 </script>
 
 <svelte:window onbeforeunload={updateWatchProgress}/>
@@ -202,7 +259,7 @@
 		<track
 			kind="captions"
 			srclang={subtitle_stream.language ?? undefined}
-			label={subtitle_stream.name ?? (mediaInfo.subtitle_streams.length === 1 ? "Default" : `Track ${index + 1}`)}
+			label={getSubtitleStreamLabel(subtitle_stream, index)}
 			src={`/api/subtitles/${escapePath(mediaInfo.full_path)}/track/${subtitle_stream.track_id}`}
 		/>
 	{/each}
@@ -212,5 +269,9 @@
 	video {
 		width: 100%;
 		height: 100%;
+	}
+	
+	video::cue {
+		font-size: 1.6rem;
 	}
 </style>

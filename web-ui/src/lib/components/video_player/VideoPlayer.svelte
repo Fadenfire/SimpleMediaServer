@@ -28,6 +28,7 @@
     import SettingsButton from "./buttons/SettingsButton.svelte";
 	import SettingsMenu from "./menus/SettingsMenu.svelte";
     import VideoFilters from "./VideoFilters.svelte";
+    import CCButton from "./buttons/CCButton.svelte";
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -316,18 +317,7 @@
 		</div>
 		
 		<div class="bottom-controls">
-			{#if mobile}
-				<div class="control-row">
-					<div class="control-element">{formatDuration(videoState.currentTime)} / {formatDuration(videoState.duration)}</div>
-					
-					<div class="flex-spacer"></div>
-					
-					<SettingsButton onclick={() => toggleSidebar(SidebarType.Settings)}/>
-					<FullscreenButton {isFullscreen} onclick={toggleFullscreen}/>
-				</div>
-			{/if}
-			
-			<div class:mobile-timeline-container={mobile} class:fullscreen={isFullscreen}>
+			{#if !mobile}
 				<Timeline
 					{mediaInfo}
 					{videoState}
@@ -336,19 +326,34 @@
 					bind:scrubbingTime={scrubbingTime}
 					bind:preciseScrubbing={preciseScrubbing}
 				/>
-			</div>
+			{/if}
 			
-			{#if !mobile}
-				<div class="control-row">
+			<div class="control-row">
+				{#if !mobile}
 					<SkipButton direction=back {mediaInfo}/>
 					<PlayPauseButton videoPaused={videoState.isPaused} onclick={playPause}/>
 					<SkipButton direction=forward {mediaInfo}/>
-					<div class="control-element">{formatDuration(videoState.currentTime)} / {formatDuration(videoState.duration)}</div>
-					
-					<div class="flex-spacer"></div>
-					
-					<SettingsButton onclick={() => toggleSidebar(SidebarType.Settings)}/>
-					<FullscreenButton {isFullscreen} onclick={toggleFullscreen}/>
+				{/if}
+				
+				<div class="control-element">{formatDuration(videoState.currentTime)} / {formatDuration(videoState.duration)}</div>
+				
+				<div class="flex-spacer"></div>
+				
+				{#if mediaInfo.subtitle_streams.length > 0} <CCButton {videoState}/> {/if}
+				<SettingsButton onclick={() => toggleSidebar(SidebarType.Settings)}/>
+				<FullscreenButton {isFullscreen} onclick={toggleFullscreen}/>
+			</div>
+			
+			{#if mobile}
+				<div class="mobile-timeline-container" class:fullscreen={isFullscreen}>
+					<Timeline
+						{mediaInfo}
+						{videoState}
+						{playerElement}
+						
+						bind:scrubbingTime={scrubbingTime}
+						bind:preciseScrubbing={preciseScrubbing}
+					/>
 				</div>
 			{/if}
 		</div>
