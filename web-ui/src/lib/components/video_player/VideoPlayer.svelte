@@ -38,7 +38,7 @@
 	
 	let videoAspectRadio = $derived(mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0);
 	
-	let videoState: VideoElementState = $state(new VideoElementState());
+	let videoState: VideoElementState = $state(new VideoElementState(mediaInfo));
 	
 	let playerElement: HTMLElement | undefined = $state();
 	let scrubbingTime: number | null = $state(null);

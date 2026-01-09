@@ -17,33 +17,34 @@
 	function onClick() {
 		if (videoState.videoElement === undefined) return;
 		
-		const textTracks = videoState.videoElement.textTracks;
+		const subtitles = videoState.mediaInfo.subtitle_streams;
 		
 		if (videoState.subtitlesEnabled()) {
 			videoState.subtitleTrack = -1;
-		} else if (textTracks.length > 0) {
-			const langCodeToTrack = new Map();
+		} else if (subtitles.length > 0) {
+			const langCodeToTrack = new Map<string, ApiSubtitleStream>();
 			
-			for (let i = 0; i < textTracks.length; i++) {
-				const track = textTracks[i];
+			for (const track of subtitles) {
+				if (track.language === null) continue;
+				
 				const lang = iso6393To1[track.language] ?? track.language;
 				
 				// If there are multiple tracks with the same language
 				//  use the first one
 				if (!langCodeToTrack.has(lang)) {
-					langCodeToTrack.set(lang, i);
+					langCodeToTrack.set(lang, track);
 				}
 			}
 			
 			const bestMatch = langLookup(langCodeToTrack.keys().toArray(), Array.from(navigator.languages));
 			
-			let bestTrack = 0;
+			let bestTrack = subtitles[0];
 			
 			if (bestMatch !== undefined) {
 				bestTrack = langCodeToTrack.get(bestMatch) ?? bestTrack;
 			}
 			
-			videoState.subtitleTrack = bestTrack;
+			videoState.subtitleTrack = bestTrack.track_id;
 		}
 	}
 </script>

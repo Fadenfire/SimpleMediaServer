@@ -1,5 +1,6 @@
 <script lang="ts">
     import SelectionDropdown from "$lib/components/SelectionDropdown.svelte";
+    import { iso6393 } from "iso-639-3";
 	import type { VideoBackend } from "../video_backend";
     import type { VideoElementState } from "../VideoElement.svelte";
     import SidebarMenu from "./SidebarMenu.svelte";
@@ -20,6 +21,20 @@
 	
 	let levels = $derived(playerBackend.qualityLevels);
 	let currentLevel = $derived(playerBackend.currentLevelIndex);
+	
+	function getSubtitleStreamLabel(stream: ApiSubtitleStream, index: number): string {
+		if (stream.name !== null) return stream.name;
+		
+		if (stream.language !== null && stream.language !== "und") {
+			const lang = iso6393.find(lang => lang.iso6393 === stream.language);
+			
+			if (lang !== undefined) return lang.name;
+		}
+		
+		if (videoState.mediaInfo.subtitle_streams.length === 1) return "Default";
+		
+		return `Track ${index + 1}`;
+	}
 </script>
 
 <SidebarMenu>
@@ -47,12 +62,12 @@
 		<option value={2.0}>2x</option>
 	</SelectionDropdown>
 	
-	{#if playerBackend.mediaInfo.subtitle_streams.length > 0}
+	{#if videoState.mediaInfo.subtitle_streams.length > 0}
 		<SelectionDropdown bind:value={videoState.subtitleTrack} label="Captions" style="width: 180px;">
 			<option value={-1}>Off</option>
 			
-			{#each videoState.videoElement?.textTracks as track, index}
-				<option value={index}>{track.label}</option>
+			{#each videoState.mediaInfo.subtitle_streams as track, index}
+				<option value={track.track_id}>{getSubtitleStreamLabel(track, index)}</option>
 			{/each}
 		</SelectionDropdown>
 	{/if}

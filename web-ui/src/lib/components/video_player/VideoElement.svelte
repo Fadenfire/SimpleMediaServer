@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	export class VideoElementState {
+		mediaInfo: ApiFileInfo;
 		playerBackend: VideoBackend | undefined = $state();
 		thumbSheetUrl: string | undefined = $state();
 		videoElement: HTMLVideoElement | undefined = $state();
@@ -13,6 +14,11 @@
 		buffered: SvelteMediaTimeRange[] = $state([]);
 		
 		subtitleTrack: number = $state(-1);
+		
+		constructor(mediaInfo: ApiFileInfo) {
+			this.mediaInfo = mediaInfo;
+			this.duration = mediaInfo.duration;
+		}
 		
 		subtitlesEnabled() {
 			return this.subtitleTrack >= 0;
@@ -28,7 +34,6 @@
     import { page } from '$app/stores';
     import { invalidate } from '$app/navigation';
     import { jumpToVideo } from './video_utils';
-	import { iso6393 } from "iso-639-3";
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -45,8 +50,7 @@
 	
 	// Set up video state
 	
-	const videoState = new VideoElementState();
-	videoState.duration = mediaInfo.duration;
+	const videoState = new VideoElementState(mediaInfo);
 	
 	provideState(videoState);
 	
@@ -55,14 +59,23 @@
 	
 	// Subtitles
 	
+	function makeSubtitleTrackId(track_id: number): string {
+		return `subtitle_track_${track_id}`;
+	}
+	
+	function updateSubtitleVisibility(textTracks: TextTrackList, selectedTrack: number) {		
+		for (const track of textTracks) {
+			track.mode = track.id === makeSubtitleTrackId(selectedTrack) ? "showing" : "hidden";
+		}
+	}
+	
 	$effect(() => {
 		if (videoState.videoElement === undefined) return;
 		
-		const textTracks = videoState.videoElement.textTracks;
-		
-		for (let i = 0; i < textTracks.length; i++) {
-			textTracks[i].mode = i == videoState.subtitleTrack ? "showing" : "hidden";
-		}
+		updateSubtitleVisibility(
+			videoState.videoElement.textTracks,
+			videoState.subtitleTrack
+		);
 	});	
 	
 	// Watch Progress
@@ -204,6 +217,14 @@
 			}
 		}
 		
+		// Hide externally added text tracks
+		
+		const textTracks = videoState.videoElement.textTracks;
+		
+		textTracks.addEventListener("addtrack", () => {
+			updateSubtitleVisibility(textTracks, videoState.subtitleTrack);
+		});
+				
 		// Unmount callback
 		
 		return () => {
@@ -220,20 +241,6 @@
 			updateWatchProgress();
 		};
 	});
-	
-	function getSubtitleStreamLabel(stream: ApiSubtitleStream, index: number): string {
-		if (stream.name !== null) return stream.name;
-		
-		if (stream.language !== null && stream.language !== "und") {
-			const lang = iso6393.find(lang => lang.iso6393 === stream.language);
-			
-			if (lang !== undefined) return lang.name;
-		}
-		
-		if (mediaInfo.subtitle_streams.length === 1) return "Default";
-		
-		return `Track ${index + 1}`;
-	}
 </script>
 
 <svelte:window onbeforeunload={updateWatchProgress}/>
@@ -255,11 +262,11 @@
 
 	autoplay
 >
-	{#each mediaInfo.subtitle_streams as subtitle_stream, index}
+	{#each mediaInfo.subtitle_streams as subtitle_stream}
 		<track
 			kind="captions"
+			id={makeSubtitleTrackId(subtitle_stream.track_id)}
 			srclang={subtitle_stream.language ?? undefined}
-			label={getSubtitleStreamLabel(subtitle_stream, index)}
 			src={`/api/subtitles/${escapePath(mediaInfo.full_path)}/track/${subtitle_stream.track_id}`}
 		/>
 	{/each}
