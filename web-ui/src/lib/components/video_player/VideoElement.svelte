@@ -27,7 +27,7 @@
 
 	interface Props {
 		mediaPath: string;
-		subtitleStreams: SubtitleStream[];
+		subtitleStreams?: SubtitleStream[];
 		provideState: (state: VideoState) => void;
 		
 		onVideoLoadedData?: (this: HTMLVideoElement) => void;

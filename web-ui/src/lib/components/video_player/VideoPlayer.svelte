@@ -23,12 +23,14 @@
     import SkipButton from "./buttons/SkipButton.svelte";
     import FullscreenButton from "./buttons/FullscreenButton.svelte";
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
-    import ConnectionsButton from "./buttons/ConnectionsButton.svelte";
     import ConnectionsMenu from "./menus/ConnectionsMenu.svelte";
     import SettingsButton from "./buttons/SettingsButton.svelte";
 	import SettingsMenu from "./menus/SettingsMenu.svelte";
     import VideoFilters from "./VideoFilters.svelte";
     import CCButton from "./buttons/CCButton.svelte";
+    import ConnectionPiP from "./ConnectionPiP.svelte";
+    import FollowConnectionButton from "./buttons/FollowConnectionButton.svelte";
+    import ConnectionsMenuButton from "./buttons/ConnectionsMenuButton.svelte";
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -51,6 +53,15 @@
 	
 	let videoInfo = $derived(mediaInfo.video_info);
 	let videoState = $derived(playerState?.videoState);
+	
+	// Only changes every second, instead of constantly
+	let currentTimeInt = $state(0);
+	
+	$effect(() => {
+		if (Math.floor(videoState.currentTime) != currentTimeInt) {
+			currentTimeInt = Math.floor(videoState.currentTime);
+		}
+	});
 	
 	// Sidebar
 	
@@ -229,6 +240,18 @@
 	// Filters
 	
 	let gamma = $state(1.0);
+	
+	// Connections
+	
+	let currentConnections: ApiVideoConnection[] = $derived(
+		mediaInfo.connections.filter(
+			connection => connection.left_start <= currentTimeInt && currentTimeInt < connection.left_end
+		)
+	);
+	
+	let currentConnectionsWithShortcut = $derived(
+		currentConnections.filter(connection => connection.shortcut_thumbnail !== null)
+	);
 </script>
 
 <svelte:window onkeydown={onWindowKeyPressed}/>
@@ -310,9 +333,15 @@
 				
 				<div class="flex-spacer"></div>
 				
-				<ConnectionsButton
+				{#each currentConnectionsWithShortcut as connection (connection.video_path)}
+					<FollowConnectionButton
+						{connection}
+						videoCurrentTime={videoState.currentTime}
+					/>
+				{/each}
+				
+				<ConnectionsMenuButton
 					{mediaInfo}
-					videoCurrentTime={videoState.currentTime}
 					onclick={() => toggleSidebar(SidebarType.Connections)}
 				/>
 			</div>
@@ -379,6 +408,14 @@
 				/>
 			{/if}
 		</div>
+	</div>
+	
+	<div class="pip-container">
+		{#each currentConnections as connection}
+			{#key `${connection.video_path}:${connection.left_start}`}
+				<ConnectionPiP {connection} parentVideoState={playerState.videoState}/>
+			{/key}
+		{/each}
 	</div>
 </figure>
 
@@ -589,6 +626,25 @@
 		
 		&.right {
 			right: $seek-indicator-size;
+		}
+	}
+	
+	.pip-container {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+		gap: player.$gap-size;
+		padding: player.$gap-size;
+		overflow: hidden;
+		pointer-events: none;
+		
+		> :global(*) {
+			pointer-events: auto;
 		}
 	}
 </style>

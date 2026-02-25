@@ -2,7 +2,7 @@
     import FeatherIcon from "$lib/components/FeatherIcon.svelte";
     import { escapePath, formatDuration } from "$lib/utils";
     import Button from "../buttons/Button.svelte";
-    import { followLink } from "../buttons/ConnectionsButton.svelte";
+    import { followConnection } from "../video_utils";
     import SidebarMenu from "./SidebarMenu.svelte";
 
 	interface Props {
@@ -52,7 +52,7 @@
 				<span class="info">{formatDuration(connection.right_start)} - {formatDuration(connection.right_start + (connection.left_end - connection.left_start))}</span>
 			</div>
 			
-			<Button disabled={!active} onclick={() => followLink(connection, videoCurrentTime)}>
+			<Button disabled={!active} onclick={() => followConnection(connection, videoCurrentTime)}>
 				<FeatherIcon name="external-link" size="1em"/>
 			</Button>
 		</div>
