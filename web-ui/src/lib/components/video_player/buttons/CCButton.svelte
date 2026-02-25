@@ -1,7 +1,7 @@
 <script lang="ts">
     import Button from "./Button.svelte";
     import SVGIcon from "$lib/components/SVGIcon.svelte";
-    import type { VideoElementState } from "../VideoElement.svelte";
+    import type { VideoPlayerState } from "../VideoPlayerInternal.svelte";
 	import { iso6393To1 } from "iso-639-3";
 	import { lookup as langLookup } from "bcp-47-match";
 	
@@ -9,18 +9,18 @@
 	import CCIconSolid from "$lib/icons/closed-captioning-solid-full.svg?raw";
     
     interface Props {
-		videoState: VideoElementState;
+		playerState: VideoPlayerState;
 	}
 	
-	let { videoState }: Props = $props();
+	let { playerState }: Props = $props();
 	
 	function onClick() {
-		if (videoState.videoElement === undefined) return;
+		if (playerState.videoState.videoElement === undefined) return;
 		
-		const subtitles = videoState.mediaInfo.subtitle_streams;
+		const subtitles = playerState.mediaInfo.subtitle_streams;
 		
-		if (videoState.subtitlesEnabled()) {
-			videoState.subtitleTrack = -1;
+		if (playerState.subtitlesEnabled()) {
+			playerState.subtitleTrack = -1;
 		} else if (subtitles.length > 0) {
 			const langCodeToTrack = new Map<string, ApiSubtitleStream>();
 			
@@ -44,11 +44,11 @@
 				bestTrack = langCodeToTrack.get(bestMatch) ?? bestTrack;
 			}
 			
-			videoState.subtitleTrack = bestTrack.track_id;
+			playerState.subtitleTrack = bestTrack.track_id;
 		}
 	}
 </script>
 
 <Button tooltip="Closed Captions" onclick={onClick}>
-	<SVGIcon iconHtml={videoState.subtitlesEnabled() ? CCIconSolid : CCIconRegular} size="1em"/>
+	<SVGIcon iconHtml={playerState.subtitlesEnabled() ? CCIconSolid : CCIconRegular} size="1em"/>
 </Button>

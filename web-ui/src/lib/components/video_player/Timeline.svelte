@@ -8,11 +8,11 @@
     import { formatDuration } from "$lib/utils";
     import PreviewThumbnail from "./PreviewThumbnail.svelte";
     import { isMobile } from "./VideoPlayer.svelte";
-    import type { VideoElementState } from "./VideoElement.svelte";
+    import type { VideoPlayerState } from "./VideoPlayerInternal.svelte";
 	
 	interface Props {
 		mediaInfo: ApiFileInfo;
-		videoState: VideoElementState;
+		playerState: VideoPlayerState;
 		playerElement: HTMLElement | undefined;
 		scrubbingTime?: number | null;
 		preciseScrubbing?: boolean;
@@ -20,7 +20,7 @@
 
 	let {
 		mediaInfo,
-		videoState,
+		playerState,
 		playerElement,
 		scrubbingTime = $bindable(null),
 		preciseScrubbing = $bindable(false)
@@ -29,6 +29,7 @@
 	let timelineElement: HTMLElement | undefined = $state();
 	
 	let videoInfo = $derived(mediaInfo.video_info);
+	let videoState = $derived(playerState.videoState);
 	
 	const mobile = isMobile();
 	
@@ -137,6 +138,7 @@
 <svelte:window onpointermove={onWindowPointerMove} onpointerup={onWindowPointerUp} />
 
 <div class="timeline" bind:this={timelineElement}>
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class="bounding-box"
 		class:mobile={mobile}
@@ -165,10 +167,10 @@
 			{#if (!mobile || preciseScrubbing) && hoverProgress !== null}
 				<div class="tooltip" style="transform: translateX({hoverProgress * 100}cqw) translate(-50%, -12px);">
 					{#if !mobile}
-						{#if videoInfo !== null && videoState.thumbSheetUrl !== undefined}
+						{#if videoInfo !== null && playerState.thumbSheetUrl !== undefined}
 							<PreviewThumbnail
 								{videoInfo}
-								thumbSheetUrl={videoState.thumbSheetUrl}
+								thumbSheetUrl={playerState.thumbSheetUrl}
 								currentTime={hoverProgress * videoState.duration}
 								extraStyles="height: 92px;"
 							/>

@@ -2,18 +2,18 @@
     import SelectionDropdown from "$lib/components/SelectionDropdown.svelte";
     import { iso6393 } from "iso-639-3";
 	import type { VideoBackend } from "../video_backend";
-    import type { VideoElementState } from "../VideoElement.svelte";
+    import type { VideoPlayerState } from "../VideoPlayerInternal.svelte";
     import SidebarMenu from "./SidebarMenu.svelte";
 
 	interface Props {
-		videoState: VideoElementState;
+		playerState: VideoPlayerState;
 		playerBackend: VideoBackend;
 		
 		gamma: number;
 	}
 
 	let {
-		videoState,
+		playerState,
 		playerBackend,
 		
 		gamma = $bindable(1.0),
@@ -31,7 +31,7 @@
 			if (lang !== undefined) return lang.name;
 		}
 		
-		if (videoState.mediaInfo.subtitle_streams.length === 1) return "Default";
+		if (playerState.mediaInfo.subtitle_streams.length === 1) return "Default";
 		
 		return `Track ${index + 1}`;
 	}
@@ -51,7 +51,7 @@
 		{/each}
 	</SelectionDropdown>
 	
-	<SelectionDropdown bind:value={videoState.playbackRate} label="Speed" style="width: 180px;">
+	<SelectionDropdown bind:value={playerState.videoState.playbackRate} label="Speed" style="width: 180px;">
 		<option value={0.25}>0.25x</option>
 		<option value={0.5}>0.5x</option>
 		<option value={0.75}>0.75x</option>
@@ -62,11 +62,11 @@
 		<option value={2.0}>2x</option>
 	</SelectionDropdown>
 	
-	{#if videoState.mediaInfo.subtitle_streams.length > 0}
-		<SelectionDropdown bind:value={videoState.subtitleTrack} label="Captions" style="width: 180px;">
+	{#if playerState.mediaInfo.subtitle_streams.length > 0}
+		<SelectionDropdown bind:value={playerState.subtitleTrack} label="Captions" style="width: 180px;">
 			<option value={-1}>Off</option>
 			
-			{#each videoState.mediaInfo.subtitle_streams as track, index}
+			{#each playerState.mediaInfo.subtitle_streams as track, index}
 				<option value={track.track_id}>{getSubtitleStreamLabel(track, index)}</option>
 			{/each}
 		</SelectionDropdown>

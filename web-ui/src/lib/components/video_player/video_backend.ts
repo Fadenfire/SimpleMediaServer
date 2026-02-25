@@ -26,7 +26,7 @@ export const HLS_AUTO_LEVEL_INDEX = 1;
 
 export class VideoBackend {
 	videoElement: HTMLVideoElement;
-	mediaInfo: ApiFileInfo;
+	mediaPath: string;
 	nativeVideoURL: string;
 	hlsManifestURL: string;
 	
@@ -36,12 +36,12 @@ export class VideoBackend {
 	currentLevelIndex: Writable<number>;
 	qualityLevels: Writable<QualityLevel[]>;
 	
-	constructor(videoElement: HTMLVideoElement, mediaInfo: ApiFileInfo) {
+	constructor(videoElement: HTMLVideoElement, mediaPath: string) {
 		this.videoElement = videoElement;
-		this.mediaInfo = mediaInfo;
+		this.mediaPath = mediaPath;
 		
-		this.nativeVideoURL = `/api/media/native/${escapePath(this.mediaInfo.full_path)}`;
-		this.hlsManifestURL = `/api/media/hls/${escapePath(this.mediaInfo.full_path)}/manifest.m3u8`;
+		this.nativeVideoURL = `/api/media/native/${escapePath(this.mediaPath)}`;
+		this.hlsManifestURL = `/api/media/hls/${escapePath(this.mediaPath)}/manifest.m3u8`;
 		
 		this.currentLevelIndex = writable(-1);
 		this.qualityLevels = writable(this.#createLevels());
@@ -182,7 +182,6 @@ export class VideoBackend {
 	#onVideoLoadedData() {
 		if (
 			this.currentSource === SourceType.Native &&
-			this.mediaInfo.video_info !== null &&
 			(this.videoElement.videoWidth === 0 || this.videoElement.videoHeight === 0)
 		) {
 			// If there's supposed to be a video stream, but the video has no size then

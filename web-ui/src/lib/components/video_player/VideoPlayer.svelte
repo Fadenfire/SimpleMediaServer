@@ -18,7 +18,7 @@
     import Timeline from "./Timeline.svelte";
     import FeatherIcon from "../FeatherIcon.svelte";
     import Spinner from "./Spinner.svelte";
-    import VideoElement, { VideoElementState } from "./VideoElement.svelte";
+    import VideoPlayerInternal, { VideoPlayerState } from "./VideoPlayerInternal.svelte";
     import PlayPauseButton from "./buttons/PlayPauseButton.svelte";
     import SkipButton from "./buttons/SkipButton.svelte";
     import FullscreenButton from "./buttons/FullscreenButton.svelte";
@@ -38,7 +38,7 @@
 	
 	let videoAspectRadio = $derived(mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0);
 	
-	let videoState: VideoElementState = $state(new VideoElementState(mediaInfo));
+	let playerState: VideoPlayerState = $state(null!);
 	
 	let playerElement: HTMLElement | undefined = $state();
 	let scrubbingTime: number | null = $state(null);
@@ -50,6 +50,7 @@
 	const mobile = isMobile();
 	
 	let videoInfo = $derived(mediaInfo.video_info);
+	let videoState = $derived(playerState?.videoState);
 	
 	// Sidebar
 	
@@ -241,24 +242,25 @@
 	onpointerdown={resetIdleness}
 	onfullscreenchange={onFullscreenChange}
 >
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="video-container" onpointerdown={playerClick} style="--video-aspect-ratio: {videoAspectRadio};">
 		<div class="inner-video-container">
 			<VideoFilters gamma={gamma}>
 				{#key mediaInfo.full_path}
-					<VideoElement
+					<VideoPlayerInternal
 						{mediaInfo}
-						provideState={(state) => videoState = state}
+						provideState={(state) => playerState = state}
 					/>
 				{/key}
 			</VideoFilters>
 		</div>
 	</div>
 	
-	{#if scrubbingTime !== null && videoInfo !== null && videoState.thumbSheetUrl !== undefined && !preciseScrubbing}
+	{#if scrubbingTime !== null && videoInfo !== null && playerState.thumbSheetUrl !== undefined && !preciseScrubbing}
 		<div class="full-thumbnail-container">
 			<PreviewThumbnail 
 				{videoInfo}
-				thumbSheetUrl={videoState.thumbSheetUrl}
+				thumbSheetUrl={playerState.thumbSheetUrl}
 				currentTime={scrubbingTime}
 				extraStyles="flex: 1;"
 			/>
@@ -320,7 +322,7 @@
 			{#if !mobile}
 				<Timeline
 					{mediaInfo}
-					{videoState}
+					playerState={playerState}
 					{playerElement}
 					
 					bind:scrubbingTime={scrubbingTime}
@@ -339,7 +341,7 @@
 				
 				<div class="flex-spacer"></div>
 				
-				{#if mediaInfo.subtitle_streams.length > 0} <CCButton {videoState}/> {/if}
+				{#if mediaInfo.subtitle_streams.length > 0} <CCButton playerState={playerState}/> {/if}
 				<SettingsButton onclick={() => toggleSidebar(SidebarType.Settings)}/>
 				<FullscreenButton {isFullscreen} onclick={toggleFullscreen}/>
 			</div>
@@ -348,7 +350,7 @@
 				<div class="mobile-timeline-container" class:fullscreen={isFullscreen}>
 					<Timeline
 						{mediaInfo}
-						{videoState}
+						playerState={playerState}
 						{playerElement}
 						
 						bind:scrubbingTime={scrubbingTime}
@@ -371,7 +373,7 @@
 			
 			{#if sidebarShown == SidebarType.Settings && videoState.playerBackend}
 				<SettingsMenu
-					{videoState}
+					playerState={playerState}
 					playerBackend={videoState.playerBackend}
 					bind:gamma={gamma}
 				/>
