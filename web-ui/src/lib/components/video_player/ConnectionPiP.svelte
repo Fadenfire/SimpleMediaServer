@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import VideoElement, { VideoState } from "./VideoElement.svelte";
+    import Spinner from "./Spinner.svelte";
     import { calcConnectionTime, followConnection } from "./video_utils";
     import { escapePath } from "$lib/utils";
 
@@ -87,6 +88,12 @@
 			mediaPath={connection.video_path}
 			provideState={state => videoState = state}
 		/>
+		
+		{#if videoState.isBuffering}
+			<div class="pip-spinner-container">
+				<Spinner/>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -129,5 +136,21 @@
 	
 	.pip-video-container {
 		display: flex;
+		position: relative;
+	}
+
+	.pip-spinner-container {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 30px;
+		height: 30px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 20px;
+		border-radius: 50%;
+		background-color: player.$floating-background-color;
 	}
 </style>

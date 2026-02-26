@@ -7,6 +7,7 @@ $large-control-multiplier: 1.5;
 $menu-background-color: #666D;
 $menu-foreground-color: #9996;
 $menu-bright-foreground-color: #DDD6;
+$floating-background-color: #0009;
 
 @mixin floating-circle {
 	width: $center-control-size;
@@ -16,7 +17,7 @@ $menu-bright-foreground-color: #DDD6;
 	justify-content: center;
 	font-size: $center-control-icon-size;
 	border-radius: 50%;
-	background-color: #0009;
+	background-color: $floating-background-color;
 }
 
 @mixin floating-circle-large {
