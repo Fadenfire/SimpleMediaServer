@@ -49,13 +49,18 @@
 		if (videoState.videoElement === undefined) throw Error("Video element is undefined");
 		
 		videoState.videoElement.muted = true;
-		videoState.isPaused = parentPaused;
-		videoState.playbackRate = parentVideoState.playbackRate;
 		
 		const startTime = calcConnectionTime(connection, parentVideoState.currentTime);
 		
 		videoState.currentTime = startTime;
 		videoState.videoElement.currentTime = startTime;
+		
+		videoState.isPaused = parentPaused;
+		videoState.playbackRate = parentVideoState.playbackRate;
+		
+		// For some reason I have to explicitly call pause() to keep it from
+		//  playing
+		if (parentPaused) videoState.videoElement.pause();
 	});
 	
 	function onClick(event: Event) {
