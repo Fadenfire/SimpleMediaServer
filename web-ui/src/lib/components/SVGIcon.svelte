@@ -1,27 +1,24 @@
 <script lang="ts">
 	interface Props {
 		iconHtml: string;
-		size?: string | undefined;
+		size?: string;
 		width?: string;
 		height?: string;
+		style?: string;
+		fill?: string;
 	}
 	
 	let {
 		iconHtml,
-		size = undefined,
-		width = $bindable("1em"),
-		height = $bindable("1em"),
+		size = "1em",
+		width,
+		height,
+		style = "",
+		fill = "none",
 	}: Props = $props();
-	
-	$effect(() => {
-		if (size) {
-			width = size;
-			height = size;
-		}
-	});
 </script>
 
-<div style="width: {width}; height: {height};">
+<div style="width: {width ?? size}; height: {height ?? size}; --fill: {fill}; {style}">
 	{@html iconHtml}
 </div>
 
@@ -29,6 +26,6 @@
 	div :global(svg) {
 		width: 100%;
 		height: 100%;
-		fill: currentColor;
+		fill: var(--fill);
 	}
 </style>

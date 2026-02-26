@@ -31,6 +31,7 @@
     import ConnectionPiP from "./ConnectionPiP.svelte";
     import FollowConnectionButton from "./buttons/FollowConnectionButton.svelte";
     import ConnectionsMenuButton from "./buttons/ConnectionsMenuButton.svelte";
+    import ConnectionsPiPButton from "./buttons/ConnectionsPiPButton.svelte";
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -38,7 +39,11 @@
 
 	let { mediaInfo }: Props = $props();
 	
-	let videoAspectRadio = $derived(mediaInfo.video_info ? mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height : 16.0 / 9.0);
+	let videoAspectRadio = $derived(
+		mediaInfo.video_info ?
+		mediaInfo.video_info.video_size.width / mediaInfo.video_info.video_size.height :
+		16.0 / 9.0
+	);
 	
 	let playerState: VideoPlayerState = $state(null!);
 	
@@ -243,15 +248,17 @@
 	
 	// Connections
 	
-	let currentConnections: ApiVideoConnection[] = $derived(
-		mediaInfo.connections.filter(
+	let connectionsWithShortcut = $derived(
+		mediaInfo.connections.filter(connection => connection.shortcut_thumbnail !== null)
+	);
+	
+	let currentConnectionsWithShortcut = $derived(
+		connectionsWithShortcut.filter(
 			connection => connection.left_start <= currentTimeInt && currentTimeInt < connection.left_end
 		)
 	);
 	
-	let currentConnectionsWithShortcut = $derived(
-		currentConnections.filter(connection => connection.shortcut_thumbnail !== null)
-	);
+	let connectionPiPsEnabled = $state(false);
 </script>
 
 <svelte:window onkeydown={onWindowKeyPressed}/>
@@ -340,6 +347,12 @@
 					/>
 				{/each}
 				
+				<ConnectionsPiPButton
+					hasConnections={connectionsWithShortcut.length > 0}
+					toggled={connectionPiPsEnabled}
+					onclick={() => connectionPiPsEnabled = !connectionPiPsEnabled}
+				/>
+				
 				<ConnectionsMenuButton
 					{mediaInfo}
 					onclick={() => toggleSidebar(SidebarType.Connections)}
@@ -410,13 +423,13 @@
 		</div>
 	</div>
 	
-	<div class="pip-container">
-		{#each currentConnections as connection}
-			{#key `${connection.video_path}:${connection.left_start}`}
+	{#if connectionPiPsEnabled}
+		<div class="pip-container">
+			{#each currentConnectionsWithShortcut as connection (`${connection.video_path}:${connection.left_start}`)}
 				<ConnectionPiP {connection} parentVideoState={playerState.videoState}/>
-			{/key}
-		{/each}
-	</div>
+			{/each}
+		</div>
+	{/if}
 </figure>
 
 <style lang="scss">

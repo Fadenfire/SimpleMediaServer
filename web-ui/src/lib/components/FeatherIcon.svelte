@@ -4,29 +4,22 @@
 	interface Props {
 		name: string;
 		rotation?: number;
-		size?: string | undefined;
+		size?: string;
 		width?: string;
 		height?: string;
-		strokeWidth?: string | undefined;
+		strokeWidth?: string;
 		style?: string;
 	}
 
 	let {
 		name,
 		rotation = 0,
-		size = undefined,
-		width = $bindable("1em"),
-		height = $bindable("1em"),
-		strokeWidth = undefined,
-		style = ""
+		size = "1em",
+		width,
+		height,
+		strokeWidth,
+		style = "",
 	}: Props = $props();
-	
-	$effect(() => {
-		if (size) {
-			width = size;
-			height = size;
-		}
-	});
 	
 	let icon = $derived(feather.icons[name]);
 	let attrs = $derived(Object.assign({}, icon.attrs));
@@ -40,7 +33,7 @@
 
 <svg
 	{...attrs}
-	style="width: {width}; height: {height}; transform: rotate({rotation}deg); {style}"
+	style="width: {width ?? size}; height: {height ?? size}; transform: rotate({rotation}deg); {style}"
 >
 	<g>{@html icon.contents}</g>
 </svg>

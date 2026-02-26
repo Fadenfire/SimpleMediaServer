@@ -50,5 +50,5 @@
 </script>
 
 <Button tooltip="Closed Captions" onclick={onClick}>
-	<SVGIcon iconHtml={playerState.subtitlesEnabled() ? CCIconSolid : CCIconRegular} size="1em"/>
+	<SVGIcon iconHtml={playerState.subtitlesEnabled() ? CCIconSolid : CCIconRegular} size="1em" fill="currentColor"/>
 </Button>
