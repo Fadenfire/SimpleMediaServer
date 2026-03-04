@@ -6,6 +6,7 @@ FROM --platform=$BUILDPLATFORM node:24.8.0-alpine AS web-builder
 ENV COREPACK_HOME="/corepack"
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV CI=true
 RUN corepack enable
 
 COPY web-ui /app
@@ -18,7 +19,7 @@ RUN --mount=type=cache,target=/corepack,sharing=locked \
 
 # ============= Build Backend =============
 
-FROM rust:1.89.0-slim-bookworm AS builder
+FROM rust:1.93.1-slim-bookworm AS builder
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
