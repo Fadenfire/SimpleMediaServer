@@ -19,6 +19,7 @@ export interface QualityLevel {
 	displayName: string,
 	desc?: string,
 	hlsLevelIndex?: number,
+	hlsVideoHeight?: number,
 }
 
 export const NATIVE_LEVEL_INDEX = 0;
@@ -165,6 +166,7 @@ export class VideoBackend {
 					levelType: LevelType.HlsManual,
 					displayName: genHlsLevelName(level),
 					hlsLevelIndex: id,
+					hlsVideoHeight: level.height,
 				});
 			});
 		

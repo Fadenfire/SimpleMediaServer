@@ -4,6 +4,7 @@
     import Spinner from "./Spinner.svelte";
     import { calcConnectionTime, followConnection } from "./video_utils";
     import { escapePath } from "$lib/utils";
+    import { LevelType } from "./video_backend";
 
 	interface Props {
 		connection: ApiVideoConnection;
@@ -62,6 +63,21 @@
 		// For some reason I have to explicitly call pause() to keep it from
 		//  playing
 		if (parentPaused) videoState.videoElement.pause();
+		
+		videoState.playerBackend?.qualityLevels.subscribe(levels => {
+			if (levels.length > 0) {
+				const selectedLevel = levels.find(level =>
+					level.levelType === LevelType.HlsManual &&
+					level.hlsVideoHeight !== undefined &&
+					level.hlsVideoHeight < 300
+				);
+				
+				if (selectedLevel !== undefined) {
+					console.log(`Setting PiP window to quality level ${selectedLevel.displayName}`)
+					videoState.playerBackend?.currentLevelIndex.set(selectedLevel.id);
+				}
+			}
+		});
 	});
 	
 	function onClick(event: Event) {
