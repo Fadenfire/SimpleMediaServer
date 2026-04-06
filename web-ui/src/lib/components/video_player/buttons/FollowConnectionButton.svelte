@@ -11,7 +11,7 @@
 	let { connection, videoCurrentTime }: Props = $props();
 </script>
 
-<Button large={true} tooltip="Jump to {connection.relation}" onclick={() => followConnection(connection, videoCurrentTime, -5)}>
+<Button large={true} tooltip="Jump to {connection.relation}" onclick={() => followConnection(connection, videoCurrentTime, 5)}>
 	<img class="shortcut-thumbnail" src={escapePath(connection.shortcut_thumbnail ?? "")} alt=""/>
 </Button>
 
