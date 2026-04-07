@@ -24,10 +24,12 @@
 	import type { SvelteMediaTimeRange } from 'svelte/elements';
     import { NATIVE_LEVEL_INDEX, VideoBackend } from './video_backend';
     import { onMount } from 'svelte';
+    import type { HlsConfig } from 'hls.js';
 
 	interface Props {
 		mediaPath: string;
 		subtitleStreams?: SubtitleStream[];
+		hlsConfig?: Partial<HlsConfig>;
 		provideState: (state: VideoState) => void;
 		
 		onVideoLoadedData?: (this: HTMLVideoElement) => void;
@@ -36,6 +38,7 @@
 	let {
 		mediaPath,
 		subtitleStreams,
+		hlsConfig,
 		provideState,
 		
 		onVideoLoadedData: onVideoLoadedDataCallback,
@@ -77,7 +80,7 @@
 		
 		// Set up backend
 		
-		videoState.playerBackend = new VideoBackend(videoState.videoElement, mediaPath);
+		videoState.playerBackend = new VideoBackend(videoState.videoElement, mediaPath, hlsConfig);
 		videoState.playerBackend.currentLevelIndex.set(NATIVE_LEVEL_INDEX);
 		
 		videoState.isBuffering = true;

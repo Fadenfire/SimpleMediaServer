@@ -1,5 +1,5 @@
 import { abbreviateNumber, escapePath } from "$lib/utils";
-import Hls, { Events, type Level } from "hls.js";
+import Hls, { Events, type HlsConfig, type Level } from "hls.js";
 import { get, writable, type Writable } from "svelte/store";
 
 export enum SourceType {
@@ -37,7 +37,11 @@ export class VideoBackend {
 	currentLevelIndex: Writable<number>;
 	qualityLevels: Writable<QualityLevel[]>;
 	
-	constructor(videoElement: HTMLVideoElement, mediaPath: string) {
+	constructor(
+		videoElement: HTMLVideoElement,
+		mediaPath: string,
+		hlsConfig?: Partial<HlsConfig>
+	) {
 		this.videoElement = videoElement;
 		this.mediaPath = mediaPath;
 		
@@ -48,7 +52,7 @@ export class VideoBackend {
 		this.qualityLevels = writable(this.#createLevels());
 		
 		if (Hls.isSupported()) {
-			this.hls = new Hls();
+			this.hls = new Hls(hlsConfig);
 			this.hls.loadSource(this.hlsManifestURL);
 
 			this.hls.on(Events.MANIFEST_PARSED, () => {

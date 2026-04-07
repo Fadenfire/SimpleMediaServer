@@ -4,7 +4,7 @@
     import Spinner from "./Spinner.svelte";
     import { calcConnectionTime, followConnection } from "./video_utils";
     import { escapePath } from "$lib/utils";
-    import { LevelType } from "./video_backend";
+    import { HLS_AUTO_LEVEL_INDEX } from "./video_backend";
 
 	interface Props {
 		connection: ApiVideoConnection;
@@ -64,20 +64,7 @@
 		//  playing
 		if (parentPaused) videoState.videoElement.pause();
 		
-		videoState.playerBackend?.qualityLevels.subscribe(levels => {
-			if (levels.length > 0) {
-				const selectedLevel = levels.find(level =>
-					level.levelType === LevelType.HlsManual &&
-					level.hlsVideoHeight !== undefined &&
-					level.hlsVideoHeight < 300
-				);
-				
-				if (selectedLevel !== undefined) {
-					console.log(`Setting PiP window to quality level ${selectedLevel.displayName}`)
-					videoState.playerBackend?.currentLevelIndex.set(selectedLevel.id);
-				}
-			}
-		});
+		videoState.playerBackend?.currentLevelIndex.set(HLS_AUTO_LEVEL_INDEX);
 	});
 	
 	function onClick(event: Event) {
@@ -103,6 +90,11 @@
 		<VideoElement
 			mediaPath={connection.video_path}
 			provideState={state => videoState = state}
+			hlsConfig={{
+				capLevelToPlayerSize: true,
+				capLevelOnFPSDrop: true,
+				maxBufferSize: 10_000_000, // 10 MB
+			}}
 		/>
 		
 		{#if videoState.isBuffering}
