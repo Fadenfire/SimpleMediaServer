@@ -25,7 +25,12 @@
 		
 		{#if thumbnail !== undefined}
 			{#key thumbnail}
-				<img class="thumbnail" src="{thumbnail}" alt="{title}">
+				<img
+					class="thumbnail"
+					loading="lazy"
+					src="{thumbnail}"
+					alt="{title}"
+				>
 			{/key}
 		{/if}
 		

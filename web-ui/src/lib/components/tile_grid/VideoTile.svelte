@@ -34,7 +34,12 @@
 		</div>
 		
 		{#key fileEntry.thumbnail_path}
-			<img class="thumbnail" src={escapePath(fileEntry.thumbnail_path)} alt="{fileEntry.display_name}">
+			<img
+				class="thumbnail"
+				loading="lazy"
+				src={escapePath(fileEntry.thumbnail_path)}
+				alt="{fileEntry.display_name}"
+			>
 		{/key}
 		
 		<div class="duration-container">{formatDuration(fileEntry.duration)}</div>
