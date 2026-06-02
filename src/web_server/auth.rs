@@ -1,12 +1,11 @@
 use crate::config::UsersConfig;
 use crate::web_server::api_error::ApiError;
+use argon2::password_hash::rand_core::{OsRng, RngCore};
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use headers::{Cookie, HeaderMapExt};
 use http::HeaderMap;
 use jsonwebtoken::{DecodingKey, EncodingKey, Validation};
-use rand::rngs::OsRng;
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::Permissions;
@@ -196,9 +195,9 @@ mod tests {
 	use crate::web_server::auth::{AuthManager, AuthSecrets, User};
 	use argon2::password_hash::SaltString;
 	use argon2::{Argon2, PasswordHasher};
+	use argon2::password_hash::rand_core::OsRng;
 	use http::header::COOKIE;
 	use http::HeaderMap;
-	use rand::rngs::OsRng;
 	
 	fn create_test_user() -> User {
 		let salt = SaltString::generate(&mut OsRng);

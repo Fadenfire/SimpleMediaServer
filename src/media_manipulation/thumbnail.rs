@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
 use ffmpeg_next::{decoder, format, frame, media, rescale, Discard, Rescale};
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use turbojpeg::Subsamp;
 
@@ -70,7 +70,7 @@ pub fn extract_thumbnail(backend_factory: &impl BackendFactory, media_path: Path
 	};
 	
 	for _ in 0..CANDIDATE_COUNT {
-		let time = rng.gen_range((video_duration / 10)..(video_duration / 10 * 9))
+		let time = rng.random_range((video_duration / 10)..(video_duration / 10 * 9))
 			.rescale(MICRO_TIME_BASE, rescale::TIME_BASE);
 		
 		if demuxer.seek(time, ..).is_err() { continue; }
