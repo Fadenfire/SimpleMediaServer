@@ -48,6 +48,7 @@ impl ServerConfig {
 			
 			transcoded_segments_cache_dir: cache_dir.join(&general_config.caches.segments_cache_dir),
 			thumbnail_cache_dir: cache_dir.join(&general_config.caches.thumbnail_cache_dir),
+			scaled_thumbnail_cache_dir: cache_dir.join(&general_config.caches.scaled_thumbnail_cache_dir),
 			thumbnail_sheet_cache_dir: cache_dir.join(&general_config.caches.thumbnail_sheet_cache_dir),
 			subtitles_cache_dir: cache_dir.join(&general_config.caches.subtitles_cache_dir),
 		};
@@ -86,6 +87,7 @@ pub struct ServerPaths {
 	
 	pub transcoded_segments_cache_dir: PathBuf,
 	pub thumbnail_cache_dir: PathBuf,
+	pub scaled_thumbnail_cache_dir: PathBuf,
 	pub thumbnail_sheet_cache_dir: PathBuf,
 	pub subtitles_cache_dir: PathBuf,
 }
@@ -167,6 +169,10 @@ pub struct CachesConfig {
 	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
 	pub thumbnail_cache_size_limit: u64,
 	
+	pub scaled_thumbnail_cache_dir: PathBuf,
+	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
+	pub scaled_thumbnail_cache_size_limit: u64,
+	
 	pub thumbnail_sheet_cache_dir: PathBuf,
 	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
 	pub thumbnail_sheet_cache_size_limit: u64,
@@ -184,6 +190,9 @@ impl Default for CachesConfig {
 			
 			thumbnail_cache_dir: PathBuf::from("thumbnails"),
 			thumbnail_cache_size_limit: 1_000_000_000, // 1 GB
+			
+			scaled_thumbnail_cache_dir: PathBuf::from("scaled-thumbnails"),
+			scaled_thumbnail_cache_size_limit: 100_000_000, // 100 MB
 			
 			thumbnail_sheet_cache_dir: PathBuf::from("thumbnail-sheets"),
 			thumbnail_sheet_cache_size_limit: 500_000_000, // 500 MB

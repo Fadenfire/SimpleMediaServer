@@ -87,7 +87,7 @@ pub async fn list_dir_route(
 				child_count = dir_metadata.child_count;
 				
 				thumbnail_path = dir_metadata.first_media_file.map(|thumbnail_path_name| {
-					thumbnail::create_thumbnail_path(&RelativePath::new(library_id).join(&library_path).join(path_name).join(thumbnail_path_name))
+					thumbnail::create_scaled_thumbnail_path(&RelativePath::new(library_id).join(&library_path).join(path_name).join(thumbnail_path_name))
 				});
 			}
 			
@@ -124,7 +124,7 @@ pub async fn create_file_entry(
 		.fetch_metadata::<BasicMediaMetadata>(&media_path).await?;
 	
 	let full_path = RelativePath::new(library_id).join(&library_path);
-	let thumbnail_path = thumbnail::create_thumbnail_path(&full_path);
+	let thumbnail_path = thumbnail::create_scaled_thumbnail_path(&full_path);
 	
 	let watch_progress = server_state.user_watch_histories.lock().unwrap()
 		.get_watch_history(&user.id)

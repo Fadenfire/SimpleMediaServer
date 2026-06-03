@@ -46,7 +46,10 @@ pub async fn route_request(request: HyperRequest, path: &[&str], server_state: A
 			list_dir::list_dir_route(&server_state, &request, library_id, library_path).await,
 		
 		["thumbnail", library_id, library_path @ ..] =>
-			thumbnail::thumbnail_route(&server_state, &request, library_id, library_path).await,
+			thumbnail::full_thumbnail_route(&server_state, &request, library_id, library_path).await,
+		
+		["scaled_thumbnail", library_id, library_path @ ..] =>
+			thumbnail::scaled_thumbnail_route(&server_state, &request, library_id, library_path).await,
 		
 		["thumbnail_sheet", library_id, library_path @ ..] =>
 			thumbnail_sheet::thumbnail_sheet_route(&server_state, &request, library_id, library_path).await,

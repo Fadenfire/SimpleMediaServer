@@ -4,3 +4,4 @@ pub mod thumbnail_sheet_service;
 pub mod hls_segment_service;
 pub mod task_pool;
 pub mod subtitle_service;
+pub mod scaled_thumbnail_service;

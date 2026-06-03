@@ -145,9 +145,9 @@ pub async fn create_file_info(
 		.into_iter()
 		.flat_map(|entry| {
 			let other_path = RelativePath::new(&library.id).join(&entry.video_path);
-			let other_thumbnail = thumbnail::create_thumbnail_path(&other_path);
+			let other_thumbnail = thumbnail::create_scaled_thumbnail_path(&other_path);
 			let shortcut_thumbnail = entry.shortcut_thumbnail
-				.map(|path| thumbnail::create_thumbnail_path(&RelativePath::new(&library.id).join(&path)));
+				.map(|path| thumbnail::create_scaled_thumbnail_path(&RelativePath::new(&library.id).join(&path)));
 			
 			entry.connections.into_iter()
 				.map(move |connection| ApiVideoConnection {
@@ -170,7 +170,8 @@ pub async fn create_file_info(
 		.unwrap_or_default();
 	
 	let full_path = RelativePath::new(&library.id).join(&library_path);
-	let thumbnail_path = thumbnail::create_thumbnail_path(&full_path);
+	let full_thumbnail_path = thumbnail::create_full_thumbnail_path(&full_path);
+	let scaled_thumbnail_path = thumbnail::create_scaled_thumbnail_path(&full_path);
 	
 	Ok(ApiFileInfo {
 		full_path,
@@ -180,7 +181,8 @@ pub async fn create_file_info(
 		duration: basic_metadata.duration.as_secs(),
 		artist: basic_metadata.artist,
 		creation_date: basic_metadata.creation_date,
-		thumbnail_path,
+		full_thumbnail_path,
+		thumbnail_path: scaled_thumbnail_path,
 		video_info,
 		subtitle_streams,
 		prev_video,
