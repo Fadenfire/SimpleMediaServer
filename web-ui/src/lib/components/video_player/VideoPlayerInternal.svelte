@@ -155,7 +155,7 @@
 				artist: mediaInfo.artist ?? undefined,
 				artwork: [
 					{
-						src: escapePath(mediaInfo.thumbnail_path),
+						src: escapePath(mediaInfo.full_thumbnail_path),
 					}
 				],
 			});

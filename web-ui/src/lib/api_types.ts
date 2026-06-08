@@ -71,6 +71,7 @@ interface ApiFileInfo extends ApiInfoCommon {
 	duration: number,
 	artist: string | null,
 	creation_date: string,
+	full_thumbnail_path: string,
 	thumbnail_path: string,
 	video_info: ApiVideoInfo | null,
 	subtitle_streams: ApiSubtitleStream[],
