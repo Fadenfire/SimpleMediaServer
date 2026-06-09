@@ -1,13 +1,15 @@
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
+use flate2::write::GzEncoder;
 use headers::{HeaderMap, HeaderMapExt, IfModifiedSince, LastModified};
+use http::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_TYPE};
 use http::{Method, Request, Response, StatusCode, Uri};
-use http::header::CONTENT_TYPE;
-use http_body_util::{BodyExt, Empty, Full};
 use http_body_util::combinators::UnsyncBoxBody;
+use http_body_util::{BodyExt, Empty, Full};
 use hyper::body::Incoming;
 use mime::Mime;
 use relative_path::RelativePath;
@@ -32,7 +34,8 @@ pub fn full_body<T: Into<Bytes>>(chunk: T) -> HyperBody {
 		.boxed_unsync()
 }
 
-pub fn json_response<T: Serialize>(status_code: StatusCode, json: &T) -> HyperResponse {
+
+pub fn simple_json_response<T: Serialize>(status_code: StatusCode, json: &T) -> HyperResponse {
 	let data = serde_json::to_vec(json).expect("Error serializing object");
 	
 	Response::builder()
@@ -40,6 +43,19 @@ pub fn json_response<T: Serialize>(status_code: StatusCode, json: &T) -> HyperRe
 		.header(CONTENT_TYPE, mime::APPLICATION_JSON.essence_str())
 		.body(full_body(data))
 		.unwrap()
+}
+
+pub async fn large_json_response<T: Serialize>(
+	json: &T,
+	request_headers: &HeaderMap,
+) -> anyhow::Result<HyperResponse> {
+	let data = serde_json::to_vec(json).expect("Error serializing object");
+	
+	let builder = Response::builder()
+		.status(StatusCode::OK)
+		.header(CONTENT_TYPE, mime::APPLICATION_JSON.essence_str());
+	
+	finish_compressed_response(builder, data, request_headers).await
 }
 
 pub fn restrict_method(request: &HyperRequest, allowed_methods: &[Method]) -> Result<(), ApiError> {
@@ -74,12 +90,10 @@ pub fn parse_query<T: DeserializeOwned>(uri: &Uri) -> Result<T, ApiError> {
 		.ok_or(ApiError::InvalidQuery)
 }
 
-pub async fn serve_file_basic(
-	file_data: impl Into<Bytes>,
+fn check_if_modified_since(
 	mod_time: SystemTime,
-	mime_type: Mime,
-	request_headers: &HeaderMap
-) -> anyhow::Result<HyperResponse> {
+	request_headers: &HeaderMap,
+) -> anyhow::Result<Option<HyperResponse>> {
 	let if_modified_since: Option<IfModifiedSince> = request_headers.typed_get();
 	
 	if let Some(if_modified_since) = if_modified_since {
@@ -91,8 +105,60 @@ pub async fn serve_file_basic(
 			
 			res.headers_mut().typed_insert(LastModified::from(mod_time));
 			
-			return Ok(res);
+			return Ok(Some(res));
 		}
+	}
+	
+	Ok(None)
+}
+
+const COMPRESSION_LEVEL: flate2::Compression = flate2::Compression::new(3);
+const COMPRESSION_THRESHOLD: usize = 16 * 1024; // 16 KiB
+
+async fn finish_compressed_response(
+	builder: http::response::Builder,
+	body_data: impl Into<Bytes>,
+	request_headers: &HeaderMap
+) -> anyhow::Result<HyperResponse> {
+	let accept_encoding = request_headers.get(ACCEPT_ENCODING);
+	// This is a hack, but `headers` doesn't have a struct for AcceptEncoding
+	let accepts_gzip = accept_encoding
+		.and_then(|header| header.to_str().ok())
+		.is_some_and(|value| value.contains("gzip"));
+	
+	let body_data = body_data.into();
+	
+	if accepts_gzip && body_data.len() > COMPRESSION_THRESHOLD {
+		let gzipped_data = tokio::task::spawn_blocking(move || {
+			let mut encoder = GzEncoder::new(Vec::new(), COMPRESSION_LEVEL);
+			encoder.write_all(&body_data).unwrap();
+			
+			encoder.finish().unwrap()
+		}).await.context("Compression failed")?;
+		
+		let res = builder
+			.header(CONTENT_ENCODING, "gzip")
+			.body(full_body(gzipped_data))
+			.unwrap();
+		
+		Ok(res)
+	} else {
+		let res = builder
+			.body(full_body(body_data))
+			.unwrap();
+		
+		Ok(res)
+	}
+}
+
+pub async fn serve_file_basic(
+	file_data: impl Into<Bytes>,
+	mod_time: SystemTime,
+	mime_type: Mime,
+	request_headers: &HeaderMap
+) -> anyhow::Result<HyperResponse> {
+	if let Some(res) = check_if_modified_since(mod_time, request_headers)? {
+		return Ok(res);
 	}
 	
 	let res = Response::builder()
@@ -101,6 +167,22 @@ pub async fn serve_file_basic(
 		.unwrap();
 	
 	Ok(res)
+}
+
+pub async fn serve_file_compressed(
+	file_data: impl Into<Bytes>,
+	mod_time: SystemTime,
+	mime_type: Mime,
+	request_headers: &HeaderMap
+) -> anyhow::Result<HyperResponse> {
+	if let Some(res) = check_if_modified_since(mod_time, request_headers)? {
+		return Ok(res);
+	}
+	
+	let builder = Response::builder()
+		.header(CONTENT_TYPE, mime_type.essence_str());
+	
+	finish_compressed_response(builder, file_data, request_headers).await
 }
 
 pub fn split_path(path: &str) -> anyhow::Result<Vec<String>> {

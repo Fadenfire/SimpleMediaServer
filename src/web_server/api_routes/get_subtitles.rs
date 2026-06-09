@@ -6,7 +6,7 @@ use crate::web_server::api_error::ApiError;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::{libraries, video_locator};
 use crate::web_server::services::subtitle_service::SubtitleParams;
-use crate::web_server::web_utils::{HyperRequest, HyperResponse, restrict_method, serve_file_basic};
+use crate::web_server::web_utils::{HyperRequest, HyperResponse, restrict_method, serve_file_compressed};
 
 #[instrument(skip(server_state, request))]
 pub async fn subtitles_route(
@@ -29,7 +29,7 @@ pub async fn subtitles_route(
 		stream_index,
 	}).await?;
 	
-	let res = serve_file_basic(
+	let res = serve_file_compressed(
 		subtitles.entry_data,
 		subtitles.creation_date.into(),
 		mime::Mime::from_str("text/vtt").unwrap(),

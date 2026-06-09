@@ -3,7 +3,7 @@ use http::{Method, StatusCode};
 use serde::Serialize;
 use tracing::error;
 
-use crate::web_server::web_utils::{HyperResponse, json_response};
+use crate::web_server::web_utils::{HyperResponse, simple_json_response};
 
 #[derive(Debug)]
 pub enum ApiError {
@@ -48,7 +48,7 @@ impl ApiError {
 			message: message.to_owned(),
 		};
 		
-		let mut res = json_response(status, &reply);
+		let mut res = simple_json_response(status, &reply);
 		
 		if let Self::MethodNotAllowed(allowed_methods) = self {
 			res.headers_mut().typed_insert(headers::Allow::from_iter(allowed_methods));

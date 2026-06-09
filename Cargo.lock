@@ -2221,6 +2221,7 @@ dependencies = [
  "ffmpeg-next",
  "ffmpeg-sys-next",
  "figment",
+ "flate2",
  "futures-util",
  "hashlink",
  "headers",

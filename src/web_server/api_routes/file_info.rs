@@ -2,22 +2,22 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 use std::path::Path;
 
-use anyhow::Context;
-use http::{Method, StatusCode};
-use relative_path::{RelativePath, RelativePathBuf};
-use serde::{Deserialize, Serialize};
-use tracing::instrument;
 use crate::media_manipulation::thumbnail_sheet;
-use crate::web_server::{libraries, media_connections, video_locator};
 use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::{list_dir, thumbnail};
 use crate::web_server::api_types::{ApiCommentThread, ApiDirectoryInfo, ApiFileInfo, ApiSubtitleStream, ApiVideoConnection, ApiVideoInfo};
 use crate::web_server::auth::User;
 use crate::web_server::libraries::Library;
+use crate::web_server::media_metadata::{AdvancedMediaMetadata, BasicMediaMetadata, Dimension};
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
-use crate::web_server::media_metadata::{AdvancedMediaMetadata, BasicMediaMetadata, Dimension};
-use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
+use crate::web_server::web_utils::{large_json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::{libraries, media_connections, video_locator};
+use anyhow::Context;
+use http::Method;
+use relative_path::{RelativePath, RelativePathBuf};
+use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 #[instrument(skip(server_state, request))]
 pub async fn file_info_route(
@@ -60,7 +60,7 @@ pub async fn file_info_route(
 		}
 	};
 	
-	Ok(json_response(StatusCode::OK, &res))
+	Ok(large_json_response(&res, request.headers()).await?)
 }
 
 #[derive(Debug, Serialize)]

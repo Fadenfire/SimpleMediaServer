@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
-use http::{Method, StatusCode};
+use http::Method;
 use relative_path::{RelativePath, RelativePathBuf};
 use serde::Serialize;
 use tracing::{error, instrument};
@@ -12,10 +12,10 @@ use crate::web_server::api_routes::thumbnail;
 use crate::web_server::api_types::{ApiDirectoryEntry, ApiFileEntry};
 use crate::web_server::auth::User;
 use crate::web_server::media_metadata::BasicMediaMetadata;
-use crate::web_server::server_state::ServerState;
-use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
-use crate::web_server::{libraries, video_locator};
 use crate::web_server::metadata_cache::FileMetadata;
+use crate::web_server::server_state::ServerState;
+use crate::web_server::web_utils::{large_json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::{libraries, video_locator};
 
 #[instrument(skip(server_state, request))]
 pub async fn list_dir_route(
@@ -110,7 +110,7 @@ pub async fn list_dir_route(
 		total_size,
 	};
 	
-	Ok(json_response(StatusCode::OK, &res))
+	Ok(large_json_response(&res, request.headers()).await?)
 }
 
 pub async fn create_file_entry(

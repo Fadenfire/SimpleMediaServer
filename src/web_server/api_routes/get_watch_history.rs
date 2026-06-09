@@ -1,14 +1,14 @@
-use http::{Method, StatusCode};
+use http::Method;
 use serde::{Deserialize, Serialize};
 use tracing::{error, instrument};
 
-use crate::web_server::{video_locator, web_utils};
-use crate::web_server::api_types::ApiWatchHistoryEntry;
 use crate::web_server::api_error::ApiError;
 use crate::web_server::api_routes::list_dir;
+use crate::web_server::api_types::ApiWatchHistoryEntry;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
-use crate::web_server::web_utils::{HyperRequest, HyperResponse, json_response, restrict_method};
+use crate::web_server::web_utils::{large_json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::{video_locator, web_utils};
 
 #[instrument(skip_all)]
 pub async fn get_watch_history_route(server_state: &ServerState, request: &HyperRequest) -> Result<HyperResponse, ApiError> {
@@ -89,7 +89,7 @@ pub async fn get_watch_history_route(server_state: &ServerState, request: &Hyper
 		entries,
 	};
 	
-	Ok(json_response(StatusCode::OK, &res))
+	Ok(large_json_response(&res, request.headers()).await?)
 }
 
 #[derive(Debug, Deserialize)]
