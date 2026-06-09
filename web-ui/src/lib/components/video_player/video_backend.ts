@@ -33,7 +33,9 @@ export class VideoBackend {
 	
 	hls: Hls | undefined;
 	currentSource: SourceType | undefined;
-	
+
+	onMediaAttached: (() => void) | undefined;
+
 	currentLevelIndex: Writable<number>;
 	qualityLevels: Writable<QualityLevel[]>;
 	
@@ -55,9 +57,13 @@ export class VideoBackend {
 			this.hls = new Hls(hlsConfig);
 			this.hls.loadSource(this.hlsManifestURL);
 
+			this.hls.on(Events.MEDIA_ATTACHED, () => {
+				this.onMediaAttached?.();
+			});
+
 			this.hls.on(Events.MANIFEST_PARSED, () => {
 				// console.log(this.hls?.levels);
-				
+
 				this.qualityLevels.set(this.#createLevels());
 			});
 			
@@ -87,8 +93,10 @@ export class VideoBackend {
 		
 		this.videoElement.src = this.nativeVideoURL;
 		this.currentSource = SourceType.Native;
-		
+
 		this.videoElement.currentTime = oldTime;
+
+		this.onMediaAttached?.();
 	}
 	
 	#attachHls() {

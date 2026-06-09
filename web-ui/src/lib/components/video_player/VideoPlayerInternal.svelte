@@ -101,18 +101,6 @@
 		}
 	}, 1000);
 	
-	// Buffering
-	
-	function onVideoLoadedData(this: HTMLVideoElement) {
-		for (const track of this.textTracks) {
-			if (track.cues === null) return;
-			
-			for (const cue of track.cues) {
-				(cue as VTTCue).line = -3;
-			}
-		}
-	}
-	
 	// On mount callback
 	
 	let mounted = false;
@@ -219,8 +207,6 @@
 				};
 			})
 		}
-		
-		{onVideoLoadedData}
 	/>
 </div>
 

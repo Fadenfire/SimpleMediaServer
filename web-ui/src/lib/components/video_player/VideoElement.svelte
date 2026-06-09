@@ -31,8 +31,6 @@
 		subtitleStreams?: SubtitleStream[];
 		hlsConfig?: Partial<HlsConfig>;
 		provideState: (state: VideoState) => void;
-		
-		onVideoLoadedData?: (this: HTMLVideoElement) => void;
 	}
 
 	let {
@@ -40,8 +38,6 @@
 		subtitleStreams,
 		hlsConfig,
 		provideState,
-		
-		onVideoLoadedData: onVideoLoadedDataCallback,
 	}: Props = $props();
 	
 	// Set up video state
@@ -53,16 +49,14 @@
 	$effect(() => { videoState.currentTime = innerCurrentTime; });
 	
 	// Buffering
-	
+
 	let initialLoad = true;
-	
+
 	function onVideoLoadedData(this: HTMLVideoElement) {
 		if (initialLoad) {
 			initialLoad = false;
 			videoState.isBuffering = false;
 		}
-		
-		onVideoLoadedDataCallback?.call(this);
 	}
 	
 	function onVideoWaiting() {
@@ -74,20 +68,45 @@
 	}
 	
 	// On mount callback
-	
+
 	onMount(() => {
 		if (videoState.videoElement === undefined) throw Error("Video element is undefined");
-		
+
 		// Set up backend
-		
-		videoState.playerBackend = new VideoBackend(videoState.videoElement, mediaPath, hlsConfig);
-		videoState.playerBackend.currentLevelIndex.set(NATIVE_LEVEL_INDEX);
-		
+
+		const backend = new VideoBackend(videoState.videoElement, mediaPath, hlsConfig);
+
+		backend.onMediaAttached = () => {
+			const video = videoState.videoElement;
+			if (!video) return;
+
+			for (const el of Array.from(video.querySelectorAll('track'))) {
+				el.remove();
+			}
+
+			for (const stream of subtitleStreams ?? []) {
+				const el = document.createElement('track');
+				el.kind = 'captions';
+				el.id = stream.id;
+				if (stream.language) el.srclang = stream.language;
+				el.src = stream.src;
+				el.addEventListener('load', () => {
+					for (const cue of Array.from(el.track.cues ?? [])) {
+						(cue as VTTCue).line = -3;
+					}
+				});
+				video.appendChild(el);
+			}
+		};
+
+		videoState.playerBackend = backend;
+		backend.currentLevelIndex.set(NATIVE_LEVEL_INDEX);
+
 		videoState.isBuffering = true;
 		console.log("Attached player backend");
-		
+
 		// Unmount callback
-		
+
 		return () => {
 			videoState.playerBackend?.detach();
 			console.log("Dettached player backend");
@@ -103,24 +122,15 @@
 	bind:duration={videoState.duration}
 	bind:playbackRate={videoState.playbackRate}
 	bind:buffered={videoState.buffered}
-	
+
 	bind:currentTime={innerCurrentTime}
-		
+
 	onloadeddata={onVideoLoadedData}
 	onwaiting={onVideoWaiting}
 	onplaying={onVideoPlaying}
 
 	autoplay
->
-	{#each subtitleStreams as subtitleStream}
-		<track
-			kind="captions"
-			id={subtitleStream.id}
-			srclang={subtitleStream.language}
-			src={subtitleStream.src}
-		/>
-	{/each}
-</video>
+></video>
 
 <style lang="scss">
 	video {
