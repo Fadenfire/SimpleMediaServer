@@ -29,7 +29,7 @@ impl ArtifactGenerator for ThumbnailSheetGenerator {
 	type Metadata = ThumbnailSheetParams;
 	
 	fn create_cache_key(&self, media_path: &Self::Input) -> String {
-		format!("{}.jpg", blake3::hash(media_path.as_os_str().as_encoded_bytes()).to_hex())
+		format!("{}.webp", blake3::hash(media_path.as_os_str().as_encoded_bytes()).to_hex())
 	}
 	
 	async fn create_validity_key(&self, media_path: &Self::Input) -> anyhow::Result<Self::ValidityKey> {

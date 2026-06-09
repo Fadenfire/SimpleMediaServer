@@ -1,4 +1,6 @@
+use std::str::FromStr;
 use http::Method;
+use mime::Mime;
 use tracing::instrument;
 
 use crate::web_server::api_error::ApiError;
@@ -24,7 +26,7 @@ pub async fn thumbnail_sheet_route(
 	let res = serve_file_basic(
 		generated_sprite_sheet.entry_data,
 		generated_sprite_sheet.creation_date.into(),
-		mime::IMAGE_JPEG,
+		Mime::from_str("image/webp").unwrap(),
 		request.headers()
 	).await?;
 	

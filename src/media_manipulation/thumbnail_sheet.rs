@@ -8,7 +8,6 @@ use ffmpeg_next::{decoder, format, frame, media, rescale, Discard, Rescale};
 use ffmpeg_sys_next::AV_CODEC_FLAG_COPY_OPAQUE;
 use image::{GenericImage, Rgb, RgbImage};
 use serde::{Deserialize, Serialize};
-use turbojpeg::Subsamp;
 
 use crate::media_manipulation::backends::{BackendFactory, VideoDecoderParams};
 use crate::media_manipulation::media_utils;
@@ -16,7 +15,7 @@ use crate::media_manipulation::media_utils::frame_scaler::FrameScaler;
 use crate::media_manipulation::media_utils::{MILLIS_TIME_BASE, SECONDS_TIME_BASE};
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 120;
-const JPEG_QUALITY: i32 = 90;
+const WEBP_QUALITY: f32 = 90.0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ThumbnailSheetParams {
@@ -110,7 +109,13 @@ pub fn generate_sheet(backend_factory: &impl BackendFactory, media_path: PathBuf
 	decoder.send_eof()?;
 	receive_frames(&mut decoder)?;
 	
-	let output_buffer = turbojpeg::compress_image(&sprite_sheet, JPEG_QUALITY, Subsamp::Sub2x2).unwrap();
+	let final_image = sprite_sheet.into();
 	
-	Ok((Bytes::from(output_buffer.to_vec()), sheet_params))
+	let encoder = webp::Encoder::from_image(&final_image)
+		.map_err(|err| anyhow::anyhow!("webp error: {}", err))?;
+	
+	let encoded_image = encoder.encode(WEBP_QUALITY);
+	let output_bytes = encoded_image.to_vec().into();
+	
+	Ok((output_bytes, sheet_params))
 }
