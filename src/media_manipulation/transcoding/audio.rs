@@ -63,7 +63,11 @@ impl AudioTranscoder {
 		out_stream.set_parameters(&encoder);
 		out_stream.set_time_base(rate_time_base);
 		
-		let staging_frame = frame::Audio::new(encoder.format(), encoder.frame_size() as usize, encoder.channel_layout());
+		let staging_frame = frame::Audio::new(
+			encoder.format(),
+			encoder.frame_size() as usize,
+			encoder.channel_layout()
+		);
 		
 		let mut sample_size = staging_frame.format().bytes();
 		
@@ -87,10 +91,14 @@ impl AudioTranscoder {
 		})
 	}
 	
-	pub fn receive_input_packet(&mut self, in_stream: &ffmpeg::Stream, mut in_packet: Packet, time_bounds: Range<i64>) -> anyhow::Result<()> {
+	pub fn receive_input_packet(&mut self,
+		in_stream: &ffmpeg::Stream,
+		mut in_packet: Packet,
+		time_bounds: Range<i64>
+	) -> anyhow::Result<()> {
 		in_packet.rescale_ts(in_stream.time_base(), self.in_stream_time_base);
-		self.decoder.send_packet(&in_packet).context("Sending packet")?;
 		
+		self.decoder.send_packet(&in_packet).context("Sending packet")?;
 		self.decode_frames(time_bounds)
 	}
 	
@@ -128,7 +136,8 @@ impl AudioTranscoder {
 			
 			let mut in_index = 0;
 			
-			// If this is the start of transcoding, then drop samples until we align to an output frame boundary (times four to be safe)
+			// If this is the start of transcoding, then drop samples until we align to an
+			// output frame boundary (times four to be safe)
 			if self.first_frame {
 				let alignment_size = out_frame_size * 4;
 				let correction = (alignment_size - (timestamp % alignment_size as i64) as usize) % alignment_size;
@@ -185,10 +194,10 @@ impl AudioTranscoder {
 		let mut out_packet = Packet::empty();
 		
 		while self.encoder.receive_packet(&mut out_packet).is_ok() {
-			let timestamp = out_packet.pts().unwrap();
+			let pts = out_packet.pts().unwrap();
 			
 			// Only output frames that lie within the time bounds
-			if scaled_time_bounds.contains(&timestamp) {
+			if scaled_time_bounds.contains(&pts) {
 				self.output_packet_queue.push(out_packet.clone());
 			}
 		}

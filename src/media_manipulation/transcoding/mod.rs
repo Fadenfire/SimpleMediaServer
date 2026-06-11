@@ -8,7 +8,7 @@ use ffmpeg_next::{Dictionary, encoder, format, media, Rescale, rescale, codec};
 use ffmpeg_sys_next::av_opt_set;
 
 use crate::media_manipulation::backends::BackendFactory;
-use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;
+use crate::media_manipulation::media_utils::{MILLIS_TIME_BASE, SECONDS_TIME_BASE};
 use crate::media_manipulation::transcoding::audio::{AudioTranscoder, AudioTranscoderParams};
 use crate::media_manipulation::transcoding::video::{VideoTranscoder, VideoTranscoderParams};
 use crate::media_manipulation::media_utils::av_error;
@@ -18,7 +18,7 @@ mod audio;
 mod video;
 pub mod subtitle;
 
-const PADDING_DELTA: i64 = 1;
+const START_PADDING_MS: i64 = 300;
 
 pub fn calculate_output_width(source_width: u32, source_height: u32, target_height: u32) -> u32 {
 	source_width * target_height / source_height / 2 * 2
@@ -46,7 +46,8 @@ pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 	let mut audio_transcoder = None;
 	
 	if let Some(video_stream) = demuxer.streams().best(media::Type::Video) {
-		let video_backend = opts.backend_factory.create_video_backend().context("Creating video backend")?;
+		let video_backend = opts.backend_factory.create_video_backend()
+			.context("Creating video backend")?;
 		
 		let params = VideoTranscoderParams {
 			in_stream: &video_stream,
@@ -63,7 +64,8 @@ pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 	}
 	
 	if let Some(audio_stream) = demuxer.streams().best(media::Type::Audio) {
-		let audio_codec = encoder::find(codec::Id::AAC).unwrap().audio().context("Getting audio codec")?;
+		let audio_codec = encoder::find(codec::Id::AAC).unwrap().audio()
+			.context("Getting audio codec")?;
 		
 		let params = AudioTranscoderParams {
 			in_stream: &audio_stream,
@@ -84,28 +86,35 @@ pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 	let mut time_bounds = opts.time_range;
 	
 	if time_bounds.start > 0 {
-		let pos = (time_bounds.start - PADDING_DELTA).rescale(SECONDS_TIME_BASE, rescale::TIME_BASE);
+		let start_time_ms = time_bounds.start * 1000 - START_PADDING_MS;
+		let seek_pos = start_time_ms.rescale(MILLIS_TIME_BASE, rescale::TIME_BASE);
 		
-		demuxer.seek(pos, ..pos).context("Seeking")?;
+		demuxer.seek(seek_pos, ..seek_pos).context("Seeking")?;
 	} else {
 		time_bounds.start = i64::MIN;
 	}
 	
-	let end_time = time_bounds.end + PADDING_DELTA;
+	let end_time = time_bounds.end;
+	
+	let mut has_more_video = video_transcoder.is_some();
+	let mut has_more_audio = audio_transcoder.is_some();
 	
 	for (stream, packet) in demuxer.packets() {
-		if stream.index() == video_stream_index || stream.index() == audio_stream_index {
-			if packet.pts().unwrap() > end_time.rescale(SECONDS_TIME_BASE, stream.time_base()) {
-				break;
+		if packet.dts().unwrap() > end_time.rescale(SECONDS_TIME_BASE, stream.time_base()) {
+			match stream.index() {
+				i if i == video_stream_index => has_more_video = false,
+				i if i == audio_stream_index => has_more_audio = false,
+				_ => {}
 			}
 		}
 		
-		if stream.index() == video_stream_index {
+		if has_more_video && stream.index() == video_stream_index {
 			if let Some(ref mut video_transcoder) = video_transcoder {
 				video_transcoder.receive_input_packet(&stream, packet, time_bounds.clone())
 					.context("Processing video packet")?;
 			}
-		} else if stream.index() == audio_stream_index {
+		}
+		else if has_more_audio && stream.index() == audio_stream_index {
 			if let Some(ref mut audio_transcoder) = audio_transcoder {
 				audio_transcoder.receive_input_packet(&stream, packet, time_bounds.clone())
 					.context("Processing audio packet")?;

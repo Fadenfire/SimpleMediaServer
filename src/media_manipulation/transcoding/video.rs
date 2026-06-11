@@ -86,10 +86,14 @@ impl VideoTranscoder {
 		})
 	}
 	
-	pub fn receive_input_packet(&mut self, in_stream: &ffmpeg::Stream, mut in_packet: Packet, time_bounds: Range<i64>) -> anyhow::Result<()> {
+	pub fn receive_input_packet(&mut self,
+		in_stream: &ffmpeg::Stream,
+		mut in_packet: Packet,
+		time_bounds: Range<i64>
+	) -> anyhow::Result<()> {
 		in_packet.rescale_ts(in_stream.time_base(), self.in_stream_time_base);
-		self.decoder.send_packet(&in_packet).context("Passing packet to decoder")?;
 		
+		self.decoder.send_packet(&in_packet).context("Passing packet to decoder")?;
 		self.decode_frames(time_bounds).context("Decoding frames")
 	}
 	
@@ -111,7 +115,8 @@ impl VideoTranscoder {
 	}
 	
 	fn decode_frames(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		let scaled_time_bounds = media_utils::scale_range(time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
+		let scaled_time_bounds = media_utils::scale_range(
+			time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
 		let mut in_frame = frame::Video::empty();
 		
 		while self.decoder.receive_frame(&mut in_frame).is_ok() {
@@ -130,7 +135,8 @@ impl VideoTranscoder {
 					
 					let mut filter = filter::graph::Graph::new();
 					
-					let in_params = format!("width={}:height={}:pix_fmt={}:time_base={}/{}:sar=1:colorspace={}:range={}",
+					let in_params = format!(
+						"width={}:height={}:pix_fmt={}:time_base={}/{}:sar=1:colorspace={}:range={}",
 						self.decoder.width(), self.decoder.height(),
 						pixel_format as u32,
 						self.rate_time_base.numerator(), self.rate_time_base.denominator(),
@@ -139,7 +145,8 @@ impl VideoTranscoder {
 					);
 					
 					unsafe {
-						let mut in_filter = filter.add(&filter::find("buffer").unwrap(), "in", &in_params)
+						let mut in_filter = filter
+							.add(&filter::find("buffer").unwrap(), "in", &in_params)
 							.context("Adding input filter")?;
 						
 						let hw_frames_ctx = (*self.decoder.as_ptr()).hw_frames_ctx;
@@ -157,7 +164,8 @@ impl VideoTranscoder {
 					}
 					
 					{
-						let mut out_filter = filter.add(&filter::find("buffersink").unwrap(), "out", "")
+						let mut out_filter = filter
+							.add(&filter::find("buffersink").unwrap(), "out", "")
 							.context("Adding output filter")?;
 						
 						out_filter.set_pixel_format(self.backend.encoder_pixel_format());
@@ -174,7 +182,12 @@ impl VideoTranscoder {
 					self.filter = Some(filter);
 				}
 				
-				self.filter.as_mut().unwrap().get("in").unwrap().source().add(&in_frame).context("Passing frame to filter graph")?;
+				self.filter.as_mut().unwrap()
+					.get("in").unwrap()
+					.source()
+					.add(&in_frame)
+					.context("Passing frame to filter graph")?;
+				
 				self.drain_filter(time_bounds.clone()).context("Draining filter")?;
 			}
 		}
@@ -183,10 +196,16 @@ impl VideoTranscoder {
 	}
 	
 	fn drain_filter(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		let scaled_time_bounds = media_utils::scale_range(time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
+		let scaled_time_bounds = media_utils::scale_range(
+			time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
 		let mut out_frame = frame::Video::empty();
 		
-		while self.filter.as_mut().unwrap().get("out").unwrap().sink().frame(&mut out_frame).is_ok() {
+		while self.filter.as_mut().unwrap()
+			.get("out").unwrap()
+			.sink()
+			.frame(&mut out_frame)
+			.is_ok()
+		{
 			if self.encoder.is_none() {
 				let hw_ctx = unsafe { (*out_frame.as_ptr()).hw_frames_ctx };
 				
@@ -222,7 +241,10 @@ impl VideoTranscoder {
 				// 	out_frame.set_color_range(ffmpeg::color::Range::JPEG);
 				// }
 				
-				self.encoder.as_mut().unwrap().send_frame(&out_frame).context("Passing frame to encoder")?;
+				self.encoder.as_mut().unwrap()
+					.send_frame(&out_frame)
+					.context("Passing frame to encoder")?;
+				
 				self.process_output_packets(time_bounds.clone()).context("Writing packets")?;
 			}
 		}
@@ -231,7 +253,8 @@ impl VideoTranscoder {
 	}
 	
 	fn process_output_packets(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		let scaled_time_bounds = media_utils::scale_range(time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
+		let scaled_time_bounds = media_utils::scale_range(
+			time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
 		let mut out_packet = Packet::empty();
 		
 		while self.encoder.as_mut().unwrap().receive_packet(&mut out_packet).is_ok() {
