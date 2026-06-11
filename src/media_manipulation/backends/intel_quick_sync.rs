@@ -33,6 +33,10 @@ impl BackendFactory for QuickSyncVideoBackendFactory {
 			hw_context: self.device_pool.take_device()?,
 		}))
 	}
+	
+	fn supports_encoding_codec(&self, codec: codec::Id) -> bool {
+		matches!(codec, codec::Id::H264 | codec::Id::HEVC)
+	}
 }
 
 pub struct QuickSyncVideoBackend {
@@ -40,19 +44,6 @@ pub struct QuickSyncVideoBackend {
 }
 
 impl QuickSyncVideoBackend {
-	fn get_codec_name(codec: codec::Id) -> Option<&'static str> {
-		match codec {
-			codec::Id::H264 => Some("h264_qsv"),
-			codec::Id::HEVC => Some("hevc_qsv"),
-			codec::Id::VP9 => Some("vp9_qsv"),
-			codec::Id::VP8 => Some("vp8_qsv"),
-			codec::Id::AV1 => Some("av1_qsv"),
-			codec::Id::MPEG2VIDEO => Some("mpeg2_qsv"),
-			codec::Id::MJPEG => Some("mjpeg_qsv"),
-			_ => None
-		}
-	}
-	
 	unsafe extern "C" fn get_format(_ctx: *mut AVCodecContext, mut formats: *const AVPixelFormat) -> AVPixelFormat {
 		unsafe {
 			while *formats != AV_PIX_FMT_NONE {
@@ -76,14 +67,26 @@ impl VideoBackend for QuickSyncVideoBackend {
 	}
 	
 	fn create_encoder(&mut self, mut params: VideoEncoderParams) -> anyhow::Result<encoder::Video> {
-		let encoder_name = Self::get_codec_name(params.codec)
-			.ok_or_else(|| anyhow!("Unsupported encoder codec"))?;
+		let encoder_name = match params.codec {
+			codec::Id::H264 => {
+				params.encoder_options.set("look_ahead", "0");
+				params.encoder_options.set("profile", "high");
+				
+				"h264_qsv"
+			},
+			codec::Id::HEVC => {
+				params.encoder_options.set("profile", "main");
+				params.encoder_options.set("tier", "main");
+				
+				"hevc_qsv"
+			},
+			_ => return Err(anyhow!("Unsupported encoder codec"))
+		};
+		
+		params.encoder_options.set("low_power", "1");
 		
 		let encoder_codec = encoder::find_by_name(encoder_name)
 			.ok_or_else(|| anyhow!("Unable to find encoder"))?;
-		
-		params.encoder_options.set("low_power", "1");
-		params.encoder_options.set("look_ahead", "0");
 		
 		let mut encoder = codec::context::Context::new_with_codec(encoder_codec)
 			.encoder()

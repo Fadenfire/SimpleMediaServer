@@ -4,8 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
-use ffmpeg_next::{Dictionary, encoder, format, media, Rescale, rescale};
-use ffmpeg_next::codec::Id;
+use ffmpeg_next::{Dictionary, encoder, format, media, Rescale, rescale, codec};
 use ffmpeg_sys_next::av_opt_set;
 
 use crate::media_manipulation::backends::BackendFactory;
@@ -31,6 +30,7 @@ pub struct TranscodingOptions<'a> {
 	pub time_range: Range<i64>,
 	pub target_video_height: u32,
 	// pub target_video_framerate: u32,
+	pub video_codec: codec::Id,
 	pub video_bitrate: usize,
 	pub audio_bitrate: usize,
 }
@@ -52,7 +52,7 @@ pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 			in_stream: &video_stream,
 			muxer: &mut muxer,
 			backend: video_backend,
-			output_codec: Id::H264,
+			output_codec: opts.video_codec,
 			target_height: opts.target_video_height,
 			bit_rate: opts.video_bitrate,
 			encoder_options: Dictionary::new(),
@@ -63,7 +63,7 @@ pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 	}
 	
 	if let Some(audio_stream) = demuxer.streams().best(media::Type::Audio) {
-		let audio_codec = encoder::find(Id::AAC).unwrap().audio().context("Getting audio codec")?;
+		let audio_codec = encoder::find(codec::Id::AAC).unwrap().audio().context("Getting audio codec")?;
 		
 		let params = AudioTranscoderParams {
 			in_stream: &audio_stream,

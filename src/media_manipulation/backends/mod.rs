@@ -79,4 +79,8 @@ pub trait VideoBackend {
 
 pub trait BackendFactory {
 	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>>;
+	
+	fn supports_encoding_codec(&self, codec: codec::Id) -> bool {
+		codec == codec::Id::H264
+	}
 }

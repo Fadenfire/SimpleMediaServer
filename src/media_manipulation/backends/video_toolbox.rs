@@ -17,6 +17,10 @@ impl BackendFactory for VideoToolboxVideoBackendFactory {
 	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
 		Ok(Box::new(VideoToolboxVideoBackend))
 	}
+	
+	fn supports_encoding_codec(&self, codec: codec::Id) -> bool {
+		matches!(codec, codec::Id::H264 | codec::Id::HEVC)
+	}
 }
 
 pub struct VideoToolboxVideoBackend;
@@ -26,11 +30,22 @@ impl VideoBackend for VideoToolboxVideoBackend {
 		Pixel::YUV420P
 	}
 	
-	fn create_encoder(&mut self, params: VideoEncoderParams) -> anyhow::Result<encoder::Video> {
+	fn create_encoder(&mut self, mut params: VideoEncoderParams) -> anyhow::Result<encoder::Video> {
 		let encoder_name = match params.codec {
-			codec::Id::H264 => "h264_videotoolbox",
+			codec::Id::H264 => {
+				params.encoder_options.set("profile", "high");
+				
+				"h264_videotoolbox"
+			},
+			codec::Id::HEVC => {
+				params.encoder_options.set("profile", "main");
+				
+				"hevc_videotoolbox"
+			},
 			_ => return Err(anyhow!("Unsupported encoder codec"))
 		};
+		
+		params.encoder_options.set("power_efficient", "true");
 		
 		let encoder_codec = encoder::find_by_name(encoder_name)
 			.ok_or_else(|| anyhow!("Unable to find encoder"))?;
