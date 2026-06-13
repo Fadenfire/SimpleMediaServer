@@ -37,6 +37,7 @@ impl FileMetadata for BasicMediaMetadata {
 pub struct AdvancedMediaMetadata {
 	pub ffmpeg_duration: Duration,
 	pub video_metadata: Option<VideoMetadata>,
+	pub has_audio: bool,
 	pub subtitle_streams: Vec<SubtitleStream>,
 }
 
@@ -182,6 +183,8 @@ fn extract_advanced_metadata(media_path: &Path) -> anyhow::Result<AdvancedMediaM
 		None => None
 	};
 	
+	let has_audio = demuxer.streams().best(Type::Audio).is_some();
+	
 	let duration_millis = demuxer.duration()
 		.rescale(rescale::TIME_BASE, MILLIS_TIME_BASE)
 		.try_into()
@@ -209,6 +212,7 @@ fn extract_advanced_metadata(media_path: &Path) -> anyhow::Result<AdvancedMediaM
 	Ok(AdvancedMediaMetadata {
 		ffmpeg_duration,
 		video_metadata,
+		has_audio,
 		subtitle_streams,
 	})
 }

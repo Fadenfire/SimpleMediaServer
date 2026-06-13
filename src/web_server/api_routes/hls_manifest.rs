@@ -7,6 +7,7 @@ use crate::web_server::api_error::ApiError;
 use crate::web_server::media_metadata::AdvancedMediaMetadata;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::services::hls_segment_service;
+use crate::web_server::services::hls_segment_service::HLS_AUDIO_CODEC_STRING;
 use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse, restrict_method};
 
 #[instrument(skip(server_state, request))]
@@ -34,10 +35,21 @@ pub async fn hls_manifest_route(
 			.filter(|lvl| lvl.supported(video_metadata));
 		
 		for level in levels {
-			manifest.push_str(&format!("#EXT-X-STREAM-INF:BANDWIDTH={},RESOLUTION={}x{},FRAME-RATE={}\n",
+			let mut codecs = Vec::new();
+			
+			if advanced_metadata.has_audio {
+				codecs.push(HLS_AUDIO_CODEC_STRING);
+			}
+			
+			codecs.push(level.video_codec.as_codec_string());
+			
+			manifest.push_str(&format!(
+				"#EXT-X-STREAM-INF:BANDWIDTH={},RESOLUTION={}x{},FRAME-RATE={},CODECS=\"{}\"\n",
 				level.max_bandwidth(),
 				level.output_width(&video_metadata.video_size), level.target_video_height,
-				f64::from(video_metadata.frame_rate)));
+				f64::from(video_metadata.frame_rate),
+				codecs.join(","),
+			));
 			
 			manifest.push_str(&format!("level/{}/manifest.m3u8\n", level.id));
 		}

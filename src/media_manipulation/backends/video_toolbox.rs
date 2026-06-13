@@ -34,7 +34,7 @@ impl VideoBackend for VideoToolboxVideoBackend {
 		let encoder_name = match params.codec {
 			codec::Id::H264 => {
 				params.encoder_options.set("profile", "high");
-				params.encoder_options.set("level", "51");
+				// params.encoder_options.set("level", "51");
 				
 				"h264_videotoolbox"
 			},
