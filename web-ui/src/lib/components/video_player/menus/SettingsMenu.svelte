@@ -40,7 +40,7 @@
 <SidebarMenu>
 	<h3 class="title">Settings</h3>
 	
-	<SelectionDropdown bind:value={$currentLevel} label="Quality" style="width: 180px;">
+	<SelectionDropdown bind:value={$currentLevel} label="Quality" style="width: 200px;">
 		{#each $levels as level}
 			<option value={level.id}>
 				{level.displayName}
@@ -51,7 +51,7 @@
 		{/each}
 	</SelectionDropdown>
 	
-	<SelectionDropdown bind:value={playerState.videoState.playbackRate} label="Speed" style="width: 180px;">
+	<SelectionDropdown bind:value={playerState.videoState.playbackRate} label="Speed" style="width: 200px;">
 		<option value={0.25}>0.25x</option>
 		<option value={0.5}>0.5x</option>
 		<option value={0.75}>0.75x</option>
@@ -63,7 +63,7 @@
 	</SelectionDropdown>
 	
 	{#if playerState.mediaInfo.subtitle_streams.length > 0}
-		<SelectionDropdown bind:value={playerState.subtitleTrack} label="Captions" style="width: 180px;">
+		<SelectionDropdown bind:value={playerState.subtitleTrack} label="Captions" style="width: 200px;">
 			<option value={-1}>Off</option>
 			
 			{#each playerState.mediaInfo.subtitle_streams as track, index}

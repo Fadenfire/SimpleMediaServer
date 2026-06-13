@@ -206,5 +206,11 @@ export class VideoBackend {
 }
 
 function genHlsLevelName(level: Level): string {
-	return `${level.height}p - ${abbreviateNumber(level.bitrate)}`;
+	let name = `${level.height}p - ${abbreviateNumber(level.bitrate)}`;
+	
+	if (level.videoCodec?.startsWith("hvc1")) {
+		name += " - HEVC";
+	}
+	
+	return name;
 }
