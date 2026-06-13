@@ -266,8 +266,7 @@ impl VideoTranscoder {
 	
 	pub fn add_output_stream(&mut self, muxer: &mut format::context::Output) -> anyhow::Result<()> {
 		if let Some(encoder) = &self.encoder {
-			let mut out_stream = muxer.add_stream(self.output_codec)?;
-			out_stream.set_parameters(encoder);
+			let mut out_stream = media_utils::add_output_stream(muxer, encoder)?;
 			out_stream.set_time_base(self.time_base);
 			
 			self.out_stream_index = Some(out_stream.index());

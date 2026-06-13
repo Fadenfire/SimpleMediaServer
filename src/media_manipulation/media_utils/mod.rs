@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use std::ops::Range;
 
 use anyhow::Context;
-use ffmpeg_next::{decoder, Discard, format, frame, Rational, Rescale, Stream};
+use ffmpeg_next::{decoder, Discard, format, frame, Rational, Rescale, Stream, encoder, codec, StreamMut};
 use ffmpeg_next::packet::Mut;
 use ffmpeg_sys_next::{AVERROR, ENOMEM};
 use image::flat::SampleLayout;
@@ -90,6 +90,18 @@ pub fn frame_image_sample_rgb(frame: &frame::Video) -> FlatSamples<&[u8]> {
 	};
 	
 	samples
+}
+
+pub fn add_output_stream(
+	muxer: &'_ mut format::context::Output,
+	params: impl Into<codec::Parameters>
+) -> anyhow::Result<StreamMut<'_>> {
+	let mut out_stream = muxer.add_stream(encoder::find(codec::Id::None))?;
+	out_stream.set_parameters(params);
+	
+	unsafe { (*(*out_stream.as_mut_ptr()).codecpar).codec_tag = 0; }
+	
+	Ok(out_stream)
 }
 
 pub fn av_error(code: c_int) -> Result<c_int, ffmpeg_next::Error> {

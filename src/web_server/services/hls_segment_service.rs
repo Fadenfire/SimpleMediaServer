@@ -150,14 +150,8 @@ impl HlsQualityLevel {
 #[derive(Debug, Clone)]
 pub struct SegmentParams {
 	pub media_path: PathBuf,
-	pub segment_index: SegmentIndex,
+	pub segment_index: usize,
 	pub quality_level: HlsQualityLevel,
-}
-
-#[derive(Debug, Clone)]
-pub enum SegmentIndex {
-	Init,
-	Normal(usize),
 }
 
 pub struct HlsSegmentGenerator {
@@ -180,10 +174,7 @@ impl ArtifactGenerator for HlsSegmentGenerator {
 	fn create_cache_key(&self, input: &Self::Input) -> String {
 		let path_hash = blake3::hash(input.media_path.as_os_str().as_encoded_bytes()).to_hex();
 		
-		match input.segment_index {
-			SegmentIndex::Init => format!("{}_{}_init.mp4", path_hash, input.quality_level.id),
-			SegmentIndex::Normal(index) => format!("{}_{}_s{}.m4s", path_hash, input.quality_level.id, index),
-		}
+		format!("{}_{}_s{}.ts", path_hash, input.quality_level.id, input.segment_index)
 	}
 	
 	async fn create_validity_key(&self, input: &Self::Input) -> anyhow::Result<Self::ValidityKey> {
@@ -206,22 +197,12 @@ impl ArtifactGenerator for HlsSegmentGenerator {
 				audio_bitrate: input.quality_level.audio_bitrate,
 			};
 			
-			match input.segment_index {
-				SegmentIndex::Init => {
-					info!("Generating init segment at {} for {:?}", input.quality_level.id, &opts.media_path);
-					
-					transcoding::generate_fmp4_init(opts)
-				}
-				SegmentIndex::Normal(index) => {
-					info!("Generating segment {} at {} for {:?}", index, input.quality_level.id, &opts.media_path);
-					
-					let start_time = index as i64 * SEGMENT_DURATION;
-					let time_range = start_time..(start_time + SEGMENT_DURATION);
-					
-					transcoding::generate_fmp4_segment(opts, time_range)
-				}
-			}
+			info!("Generating segment {} at {} for {:?}", index, input.quality_level.id, &opts.media_path);
 			
+			let start_time = index as i64 * SEGMENT_DURATION;
+			let time_range = start_time..(start_time + SEGMENT_DURATION);
+			
+			transcoding::generate_fmp4_segment(opts, time_range)
 		}).await.context("Panic")??;
 		
 		info!("Generated segment in {:?}", Instant::now() - start_time);

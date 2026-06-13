@@ -19,6 +19,7 @@ mod video;
 pub mod subtitle;
 
 const START_PADDING_MS: i64 = 300;
+const END_PADDING_MS: i64 = 150;
 
 pub fn calculate_output_width(source_width: u32, source_height: u32, target_height: u32) -> u32 {
 	source_width * target_height / source_height / 2 * 2
@@ -27,7 +28,6 @@ pub fn calculate_output_width(source_width: u32, source_height: u32, target_heig
 pub struct TranscodingOptions<'a> {
 	pub backend_factory: &'a dyn BackendFactory,
 	pub media_path: PathBuf,
-	pub time_range: Range<i64>,
 	pub target_video_height: u32,
 	// pub target_video_framerate: u32,
 	pub video_codec: codec::Id,
@@ -35,7 +35,7 @@ pub struct TranscodingOptions<'a> {
 	pub audio_bitrate: usize,
 }
 
-pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
+pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<i64>) -> anyhow::Result<Bytes> {
 	let mut demuxer = format::input(&opts.media_path).context("Opening video file")?;
 	let mut muxer = InMemoryMuxer::new("mpegts").context("Opening output")?;
 	
@@ -83,8 +83,6 @@ pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 		return Err(anyhow!("Media has neither audio nor video"));
 	}
 	
-	let mut time_bounds = opts.time_range;
-	
 	if time_bounds.start > 0 {
 		let start_time_ms = time_bounds.start * 1000 - START_PADDING_MS;
 		let seek_pos = start_time_ms.rescale(MILLIS_TIME_BASE, rescale::TIME_BASE);
@@ -94,18 +92,27 @@ pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 		time_bounds.start = i64::MIN;
 	}
 	
-	let end_time = time_bounds.end;
+	let end_time_ms = time_bounds.end * 1000 + END_PADDING_MS;
 	
 	let mut has_more_video = video_transcoder.is_some();
 	let mut has_more_audio = audio_transcoder.is_some();
 	
 	for (stream, packet) in demuxer.packets() {
-		if packet.dts().unwrap() > end_time.rescale(SECONDS_TIME_BASE, stream.time_base()) {
-			match stream.index() {
-				i if i == video_stream_index => has_more_video = false,
-				i if i == audio_stream_index => has_more_audio = false,
-				_ => {}
+		if [video_stream_index, audio_stream_index].contains(&stream.index()) {
+			let dts = packet.dts()
+				.ok_or_else(|| anyhow!("Video/audio packet had no DTS"))?;
+			
+			if dts > end_time_ms.rescale(MILLIS_TIME_BASE, stream.time_base()) {
+				match stream.index() {
+					i if i == video_stream_index => has_more_video = false,
+					i if i == audio_stream_index => has_more_audio = false,
+					_ => {}
+				}
 			}
+		}
+		
+		if !has_more_video && !has_more_audio {
+			break;
 		}
 		
 		if has_more_video && stream.index() == video_stream_index {
@@ -160,5 +167,5 @@ pub fn transcode_segment(opts: TranscodingOptions) -> anyhow::Result<Bytes> {
 	
 	muxer.write_trailer().context("Writing trailer")?;
 	
-	Ok(muxer.into_output_buffer().into())
+	Ok(muxer.drain_output_buffer()?.into())
 }

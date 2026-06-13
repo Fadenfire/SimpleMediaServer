@@ -13,7 +13,8 @@ pub struct AudioTranscoder {
 	encoder: codec::encoder::Audio,
 	
 	in_stream_time_base: Rational,
-	out_stream_index: usize,
+	out_stream_index: Option<usize>,
+	output_codec: codec::Id,
 	rate_time_base: Rational,
 	sample_size: usize,
 	
@@ -25,7 +26,7 @@ pub struct AudioTranscoder {
 
 pub struct AudioTranscoderParams<'a> {
 	pub in_stream: &'a ffmpeg::Stream<'a>,
-	pub muxer: &'a mut format::context::Output,
+	pub muxer: &'a format::context::Output,
 	pub encoder_codec: codec::Audio,
 	pub bit_rate: usize,
 	pub encoder_options: Dictionary<'a>,
@@ -59,10 +60,6 @@ impl AudioTranscoder {
 		
 		let encoder = encoder.open_with(params.encoder_options)?;
 		
-		let mut out_stream = params.muxer.add_stream(params.encoder_codec)?;
-		out_stream.set_parameters(&encoder);
-		out_stream.set_time_base(rate_time_base);
-		
 		let staging_frame = frame::Audio::new(
 			encoder.format(),
 			encoder.frame_size() as usize,
@@ -80,7 +77,8 @@ impl AudioTranscoder {
 			encoder,
 			
 			in_stream_time_base: params.in_stream.time_base(),
-			out_stream_index: out_stream.index(),
+			out_stream_index: None,
+			output_codec: params.encoder_codec.id(),
 			rate_time_base,
 			sample_size,
 			
@@ -205,12 +203,23 @@ impl AudioTranscoder {
 		Ok(())
 	}
 	
+	pub fn add_output_stream(&mut self, muxer: &mut format::context::Output) -> anyhow::Result<()> {
+		let mut out_stream = media_utils::add_output_stream(muxer, &self.encoder)?;
+		out_stream.set_time_base(self.rate_time_base);
+		
+		self.out_stream_index = Some(out_stream.index());
+		
+		Ok(())
+	}
+	
 	pub fn write_output_packets(&mut self, muxer: &mut format::context::Output) -> anyhow::Result<()> {
-		let stream_time_base = muxer.stream(self.out_stream_index).expect("Unknown stream").time_base();
+		let Some(out_stream_index) = self.out_stream_index else { return Ok(()); };
+		let stream_time_base = muxer.stream(out_stream_index).expect("Unknown stream").time_base();
 		
 		for mut out_packet in self.output_packet_queue.drain(..) {
+			out_packet.set_duration(self.encoder.frame_size() as i64);
 			out_packet.rescale_ts(self.rate_time_base, stream_time_base);
-			out_packet.set_stream(self.out_stream_index);
+			out_packet.set_stream(out_stream_index);
 			
 			out_packet.write_interleaved(muxer).context("Writing packet")?;
 		}
