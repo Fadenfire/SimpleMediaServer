@@ -24,6 +24,14 @@ pub const QUALITY_LEVELS: &[HlsQualityLevel] = &[
 		audio_bitrate: 192_000,
 	},
 	HlsQualityLevel {
+		id: "1080p_12M_HEVC",
+		target_video_height: 1080,
+		video_codec: HlsVideoCodec::HEVC,
+		video_bitrate: 12_000_000,
+		audio_bitrate: 192_000,
+	},
+	
+	HlsQualityLevel {
 		id: "720p_10M",
 		target_video_height: 720,
 		video_codec: HlsVideoCodec::H264,
@@ -31,12 +39,20 @@ pub const QUALITY_LEVELS: &[HlsQualityLevel] = &[
 		audio_bitrate: 192_000,
 	},
 	HlsQualityLevel {
-		id: "720p_6M",
+		id: "720p_8M_HEVC",
 		target_video_height: 720,
-		video_codec: HlsVideoCodec::H264,
-		video_bitrate: 6_000_000,
+		video_codec: HlsVideoCodec::HEVC,
+		video_bitrate: 8_000_000,
 		audio_bitrate: 192_000,
 	},
+	HlsQualityLevel {
+		id: "720p_2M_HEVC",
+		target_video_height: 720,
+		video_codec: HlsVideoCodec::HEVC,
+		video_bitrate: 1_800_000,
+		audio_bitrate: 192_000,
+	},
+	
 	HlsQualityLevel {
 		id: "480p_4M",
 		target_video_height: 480,
@@ -45,12 +61,20 @@ pub const QUALITY_LEVELS: &[HlsQualityLevel] = &[
 		audio_bitrate: 192_000,
 	},
 	HlsQualityLevel {
-		id: "480p_2M",
+		id: "480p_4M_HEVC",
 		target_video_height: 480,
-		video_codec: HlsVideoCodec::H264,
-		video_bitrate: 2_000_000,
-		audio_bitrate: 128_000,
+		video_codec: HlsVideoCodec::HEVC,
+		video_bitrate: 4_000_000,
+		audio_bitrate: 192_000,
 	},
+	HlsQualityLevel {
+		id: "480p_1M_HEVC",
+		target_video_height: 480,
+		video_codec: HlsVideoCodec::HEVC,
+		video_bitrate: 1_000_000,
+		audio_bitrate: 192_000,
+	},
+	
 	HlsQualityLevel {
 		id: "360p_1M",
 		target_video_height: 360,
@@ -58,6 +82,7 @@ pub const QUALITY_LEVELS: &[HlsQualityLevel] = &[
 		video_bitrate: 1_000_000,
 		audio_bitrate: 96_000,
 	},
+	
 	HlsQualityLevel {
 		id: "240p_500k",
 		target_video_height: 240,
