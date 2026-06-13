@@ -2,9 +2,8 @@ use std::ops::Range;
 
 use anyhow::{anyhow, Context};
 use ffmpeg_next as ffmpeg;
-use ffmpeg_next::{codec, filter, format, frame, picture, Dictionary, Packet, Rational, Rescale};
+use ffmpeg_next::{codec, filter, format, frame, picture, Dictionary, Packet, Rational};
 use ffmpeg_sys_next::{av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVColorRange, AVColorSpace, AVPixelFormat};
-use tracing::debug;
 
 use crate::media_manipulation::backends::{FilterGraphParams, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 use crate::media_manipulation::media_utils;
@@ -16,8 +15,7 @@ pub struct VideoTranscoder {
 	encoder: Option<codec::encoder::Video>,
 	filter: Option<filter::graph::Graph>,
 	
-	in_stream_time_base: Rational,
-	rate_time_base: Rational,
+	time_base: Rational,
 	first_frame: bool,
 	
 	backend: Box<dyn VideoBackend>,
@@ -35,7 +33,7 @@ pub struct VideoTranscoder {
 
 pub struct VideoTranscoderParams<'a> {
 	pub in_stream: &'a ffmpeg::Stream<'a>,
-	pub muxer: &'a mut format::context::Output,
+	pub muxer: &'a format::context::Output,
 	pub backend: Box<dyn VideoBackend>,
 	pub output_codec: codec::Id,
 	pub target_height: u32,
@@ -52,7 +50,6 @@ impl VideoTranscoder {
 		}).context("Creating decoder")?;
 		
 		let framerate = decoder.frame_rate().unwrap_or(params.in_stream.rate());
-		let rate_time_base = framerate.invert();
 		
 		let output_height = decoder.height().min(params.target_height);
 		let output_width = super::calculate_output_width(decoder.width(), decoder.height(), output_height);
@@ -68,8 +65,7 @@ impl VideoTranscoder {
 			encoder: None,
 			filter: None,
 			
-			in_stream_time_base: params.in_stream.time_base(),
-			rate_time_base,
+			time_base: params.in_stream.time_base(),
 			first_frame: true,
 			
 			backend: params.backend,
@@ -91,7 +87,7 @@ impl VideoTranscoder {
 		mut in_packet: Packet,
 		time_bounds: Range<i64>
 	) -> anyhow::Result<()> {
-		in_packet.rescale_ts(in_stream.time_base(), self.in_stream_time_base);
+		in_packet.rescale_ts(in_stream.time_base(), self.time_base);
 		
 		self.decoder.send_packet(&in_packet).context("Passing packet to decoder")?;
 		self.decode_frames(time_bounds).context("Decoding frames")
@@ -116,13 +112,12 @@ impl VideoTranscoder {
 	
 	fn decode_frames(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
 		let scaled_time_bounds = media_utils::scale_range(
-			time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
+			time_bounds.clone(), SECONDS_TIME_BASE, self.time_base);
 		let mut in_frame = frame::Video::empty();
 		
 		while self.decoder.receive_frame(&mut in_frame).is_ok() {
 			let timestamp = in_frame.timestamp()
-				.ok_or_else(|| anyhow!("Decoded frame doesn't have a timestamp"))?
-				.rescale(self.in_stream_time_base, self.rate_time_base);
+				.ok_or_else(|| anyhow!("Decoded frame doesn't have a timestamp"))?;
 			
 			in_frame.set_pts(Some(timestamp));
 			
@@ -139,7 +134,7 @@ impl VideoTranscoder {
 						"width={}:height={}:pix_fmt={}:time_base={}/{}:sar=1:colorspace={}:range={}",
 						self.decoder.width(), self.decoder.height(),
 						pixel_format as u32,
-						self.rate_time_base.numerator(), self.rate_time_base.denominator(),
+						self.time_base.numerator(), self.time_base.denominator(),
 						color_space as u32,
 						color_range as u32,
 					);
@@ -197,7 +192,7 @@ impl VideoTranscoder {
 	
 	fn drain_filter(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
 		let scaled_time_bounds = media_utils::scale_range(
-			time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
+			time_bounds.clone(), SECONDS_TIME_BASE, self.time_base);
 		let mut out_frame = frame::Video::empty();
 		
 		while self.filter.as_mut().unwrap()
@@ -212,7 +207,7 @@ impl VideoTranscoder {
 				let encoder = self.backend.create_encoder(VideoEncoderParams {
 					codec: self.output_codec,
 					global_header: self.has_global_header,
-					time_base: self.rate_time_base,
+					time_base: self.time_base,
 					width: self.output_width,
 					height: self.output_height,
 					framerate: Some(self.output_framerate),
@@ -254,7 +249,7 @@ impl VideoTranscoder {
 	
 	fn process_output_packets(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
 		let scaled_time_bounds = media_utils::scale_range(
-			time_bounds.clone(), SECONDS_TIME_BASE, self.rate_time_base);
+			time_bounds.clone(), SECONDS_TIME_BASE, self.time_base);
 		let mut out_packet = Packet::empty();
 		
 		while self.encoder.as_mut().unwrap().receive_packet(&mut out_packet).is_ok() {
@@ -262,12 +257,6 @@ impl VideoTranscoder {
 			
 			// Again, only write packets inside the time bounds
 			if scaled_time_bounds.contains(&pts) {
-				let dts = out_packet.dts().unwrap();
-				
-				if !scaled_time_bounds.contains(&dts) {
-					debug!("Out of bounds DTS: {} (pts: {}, begin: {})", dts, pts, scaled_time_bounds.start);
-				}
-				
 				self.output_packet_queue.push(out_packet.clone());
 			}
 		}
@@ -279,7 +268,7 @@ impl VideoTranscoder {
 		if let Some(encoder) = &self.encoder {
 			let mut out_stream = muxer.add_stream(self.output_codec)?;
 			out_stream.set_parameters(encoder);
-			out_stream.set_time_base(self.rate_time_base);
+			out_stream.set_time_base(self.time_base);
 			
 			self.out_stream_index = Some(out_stream.index());
 		}
@@ -294,8 +283,9 @@ impl VideoTranscoder {
 		for mut out_packet in self.output_packet_queue.drain(..) {
 			// println!("Out DTS: {}, PTS: {}", out_packet.dts().unwrap(), out_packet.pts().unwrap());
 			
+			// out_packet.set_duration(1); // In the rate time base 1 frame = 1 unit
 			out_packet.set_stream(out_stream_index);
-			out_packet.rescale_ts(self.rate_time_base, stream_time_base);
+			out_packet.rescale_ts(self.time_base, stream_time_base);
 			
 			out_packet.write_interleaved(muxer).context("Writing packet")?;
 		}
