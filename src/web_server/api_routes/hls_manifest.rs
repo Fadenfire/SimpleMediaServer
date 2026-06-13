@@ -32,7 +32,7 @@ pub async fn hls_manifest_route(
 	
 	if let Some(video_metadata) = &advanced_metadata.video_metadata {
 		let levels = hls_segment_service::QUALITY_LEVELS.iter()
-			.filter(|lvl| lvl.supported(video_metadata));
+			.filter(|lvl| lvl.supported(video_metadata, server_state.media_backend_factory.as_ref()));
 		
 		for level in levels {
 			let mut codecs = Vec::new();

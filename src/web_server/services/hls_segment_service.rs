@@ -5,6 +5,7 @@ use anyhow::Context;
 use bytes::Bytes;
 use ffmpeg_next::codec;
 use tracing::info;
+use crate::media_manipulation::backends::BackendFactory;
 use crate::media_manipulation::transcoding;
 use crate::media_manipulation::transcoding::TranscodingOptions;
 use crate::web_server::api_error::ApiError;
@@ -111,8 +112,9 @@ impl HlsQualityLevel {
 		self.video_bitrate + self.audio_bitrate + 16_000
 	}
 	
-	pub fn supported(&self, video_metadata: &VideoMetadata) -> bool {
-		self.target_video_height <= video_metadata.video_size.height
+	pub fn supported(&self, video_metadata: &VideoMetadata, media_backend_factory: &impl BackendFactory) -> bool {
+		self.target_video_height <= video_metadata.video_size.height &&
+			media_backend_factory.supports_encoding_codec(self.video_codec.as_ffmpeg_codec())
 	}
 	
 	pub fn output_width(&self, source_size: &Dimension) -> u32 {

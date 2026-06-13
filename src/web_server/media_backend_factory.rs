@@ -1,3 +1,4 @@
+use ffmpeg_next::codec::Id;
 use crate::config::TranscodingBackend;
 use crate::media_manipulation::backends::intel_quick_sync::QuickSyncVideoBackendFactory;
 use crate::media_manipulation::backends::software::SoftwareVideoBackendFactory;
@@ -23,5 +24,9 @@ impl MediaBackendFactory {
 impl BackendFactory for MediaBackendFactory {
 	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
 		self.backend_factory.create_video_backend()
+	}
+	
+	fn supports_encoding_codec(&self, codec: Id) -> bool {
+		self.backend_factory.supports_encoding_codec(codec)
 	}
 }

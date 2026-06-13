@@ -25,6 +25,8 @@ pub struct ServerState {
 	pub user_watch_histories: Arc<Mutex<UserWatchHistories>>,
 	pub metadata_cache: FileMetadataCache,
 	
+	pub media_backend_factory: Arc<MediaBackendFactory>,
+	
 	pub hls_segment_generator: ArtifactCache<HlsSegmentGenerator>,
 	pub thumbnail_generator: ArtifactCache<ThumbnailGenerator>,
 	pub scaled_thumbnail_generator: ArtifactCache<ScaledThumbnailGenerator>,
@@ -112,6 +114,8 @@ impl ServerState {
 			auth_manager,
 			user_watch_histories,
 			metadata_cache,
+			
+			media_backend_factory,
 			
 			hls_segment_generator,
 			thumbnail_generator,
