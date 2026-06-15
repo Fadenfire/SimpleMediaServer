@@ -59,7 +59,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/debian-jellyfin.gpg && \
     echo "deb [arch=$( dpkg --print-architecture )] https://repo.jellyfin.org/master/debian $( awk -F'=' '/^VERSION_CODENAME=/{ print $NF }' /etc/os-release ) main" > /etc/apt/sources.list.d/jellyfin.list && \
     apt-get update && \
-    apt-get install --no-install-recommends --no-install-suggests -y mesa-va-drivers jellyfin-ffmpeg7 && \
+    apt-get install --no-install-recommends --no-install-suggests -y jellyfin-ffmpeg7 && \
     apt-get remove gnupg -y
 
 WORKDIR /app
