@@ -78,6 +78,10 @@ impl VideoBackend for QuickSyncVideoBackend {
 				params.encoder_options.set("profile", "main");
 				params.encoder_options.set("tier", "main");
 				
+				// The QSV HEVC encoder sometimes outputs incorrect DTS if
+				//  b-frames aren't disabled.
+				params.encoder_options.set("bf", "0");
+				
 				"hevc_qsv"
 			},
 			_ => return Err(anyhow!("Unsupported encoder codec"))
