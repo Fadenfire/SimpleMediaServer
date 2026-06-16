@@ -46,8 +46,6 @@ impl VideoBackend for VideoToolboxVideoBackend {
 			_ => return Err(anyhow!("Unsupported encoder codec"))
 		};
 		
-		params.encoder_options.set("power_efficient", "true");
-		
 		let encoder_codec = encoder::find_by_name(encoder_name)
 			.ok_or_else(|| anyhow!("Unable to find encoder"))?;
 		
