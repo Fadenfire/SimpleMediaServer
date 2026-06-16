@@ -14,7 +14,6 @@ pub struct AudioTranscoder {
 	
 	in_stream_time_base: Rational,
 	out_stream_index: Option<usize>,
-	output_codec: codec::Id,
 	rate_time_base: Rational,
 	sample_size: usize,
 	
@@ -78,7 +77,6 @@ impl AudioTranscoder {
 			
 			in_stream_time_base: params.in_stream.time_base(),
 			out_stream_index: None,
-			output_codec: params.encoder_codec.id(),
 			rate_time_base,
 			sample_size,
 			
@@ -217,7 +215,6 @@ impl AudioTranscoder {
 		let stream_time_base = muxer.stream(out_stream_index).expect("Unknown stream").time_base();
 		
 		for mut out_packet in self.output_packet_queue.drain(..) {
-			out_packet.set_duration(self.encoder.frame_size() as i64);
 			out_packet.rescale_ts(self.rate_time_base, stream_time_base);
 			out_packet.set_stream(out_stream_index);
 			

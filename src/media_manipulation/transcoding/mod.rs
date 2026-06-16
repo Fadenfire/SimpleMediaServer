@@ -1,18 +1,15 @@
-use std::ffi::CString;
 use std::ops::Range;
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context};
 use bytes::Bytes;
-use ffmpeg_next::{Dictionary, encoder, format, media, Rescale, rescale, codec};
-use ffmpeg_sys_next::av_opt_set;
+use ffmpeg_next::{codec, encoder, format, media, rescale, Dictionary, Rescale};
 
 use crate::media_manipulation::backends::BackendFactory;
-use crate::media_manipulation::media_utils::{MILLIS_TIME_BASE, SECONDS_TIME_BASE};
+use crate::media_manipulation::media_utils::in_memory_muxer::InMemoryMuxer;
+use crate::media_manipulation::media_utils::MILLIS_TIME_BASE;
 use crate::media_manipulation::transcoding::audio::{AudioTranscoder, AudioTranscoderParams};
 use crate::media_manipulation::transcoding::video::{VideoTranscoder, VideoTranscoderParams};
-use crate::media_manipulation::media_utils::av_error;
-use crate::media_manipulation::media_utils::in_memory_muxer::InMemoryMuxer;
 
 mod audio;
 mod video;
@@ -51,7 +48,7 @@ pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<i64>) 
 		
 		let params = VideoTranscoderParams {
 			in_stream: &video_stream,
-			muxer: &mut muxer,
+			muxer: &muxer,
 			backend: video_backend,
 			output_codec: opts.video_codec,
 			target_height: opts.target_video_height,
@@ -69,7 +66,7 @@ pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<i64>) 
 		
 		let params = AudioTranscoderParams {
 			in_stream: &audio_stream,
-			muxer: &mut muxer,
+			muxer: &muxer,
 			encoder_codec: audio_codec,
 			bit_rate: opts.audio_bitrate,
 			encoder_options: Dictionary::new(),
@@ -143,19 +140,14 @@ pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<i64>) 
 		video_transcoder.add_output_stream(&mut muxer).context("Adding video output stream")?;
 	}
 	
-	unsafe {
-		let mux = &mut *muxer.as_mut_ptr();
-		
-		if !(*mux.oformat).priv_class.is_null() && !mux.priv_data.is_null() {
-			let key = CString::new("mpegts_flags").unwrap();
-			let value = CString::new("+initial_discontinuity").unwrap();
-			
-			av_error(av_opt_set(mux.priv_data, key.as_ptr(), value.as_ptr(), 0)).context("Setting mpegts options")?;
-		}
+	if let Some(ref mut audio_transcoder) = audio_transcoder {
+		audio_transcoder.add_output_stream(&mut muxer).context("Adding video output stream")?;
 	}
 	
-	muxer.set_metadata(demuxer.metadata().to_owned());
-	muxer.write_header().context("Writing header")?;
+	let mut mux_options = Dictionary::new();
+	mux_options.set("mpegts_flags", "+initial_discontinuity");
+	
+	muxer.write_header_with(mux_options).context("Writing header")?;
 	
 	if let Some(ref mut video_transcoder) = video_transcoder {
 		video_transcoder.write_output_packets(&mut muxer).context("Writing video packets")?;

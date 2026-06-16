@@ -197,12 +197,12 @@ impl ArtifactGenerator for HlsSegmentGenerator {
 				audio_bitrate: input.quality_level.audio_bitrate,
 			};
 			
-			info!("Generating segment {} at {} for {:?}", index, input.quality_level.id, &opts.media_path);
+			info!("Generating segment {} at {} for {:?}", input.segment_index, input.quality_level.id, &opts.media_path);
 			
-			let start_time = index as i64 * SEGMENT_DURATION;
+			let start_time = input.segment_index as i64 * SEGMENT_DURATION;
 			let time_range = start_time..(start_time + SEGMENT_DURATION);
 			
-			transcoding::generate_fmp4_segment(opts, time_range)
+			transcoding::transcode_segment(opts, time_range)
 		}).await.context("Panic")??;
 		
 		info!("Generated segment in {:?}", Instant::now() - start_time);
