@@ -159,5 +159,5 @@ pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<i64>) 
 	
 	muxer.write_trailer().context("Writing trailer")?;
 	
-	Ok(muxer.drain_output_buffer()?.into())
+	Ok(muxer.into_output_buffer().into())
 }

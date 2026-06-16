@@ -121,5 +121,5 @@ pub fn transcode_subtitle_to_webvtt(media_path: PathBuf, stream_index: usize) ->
 	
 	muxer.write_trailer().context("Writing trailer")?;
 	
-	Ok(muxer.drain_output_buffer()?.into())
+	Ok(muxer.into_output_buffer().into())
 }
