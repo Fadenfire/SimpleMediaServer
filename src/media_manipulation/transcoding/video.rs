@@ -282,7 +282,6 @@ impl VideoTranscoder {
 		for mut out_packet in self.output_packet_queue.drain(..) {
 			// println!("Out DTS: {}, PTS: {}", out_packet.dts().unwrap(), out_packet.pts().unwrap());
 			
-			// out_packet.set_duration(1); // In the rate time base 1 frame = 1 unit
 			out_packet.set_stream(out_stream_index);
 			out_packet.rescale_ts(self.time_base, stream_time_base);
 			

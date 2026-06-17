@@ -42,12 +42,16 @@ pub async fn hls_level_manifest_route(
 	let segments = (duration / SEGMENT_DURATION as f64).floor() as u32;
 	
 	for i in 0..segments {
-		manifest.push_str(&format!("#EXTINF:{:?},\n", SEGMENT_DURATION as f64));
-		manifest.push_str(&format!("segment/{}\n", i));
+		manifest.push_str(&format!("#EXTINF:{:.5},\n", SEGMENT_DURATION as f64));
+		manifest.push_str(&format!("segment/{}.ts\n", i));
 	}
 	
-	manifest.push_str(&format!("#EXTINF:{:?},\n", duration % SEGMENT_DURATION as f64));
-	manifest.push_str(&format!("segment/{}\n", segments));
+	let remainder = duration % SEGMENT_DURATION as f64;
+	
+	if remainder > 0.0 {
+		manifest.push_str(&format!("#EXTINF:{:.5},\n", remainder));
+		manifest.push_str(&format!("segment/{}.ts\n", segments));
+	}
 	
 	manifest.push_str("#EXT-X-ENDLIST\n");
 	

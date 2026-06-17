@@ -20,7 +20,11 @@ pub async fn hls_segment_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
-	let segment_index: usize = segment_index.parse().map_err(|_| ApiError::NotFound)?;
+	let segment_index: usize = segment_index.strip_suffix(".ts")
+		.unwrap_or(segment_index)
+		.parse()
+		.map_err(|_| ApiError::NotFound)?;
+	
 	let quality_level = hls_segment_service::get_quality_level(quality_level)?;
 	
 	let resolved_path = libraries::resolve_path_with_auth(
