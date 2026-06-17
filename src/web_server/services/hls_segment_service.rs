@@ -50,7 +50,7 @@ pub const QUALITY_LEVELS: &[HlsQualityLevel] = &[
 		target_video_height: 720,
 		video_codec: HlsVideoCodec::HEVC,
 		video_bitrate: 1_800_000,
-		audio_bitrate: 192_000,
+		audio_bitrate: 128_000,
 	},
 	
 	HlsQualityLevel {
@@ -72,7 +72,7 @@ pub const QUALITY_LEVELS: &[HlsQualityLevel] = &[
 		target_video_height: 480,
 		video_codec: HlsVideoCodec::HEVC,
 		video_bitrate: 1_000_000,
-		audio_bitrate: 192_000,
+		audio_bitrate: 128_000,
 	},
 	
 	HlsQualityLevel {
