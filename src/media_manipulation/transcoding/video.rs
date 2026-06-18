@@ -3,6 +3,7 @@ use std::ops::Range;
 use anyhow::{anyhow, Context};
 use ffmpeg_next as ffmpeg;
 use ffmpeg_next::{codec, filter, format, frame, picture, Dictionary, Packet, Rational};
+use ffmpeg_next::format::Pixel;
 use ffmpeg_sys_next::{av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVColorRange, AVColorSpace, AVPixelFormat};
 
 use crate::media_manipulation::backends::{FilterGraphParams, VideoBackend, VideoDecoderParams, VideoEncoderParams};
@@ -124,57 +125,7 @@ impl VideoTranscoder {
 			// Only pass frames in the time bounds to the filter
 			if scaled_time_bounds.contains(&timestamp) {
 				if self.filter.is_none() {
-					let pixel_format: AVPixelFormat = in_frame.format().into();
-					let color_space: AVColorSpace = self.decoder.color_space().into();
-					let color_range: AVColorRange = self.decoder.color_range().into();
-					
-					let mut filter = filter::graph::Graph::new();
-					
-					let in_params = format!(
-						"width={}:height={}:pix_fmt={}:time_base={}/{}:sar=1:colorspace={}:range={}",
-						self.decoder.width(), self.decoder.height(),
-						pixel_format as u32,
-						self.time_base.numerator(), self.time_base.denominator(),
-						color_space as u32,
-						color_range as u32,
-					);
-					
-					unsafe {
-						let mut in_filter = filter
-							.add(&filter::find("buffer").unwrap(), "in", &in_params)
-							.context("Adding input filter")?;
-						
-						let hw_frames_ctx = (*self.decoder.as_ptr()).hw_frames_ctx;
-						
-						let par = check_alloc(av_buffersrc_parameters_alloc())
-							.context("Allocating buffersrc params")?;
-						let mut par = scopeguard::guard(par, |ptr| av_free(ptr.cast()));
-						
-						if !hw_frames_ctx.is_null() {
-							(**par).hw_frames_ctx = hw_frames_ctx;
-						}
-						
-						av_error(av_buffersrc_parameters_set(in_filter.as_mut_ptr(), *par))
-							.context("Setting buffersrc filter params")?;
-					}
-					
-					{
-						let mut out_filter = filter
-							.add(&filter::find("buffersink").unwrap(), "out", "")
-							.context("Adding output filter")?;
-						
-						out_filter.set_pixel_format(self.backend.encoder_pixel_format());
-					}
-					
-					self.backend.build_filter_graph(&mut filter, FilterGraphParams {
-						output_width: self.output_width,
-						output_height: self.output_height,
-						input_pixel_format: pixel_format,
-					}).context("Building filter graph")?;
-					
-					filter.validate().context("Validating filter graph")?;
-					
-					self.filter = Some(filter);
+					self.filter = Some(self.create_filter(in_frame.format())?);
 				}
 				
 				self.filter.as_mut().unwrap()
@@ -188,6 +139,60 @@ impl VideoTranscoder {
 		}
 		
 		Ok(())
+	}
+	
+	fn create_filter(&self, frame_format: Pixel) -> anyhow::Result<filter::graph::Graph> {
+		let pixel_format: AVPixelFormat = frame_format.into();
+		let color_space: AVColorSpace = self.decoder.color_space().into();
+		let color_range: AVColorRange = self.decoder.color_range().into();
+		
+		let mut filter = filter::graph::Graph::new();
+		
+		let in_params = format!(
+			"width={}:height={}:pix_fmt={}:time_base={}/{}:sar=1:colorspace={}:range={}",
+			self.decoder.width(), self.decoder.height(),
+			pixel_format as u32,
+			self.time_base.numerator(), self.time_base.denominator(),
+			color_space as u32,
+			color_range as u32,
+		);
+		
+		unsafe {
+			let mut in_filter = filter
+				.add(&filter::find("buffer").unwrap(), "in", &in_params)
+				.context("Adding input filter")?;
+			
+			let hw_frames_ctx = (*self.decoder.as_ptr()).hw_frames_ctx;
+			
+			let par = check_alloc(av_buffersrc_parameters_alloc())
+				.context("Allocating buffersrc params")?;
+			let mut par = scopeguard::guard(par, |ptr| av_free(ptr.cast()));
+			
+			if !hw_frames_ctx.is_null() {
+				(**par).hw_frames_ctx = hw_frames_ctx;
+			}
+			
+			av_error(av_buffersrc_parameters_set(in_filter.as_mut_ptr(), *par))
+				.context("Setting buffersrc filter params")?;
+		}
+		
+		{
+			let mut out_filter = filter
+				.add(&filter::find("buffersink").unwrap(), "out", "")
+				.context("Adding output filter")?;
+			
+			out_filter.set_pixel_format(self.backend.encoder_pixel_format());
+		}
+		
+		self.backend.build_filter_graph(&mut filter, FilterGraphParams {
+			output_width: self.output_width,
+			output_height: self.output_height,
+			input_pixel_format: pixel_format,
+		}).context("Building filter graph")?;
+		
+		filter.validate().context("Validating filter graph")?;
+		
+		Ok(filter)
 	}
 	
 	fn drain_filter(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
