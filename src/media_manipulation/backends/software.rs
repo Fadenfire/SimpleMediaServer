@@ -3,7 +3,7 @@ use anyhow::{anyhow, Context};
 use ffmpeg_next::{codec, decoder, encoder};
 use ffmpeg_next::format::Pixel;
 
-use crate::media_manipulation::backends::{BackendFactory, VideoBackend, VideoDecoderParams, VideoEncoderParams};
+use crate::media_manipulation::backends::{set_up_video_encoder, BackendFactory, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 
 pub struct SoftwareVideoBackendFactory;
 
@@ -45,16 +45,8 @@ impl VideoBackend for SoftwareVideoBackend {
 			.encoder()
 			.video()?;
 		
-		if params.global_header {
-			encoder.set_flags(codec::flag::Flags::GLOBAL_HEADER);
-		}
-		
-		encoder.set_time_base(params.time_base);
-		encoder.set_width(params.width);
-		encoder.set_height(params.height);
+		set_up_video_encoder(&mut encoder, &params);
 		encoder.set_format(Pixel::YUV420P);
-		encoder.set_frame_rate(params.framerate);
-		encoder.set_bit_rate(params.bitrate);
 		
 		encoder.open_as_with(encoder_codec, params.encoder_options).context("Opening encoder")
 	}

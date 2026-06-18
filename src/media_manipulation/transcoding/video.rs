@@ -212,9 +212,10 @@ impl VideoTranscoder {
 					height: self.output_height,
 					framerate: Some(self.output_framerate),
 					bitrate: self.bit_rate,
+					color_range: self.decoder.color_range(),
+					color_space: self.decoder.color_space(),
 					encoder_options: self.encoder_options.clone(),
 					input_hw_ctx: Some(hw_ctx),
-					..Default::default()
 				}).context("Creating encoder")?;
 				
 				self.encoder = Some(encoder);
@@ -231,10 +232,6 @@ impl VideoTranscoder {
 				} else {
 					out_frame.set_kind(picture::Type::None);
 				}
-				
-				// if out_frame.color_range() == ffmpeg::color::Range::Unspecified {
-				// 	out_frame.set_color_range(ffmpeg::color::Range::JPEG);
-				// }
 				
 				self.encoder.as_mut().unwrap()
 					.send_frame(&out_frame)

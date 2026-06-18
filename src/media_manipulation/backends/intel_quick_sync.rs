@@ -1,4 +1,4 @@
-use crate::media_manipulation::backends::{BackendFactory, FilterGraphParams, VideoBackend, VideoDecoderParams, VideoEncoderParams};
+use crate::media_manipulation::backends::{set_up_video_encoder, BackendFactory, FilterGraphParams, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 use crate::media_manipulation::media_utils::check_alloc;
 use crate::media_manipulation::media_utils::hardware_device::{BorrowedDevice, DevicePool, HardwareDeviceContext};
 use anyhow::{anyhow, Context};
@@ -104,16 +104,8 @@ impl VideoBackend for QuickSyncVideoBackend {
 			(*encoder.as_mut_ptr()).hw_frames_ctx = check_alloc(av_buffer_ref(hw_frames_ctx))?;
 		}
 		
-		if params.global_header {
-			encoder.set_flags(codec::flag::Flags::GLOBAL_HEADER);
-		}
-		
-		encoder.set_time_base(params.time_base);
-		encoder.set_width(params.width);
-		encoder.set_height(params.height);
+		set_up_video_encoder(&mut encoder, &params);
 		encoder.set_format(Pixel::QSV);
-		encoder.set_frame_rate(params.framerate);
-		encoder.set_bit_rate(params.bitrate);
 		
 		encoder.open_as_with(encoder_codec, params.encoder_options).context("Opening encoder")
 	}

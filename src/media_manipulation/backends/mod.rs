@@ -1,7 +1,7 @@
 use std::ffi::c_uint;
 
 use ffmpeg_next::format::Pixel;
-use ffmpeg_next::{codec, filter, Dictionary, Rational};
+use ffmpeg_next::{codec, color, filter, Dictionary, Rational};
 use ffmpeg_sys_next::{AVBufferRef, AVPixelFormat};
 
 pub mod software;
@@ -17,24 +17,10 @@ pub struct VideoEncoderParams {
 	pub height: u32,
 	pub framerate: Option<Rational>,
 	pub bitrate: usize,
+	pub color_range: color::Range,
+	pub color_space: color::Space,
 	pub encoder_options: Dictionary<'static>,
 	pub input_hw_ctx: Option<*const AVBufferRef>,
-}
-
-impl Default for VideoEncoderParams {
-	fn default() -> Self {
-		Self {
-			codec: codec::Id::None,
-			global_header: false,
-			time_base: Rational(1, 0),
-			width: 0,
-			height: 0,
-			framerate: None,
-			bitrate: 0,
-			encoder_options: Dictionary::new(),
-			input_hw_ctx: None,
-		}
-	}
 }
 
 #[non_exhaustive]
@@ -83,4 +69,18 @@ pub trait BackendFactory {
 	fn supports_encoding_codec(&self, codec: codec::Id) -> bool {
 		codec == codec::Id::H264
 	}
+}
+
+fn set_up_video_encoder(encoder: &mut codec::encoder::video::Video, params: &VideoEncoderParams) {
+	if params.global_header {
+		encoder.set_flags(codec::flag::Flags::GLOBAL_HEADER);
+	}
+	
+	encoder.set_time_base(params.time_base);
+	encoder.set_width(params.width);
+	encoder.set_height(params.height);
+	encoder.set_color_range(params.color_range);
+	encoder.set_colorspace(params.color_space);
+	encoder.set_frame_rate(params.framerate);
+	encoder.set_bit_rate(params.bitrate);
 }
