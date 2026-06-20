@@ -1,17 +1,20 @@
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Instant;
-use anyhow::Context;
-use bytes::Bytes;
-use ffmpeg_next::codec;
-use tracing::info;
+use crate::config::{GeneralConfig, ServerConfig};
 use crate::media_manipulation::backends::BackendFactory;
 use crate::media_manipulation::transcoding;
 use crate::media_manipulation::transcoding::TranscodingOptions;
+use crate::utils;
 use crate::web_server::api_error::ApiError;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
-use crate::web_server::services::artifact_cache::{ArtifactGenerator, FileValidityKey};
 use crate::web_server::media_metadata::{Dimension, VideoMetadata};
+use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, FileValidityKey};
+use crate::web_server::services::task_pool::TaskPool;
+use anyhow::Context;
+use bytes::Bytes;
+use ffmpeg_next::codec;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Instant;
+use tracing::info;
 
 pub const SEGMENT_DURATION: i64 = 5;
 
@@ -145,6 +148,25 @@ impl HlsQualityLevel {
 	pub fn output_width(&self, source_size: &Dimension) -> u32 {
 		transcoding::calculate_output_width(source_size.width, source_size.height, self.target_video_height)
 	}
+}
+
+pub async fn init_service(
+	config: &ServerConfig,
+	transcoding_task_pool: Arc<TaskPool>,
+	media_backend_factory: Arc<MediaBackendFactory>,
+) -> anyhow::Result<ArtifactCache<HlsSegmentGenerator>> {
+	let hls_segment_generator = ArtifactCache::builder()
+		.cache_dir(config.paths.transcoded_segments_cache_dir.clone())
+		.task_pool(transcoding_task_pool)
+		.file_size_limit(config.main_config.caches.segments_cache_size_limit)
+		.build(HlsSegmentGenerator::new(media_backend_factory))
+		.await?;
+	
+	info!("HLS segments cache contains {}B, {}B max",
+			utils::abbreviate_number(hls_segment_generator.cache_size()),
+			utils::abbreviate_number(config.main_config.caches.segments_cache_size_limit));
+	
+	Ok(hls_segment_generator)
 }
 
 #[derive(Debug, Clone)]

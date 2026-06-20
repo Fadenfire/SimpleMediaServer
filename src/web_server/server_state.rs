@@ -1,9 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use tracing::info;
-
 use crate::config::ServerConfig;
-use crate::utils;
 use crate::web_server::auth::{AuthManager, AuthSecrets};
 use crate::web_server::libraries::Libraries;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
@@ -13,6 +10,7 @@ use crate::web_server::services::task_pool::TaskPool;
 use crate::web_server::services::thumbnail_service::ThumbnailGenerator;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 use crate::web_server::metadata_cache::FileMetadataCache;
+use crate::web_server::services::{hls_segment_service, scaled_thumbnail_service, subtitle_service, thumbnail_service, thumbnail_sheet_service};
 use crate::web_server::services::scaled_thumbnail_service::ScaledThumbnailGenerator;
 use crate::web_server::services::subtitle_service::TranscodedSubtitleGenerator;
 use crate::web_server::watch_history::UserWatchHistories;
@@ -50,61 +48,28 @@ impl ServerState {
 		let media_backend_factory = Arc::new(MediaBackendFactory::new(config.main_config.transcoding.backend)?);
 		let transcoding_task_pool = Arc::new(TaskPool::new(config.main_config.transcoding.concurrent_tasks));
 		
-		let hls_segment_generator = ArtifactCache::builder()
-			.cache_dir(config.paths.transcoded_segments_cache_dir.clone())
-			.task_pool(transcoding_task_pool.clone())
-			.file_size_limit(config.main_config.caches.segments_cache_size_limit)
-			.build(HlsSegmentGenerator::new(media_backend_factory.clone()))
-			.await?;
+		let hls_segment_generator = hls_segment_service::init_service(
+			&config,
+			transcoding_task_pool.clone(),
+			media_backend_factory.clone(),
+		).await?;
 		
-		info!("HLS segments cache contains {}B, {}B max",
-			utils::abbreviate_number(hls_segment_generator.cache_size()),
-			utils::abbreviate_number(config.main_config.caches.segments_cache_size_limit));
-		
-		let thumbnail_generator = ArtifactCache::builder()
-			.cache_dir(config.paths.thumbnail_cache_dir.clone())
-			.task_pool(transcoding_task_pool.clone())
-			.file_size_limit(config.main_config.caches.thumbnail_cache_size_limit)
-			.build(ThumbnailGenerator::new(media_backend_factory.clone()))
-			.await?;
-		
-		info!("Thumbnail cache contains {}B, {}B max",
-			utils::abbreviate_number(thumbnail_generator.cache_size()),
-			utils::abbreviate_number(config.main_config.caches.thumbnail_cache_size_limit));
-		
-		let scaled_thumbnail_generator = ArtifactCache::builder()
-			.cache_dir(config.paths.scaled_thumbnail_cache_dir.clone())
-			.task_pool(Arc::new(TaskPool::new(8)))
-			.file_size_limit(config.main_config.caches.scaled_thumbnail_cache_size_limit)
-			.build(ScaledThumbnailGenerator::new())
-			.await?;
-		
-		info!("Scaled thumbnail cache contains {}B, {}B max",
-			utils::abbreviate_number(scaled_thumbnail_generator.cache_size()),
-			utils::abbreviate_number(config.main_config.caches.scaled_thumbnail_cache_size_limit));
-		
-		let thumbnail_sheet_generator = ArtifactCache::builder()
-			.cache_dir(config.paths.thumbnail_sheet_cache_dir.clone())
-			.task_pool(transcoding_task_pool.clone())
-			.file_size_limit(config.main_config.caches.thumbnail_sheet_cache_size_limit)
-			.build(ThumbnailSheetGenerator::new(media_backend_factory.clone()))
-			.await?;
-		
-		info!("Thumbnail sheet cache contains {}B, {}B max",
-			utils::abbreviate_number(thumbnail_sheet_generator.cache_size()),
-			utils::abbreviate_number(config.main_config.caches.thumbnail_sheet_cache_size_limit));
-		
-		let transcoded_subtitle_generator = ArtifactCache::builder()
-			.cache_dir(config.paths.subtitles_cache_dir.clone())
-			.task_pool(Arc::new(TaskPool::new(8)))
-			.file_size_limit(config.main_config.caches.subtitles_cache_size_limit)
-			.build(TranscodedSubtitleGenerator::new())
-			.await?;
-		
-		info!("Transcoded subtitles cache contains {}B, {}B max",
-			utils::abbreviate_number(transcoded_subtitle_generator.cache_size()),
-			utils::abbreviate_number(config.main_config.caches.subtitles_cache_size_limit));
-		
+		let thumbnail_generator = thumbnail_service::init_service(
+			&config,
+			transcoding_task_pool.clone(),
+			media_backend_factory.clone(),
+		).await?;
+
+		let scaled_thumbnail_generator = scaled_thumbnail_service::init_service(&config).await?;
+
+		let thumbnail_sheet_generator = thumbnail_sheet_service::init_service(
+			&config,
+			transcoding_task_pool.clone(),
+			media_backend_factory.clone(),
+		).await?;
+
+		let transcoded_subtitle_generator = subtitle_service::init_service(&config).await?;
+
 		let metadata_cache = FileMetadataCache::new();
 		
 		Ok(Self {

@@ -1,17 +1,38 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::Context;
 use bytes::Bytes;
 use tracing::info;
 
+use crate::config::ServerConfig;
 use crate::media_manipulation::transcoding;
-use crate::web_server::services::artifact_cache::{ArtifactGenerator, FileValidityKey};
+use crate::utils;
+use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, FileValidityKey};
+use crate::web_server::services::task_pool::TaskPool;
 
 #[derive(Debug, Clone)]
 pub struct SubtitleParams {
 	pub media_path: PathBuf,
 	pub stream_index: usize,
+}
+
+pub async fn init_service(
+	config: &ServerConfig,
+) -> anyhow::Result<ArtifactCache<TranscodedSubtitleGenerator>> {
+	let transcoded_subtitle_generator = ArtifactCache::builder()
+		.cache_dir(config.paths.subtitles_cache_dir.clone())
+		.task_pool(Arc::new(TaskPool::new(8)))
+		.file_size_limit(config.main_config.caches.subtitles_cache_size_limit)
+		.build(TranscodedSubtitleGenerator::new())
+		.await?;
+
+	info!("Transcoded subtitles cache contains {}B, {}B max",
+		utils::abbreviate_number(transcoded_subtitle_generator.cache_size()),
+		utils::abbreviate_number(config.main_config.caches.subtitles_cache_size_limit));
+
+	Ok(transcoded_subtitle_generator)
 }
 
 pub struct TranscodedSubtitleGenerator;

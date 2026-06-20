@@ -6,9 +6,31 @@ use anyhow::Context;
 use bytes::Bytes;
 use tracing::info;
 
+use crate::config::ServerConfig;
 use crate::media_manipulation::thumbnail;
+use crate::utils;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
-use crate::web_server::services::artifact_cache::{ArtifactGenerator, FileValidityKey};
+use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, FileValidityKey};
+use crate::web_server::services::task_pool::TaskPool;
+
+pub async fn init_service(
+	config: &ServerConfig,
+	transcoding_task_pool: Arc<TaskPool>,
+	media_backend_factory: Arc<MediaBackendFactory>,
+) -> anyhow::Result<ArtifactCache<ThumbnailGenerator>> {
+	let thumbnail_generator = ArtifactCache::builder()
+		.cache_dir(config.paths.thumbnail_cache_dir.clone())
+		.task_pool(transcoding_task_pool)
+		.file_size_limit(config.main_config.caches.thumbnail_cache_size_limit)
+		.build(ThumbnailGenerator::new(media_backend_factory))
+		.await?;
+
+	info!("Thumbnail cache contains {}B, {}B max",
+		utils::abbreviate_number(thumbnail_generator.cache_size()),
+		utils::abbreviate_number(config.main_config.caches.thumbnail_cache_size_limit));
+
+	Ok(thumbnail_generator)
+}
 
 pub struct ThumbnailGenerator {
 	media_backend_factory: Arc<MediaBackendFactory>,

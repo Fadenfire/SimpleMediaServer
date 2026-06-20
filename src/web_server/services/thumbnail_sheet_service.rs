@@ -6,10 +6,32 @@ use anyhow::Context;
 use bytes::Bytes;
 use tracing::info;
 
+use crate::config::ServerConfig;
 use crate::media_manipulation::thumbnail_sheet;
 use crate::media_manipulation::thumbnail_sheet::ThumbnailSheetParams;
+use crate::utils;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
-use crate::web_server::services::artifact_cache::{ArtifactGenerator, FileValidityKey};
+use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, FileValidityKey};
+use crate::web_server::services::task_pool::TaskPool;
+
+pub async fn init_service(
+	config: &ServerConfig,
+	transcoding_task_pool: Arc<TaskPool>,
+	media_backend_factory: Arc<MediaBackendFactory>,
+) -> anyhow::Result<ArtifactCache<ThumbnailSheetGenerator>> {
+	let thumbnail_sheet_generator = ArtifactCache::builder()
+		.cache_dir(config.paths.thumbnail_sheet_cache_dir.clone())
+		.task_pool(transcoding_task_pool)
+		.file_size_limit(config.main_config.caches.thumbnail_sheet_cache_size_limit)
+		.build(ThumbnailSheetGenerator::new(media_backend_factory.clone()))
+		.await?;
+
+	info!("Thumbnail sheet cache contains {}B, {}B max",
+		utils::abbreviate_number(thumbnail_sheet_generator.cache_size()),
+		utils::abbreviate_number(config.main_config.caches.thumbnail_sheet_cache_size_limit));
+
+	Ok(thumbnail_sheet_generator)
+}
 
 pub struct ThumbnailSheetGenerator {
 	media_backend_factory: Arc<MediaBackendFactory>,
