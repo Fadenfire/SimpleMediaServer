@@ -39,7 +39,8 @@ fn setup_logging() {
 	let filter = EnvFilter::builder()
 		.with_default_directive(Level::INFO.into())
 		.with_env_var("SERVER_LOG")
-		.from_env_lossy();
+		.from_env_lossy()
+		.add_directive("ort=warn".parse().unwrap());
 	
 	let subscriber = FmtSubscriber::builder()
 		.with_max_level(Level::DEBUG)
