@@ -16,6 +16,7 @@ pub enum ApiError {
 	InvalidQuery,
 	UnknownQualityLevel,
 	// UnknownLogin,
+	FeatureNotSupported,
 	MethodNotAllowed(Vec<Method>),
 	UnexpectedError(anyhow::Error),
 }
@@ -32,6 +33,7 @@ impl ApiError {
 			Self::InvalidQuery => (StatusCode::BAD_REQUEST, "invalid_query"),
 			Self::UnknownQualityLevel => (StatusCode::BAD_REQUEST, "unknown_quality_level"),
 			// Self::UnknownLogin => (StatusCode::BAD_REQUEST, "unknown_login"),
+			Self::FeatureNotSupported => (StatusCode::BAD_REQUEST, "feature_not_supported"),
 			Self::MethodNotAllowed(_) => (StatusCode::METHOD_NOT_ALLOWED, "method_not_allowed"),
 			Self::UnexpectedError(err) => {
 				error!("Unexpected error: {:?}", err);
