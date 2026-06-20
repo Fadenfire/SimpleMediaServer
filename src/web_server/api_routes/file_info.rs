@@ -122,6 +122,8 @@ pub async fn create_file_info(
 		})
 		.collect();
 	
+	let has_auto_subtitles = server_state.auto_subtitle_generator.is_some();
+	
 	let prev_video = this_index
 		.checked_sub(1)
 		.and_then(|i| adjacent_files.get(i))
@@ -185,6 +187,7 @@ pub async fn create_file_info(
 		thumbnail_path: scaled_thumbnail_path,
 		video_info,
 		subtitle_streams,
+		has_auto_subtitles,
 		prev_video,
 		next_video,
 		watch_progress,

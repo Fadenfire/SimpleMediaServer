@@ -52,6 +52,7 @@ pub struct ApiFileInfo {
 	pub thumbnail_path: String,
 	pub video_info: Option<ApiVideoInfo>,
 	pub subtitle_streams: Vec<ApiSubtitleStream>,
+	pub has_auto_subtitles: bool,
 	pub prev_video: Option<String>,
 	pub next_video: Option<String>,
 	pub watch_progress: Option<u64>,
