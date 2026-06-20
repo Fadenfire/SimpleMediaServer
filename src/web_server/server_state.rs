@@ -10,9 +10,10 @@ use crate::web_server::services::task_pool::TaskPool;
 use crate::web_server::services::thumbnail_service::ThumbnailGenerator;
 use crate::web_server::services::thumbnail_sheet_service::ThumbnailSheetGenerator;
 use crate::web_server::metadata_cache::FileMetadataCache;
-use crate::web_server::services::{hls_segment_service, scaled_thumbnail_service, subtitle_service, thumbnail_service, thumbnail_sheet_service};
+use crate::web_server::services::{hls_segment_service, scaled_thumbnail_service, subtitle_service, thumbnail_service, thumbnail_sheet_service, transcription_service};
 use crate::web_server::services::scaled_thumbnail_service::ScaledThumbnailGenerator;
 use crate::web_server::services::subtitle_service::TranscodedSubtitleGenerator;
+use crate::web_server::services::transcription_service::AutoTranscriptionGenerator;
 use crate::web_server::watch_history::UserWatchHistories;
 
 pub struct ServerState {
@@ -30,6 +31,7 @@ pub struct ServerState {
 	pub scaled_thumbnail_generator: ArtifactCache<ScaledThumbnailGenerator>,
 	pub thumbnail_sheet_generator: ArtifactCache<ThumbnailSheetGenerator>,
 	pub transcoded_subtitle_generator: ArtifactCache<TranscodedSubtitleGenerator>,
+	pub auto_subtitle_generator: Option<ArtifactCache<AutoTranscriptionGenerator>>,
 }
 
 impl ServerState {
@@ -69,6 +71,7 @@ impl ServerState {
 		).await?;
 
 		let transcoded_subtitle_generator = subtitle_service::init_service(&config).await?;
+		let auto_subtitle_generator = transcription_service::init_service(&config).await?;
 
 		let metadata_cache = FileMetadataCache::new();
 		
@@ -87,6 +90,7 @@ impl ServerState {
 			scaled_thumbnail_generator,
 			thumbnail_sheet_generator,
 			transcoded_subtitle_generator,
+			auto_subtitle_generator,
 		})
 	}
 }

@@ -51,6 +51,7 @@ impl ServerConfig {
 			scaled_thumbnail_cache_dir: cache_dir.join(&general_config.caches.scaled_thumbnail_cache_dir),
 			thumbnail_sheet_cache_dir: cache_dir.join(&general_config.caches.thumbnail_sheet_cache_dir),
 			subtitles_cache_dir: cache_dir.join(&general_config.caches.subtitles_cache_dir),
+			auto_subtitles_cache_dir: cache_dir.join(&general_config.caches.auto_subtitles_cache_dir),
 		};
 		
 		Ok(Self {
@@ -90,6 +91,7 @@ pub struct ServerPaths {
 	pub scaled_thumbnail_cache_dir: PathBuf,
 	pub thumbnail_sheet_cache_dir: PathBuf,
 	pub subtitles_cache_dir: PathBuf,
+	pub auto_subtitles_cache_dir: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +99,7 @@ pub struct ServerPaths {
 pub struct GeneralConfig {
 	pub server: WebServerConfig,
 	pub transcoding: TranscodingConfig,
+	pub transcription: TranscriptionConfig,
 	pub caches: CachesConfig,
 	pub show_hidden_files: bool,
 }
@@ -106,6 +109,7 @@ impl Default for GeneralConfig {
 		Self {
 			server: WebServerConfig::default(),
 			transcoding: TranscodingConfig::default(),
+			transcription: TranscriptionConfig::default(),
 			caches: CachesConfig::default(),
 			show_hidden_files: false,
 		}
@@ -160,6 +164,22 @@ impl Default for TranscodingConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct TranscriptionConfig {
+	pub parakeet_model: Option<PathBuf>,
+	pub model_threads: usize,
+}
+
+impl Default for TranscriptionConfig {
+	fn default() -> Self {
+		Self {
+			parakeet_model: None,
+			model_threads: 4,
+		}
+	}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CachesConfig {
 	pub segments_cache_dir: PathBuf,
 	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
@@ -180,6 +200,10 @@ pub struct CachesConfig {
 	pub subtitles_cache_dir: PathBuf,
 	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
 	pub subtitles_cache_size_limit: u64,
+	
+	pub auto_subtitles_cache_dir: PathBuf,
+	#[serde(deserialize_with = "utils::deserialize_suffixed_number")]
+	pub auto_subtitles_cache_size_limit: u64,
 }
 
 impl Default for CachesConfig {
@@ -199,6 +223,9 @@ impl Default for CachesConfig {
 			
 			subtitles_cache_dir: PathBuf::from("transcoded-subtitles"),
 			subtitles_cache_size_limit: 100_000_000, // 100 MB
+			
+			auto_subtitles_cache_dir: PathBuf::from("auto-subtitles"),
+			auto_subtitles_cache_size_limit: 100_000_000, // 100 MB
 		}
 	}
 }

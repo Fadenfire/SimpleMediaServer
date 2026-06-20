@@ -17,7 +17,7 @@ const OVERLAP_SECONDS: f64 = 10.0;
 
 pub fn transcribe(
 	media_path: PathBuf,
-	mut parakeet: ParakeetTDT,
+	parakeet: &mut ParakeetTDT,
 	mut time_bounds: Range<f64>,
 ) -> anyhow::Result<String> {
 	let mut demuxer = format::input(&media_path).context("Opening video file")?;
