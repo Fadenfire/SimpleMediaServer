@@ -1,8 +1,8 @@
+use crate::media_manipulation::transcription::SAMPLE_RATE;
 use anyhow::Context;
-use ffmpeg_next::{codec, decoder, frame, ChannelLayout, Packet, Stream};
 use ffmpeg_next::format::{sample, Sample};
 use ffmpeg_next::software::resampling;
-use crate::media_manipulation::transcription::SAMPLE_RATE;
+use ffmpeg_next::{codec, decoder, frame, ChannelLayout, Packet, Stream};
 
 pub struct SampleCollector {
 	decoder: decoder::Audio,

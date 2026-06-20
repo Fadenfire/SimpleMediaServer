@@ -1,6 +1,3 @@
-mod web_vtt;
-mod decoding;
-
 use crate::media_manipulation::media_utils;
 use crate::media_manipulation::media_utils::scale_f64_secs;
 use crate::media_manipulation::transcription::decoding::SampleCollector;
@@ -10,6 +7,9 @@ use parakeet_rs::{ParakeetTDT, TimedToken, TimestampMode, Transcriber};
 use std::ops::Range;
 use std::path::PathBuf;
 use web_vtt::VTTCue;
+
+mod web_vtt;
+mod decoding;
 
 const SAMPLE_RATE: u32 = 16_000;
 

@@ -1,9 +1,11 @@
-use std::ops::{Deref, DerefMut};
 use ffmpeg_sys_next::{av_buffer_ref, av_buffer_unref, av_hwdevice_ctx_create, AVBufferRef, AVHWDeviceType};
 use std::ptr::{null, null_mut};
-use std::sync::{Arc, Mutex};
 
+use crate::media_manipulation::media_utils::resource_pool::{BorrowedResource, ResourcePool};
 use crate::media_manipulation::media_utils::{av_error, check_alloc};
+
+pub type DevicePool = ResourcePool<HardwareDeviceContext>;
+pub type BorrowedDevice = BorrowedResource<HardwareDeviceContext>;
 
 pub struct HardwareDeviceContext {
 	ptr: *mut AVBufferRef,
@@ -41,65 +43,5 @@ impl Drop for HardwareDeviceContext {
 		unsafe {
 			av_buffer_unref(&mut self.ptr);
 		}
-	}
-}
-
-pub struct DevicePool {
-	inner: Mutex<DevicePoolInner>,
-}
-
-struct DevicePoolInner {
-	devices: Vec<HardwareDeviceContext>,
-	factory: Box<dyn Fn() -> anyhow::Result<HardwareDeviceContext> + Send>,
-}
-
-impl DevicePool {
-	pub fn new(factory: impl Fn() -> anyhow::Result<HardwareDeviceContext> + Send + 'static) -> Arc<Self> {
-		Arc::new(Self {
-			inner: Mutex::new(DevicePoolInner {
-				devices: Vec::new(),
-				factory: Box::new(factory),
-			}),
-		})
-	}
-	
-	pub fn take_device(self: &Arc<Self>) -> anyhow::Result<BorrowedDevice> {
-		let mut inner = self.inner.lock().expect("Lock poisoned");
-		
-		let device = match inner.devices.pop() {
-			Some(device) => device,
-			None => (inner.factory)()?,
-		};
-		
-		Ok(BorrowedDevice {
-			device: Some(device),
-			pool: self.clone(),
-		})
-	}
-}
-
-pub struct BorrowedDevice {
-	device: Option<HardwareDeviceContext>,
-	pool: Arc<DevicePool>,
-}
-
-impl Deref for BorrowedDevice {
-	type Target = HardwareDeviceContext;
-	
-	fn deref(&self) -> &Self::Target {
-		self.device.as_ref().unwrap()
-	}
-}
-
-impl DerefMut for BorrowedDevice {
-	fn deref_mut(&mut self) -> &mut Self::Target {
-		self.device.as_mut().unwrap()
-	}
-}
-
-impl Drop for BorrowedDevice {
-	fn drop(&mut self) {
-		let mut inner = self.pool.inner.lock().unwrap();
-		inner.devices.push(self.device.take().unwrap());
 	}
 }

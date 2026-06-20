@@ -12,6 +12,7 @@ use image::FlatSamples;
 pub mod in_memory_muxer;
 pub mod hardware_device;
 pub mod frame_scaler;
+pub mod resource_pool;
 
 pub const SECONDS_TIME_BASE: Rational = Rational(1, 1);
 pub const MILLIS_TIME_BASE: Rational = Rational(1, 1_000);

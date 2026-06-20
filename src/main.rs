@@ -23,10 +23,10 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
-	let args: Args = argh::from_env();
-	
 	setup_logging();
 	ffmpeg_next::log::set_level(ffmpeg_next::log::Level::Warning);
+	
+	let args: Args = argh::from_env();
 	
 	info!("Starting server");
 	

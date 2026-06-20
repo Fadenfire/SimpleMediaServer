@@ -30,7 +30,7 @@ impl QuickSyncVideoBackendFactory {
 impl BackendFactory for QuickSyncVideoBackendFactory {
 	fn create_video_backend(&self) -> anyhow::Result<Box<dyn VideoBackend>> {
 		Ok(Box::new(QuickSyncVideoBackend {
-			hw_context: self.device_pool.take_device()?,
+			hw_context: self.device_pool.take()?,
 		}))
 	}
 	
