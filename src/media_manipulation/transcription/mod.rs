@@ -84,10 +84,10 @@ pub fn transcribe(
 	Ok(web_vtt)
 }
 
-const MAX_SUB_LENGTH: usize = 200;
-const MAX_SILENCE_GAP: f32 = 2.0;
+const MAX_SUB_LENGTH: usize = 45;
+const MAX_SILENCE_GAP: f32 = 1.2;
 
-fn build_transcript(words: impl IntoIterator<Item = TimedToken>) -> Vec<VTTCue> {
+fn build_transcript(tokens: impl IntoIterator<Item = TimedToken>) -> Vec<VTTCue> {
 	let mut cues = Vec::new();
 	
 	let mut line = String::new();
@@ -115,12 +115,15 @@ fn build_transcript(words: impl IntoIterator<Item = TimedToken>) -> Vec<VTTCue> 
 		}
 	};
 	
-	for word in words {
+	for token in tokens {
 		if !line.is_empty() {
 			if
 				line.ends_with(|c| matches!(c, '.' | '!' | '?')) ||
-				(line.len() >= MAX_SUB_LENGTH && line.ends_with(char::is_whitespace)) ||
-				(word.start - line_end) >= MAX_SILENCE_GAP
+				(
+					line.len() >= MAX_SUB_LENGTH &&
+					(line.ends_with(char::is_whitespace) || token.text.starts_with(char::is_whitespace))
+				) ||
+				(token.start - line_end) >= MAX_SILENCE_GAP
 			{
 				append_cue(&line, line_start, line_end);
 				
@@ -129,12 +132,12 @@ fn build_transcript(words: impl IntoIterator<Item = TimedToken>) -> Vec<VTTCue> 
 		}
 		
 		if line.is_empty() {
-			line_start = word.start;
+			line_start = token.start;
 		}
 		
-		line_end = word.end.min(word.start + 0.2);
+		line_end = token.end.min(token.start + 0.2);
 		
-		line.push_str(&word.text);
+		line.push_str(&token.text);
 	}
 	
 	if !line.is_empty() {
