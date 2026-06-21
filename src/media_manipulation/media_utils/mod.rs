@@ -18,10 +18,16 @@ pub const SECONDS_TIME_BASE: Rational = Rational(1, 1);
 pub const MILLIS_TIME_BASE: Rational = Rational(1, 1_000);
 pub const MICRO_TIME_BASE: Rational = Rational(1, 1_000_000);
 
-pub fn scale_f64_secs(timestamp: f64, new_scale: Rational) -> i64 {
+pub fn scale_from_f64_secs(timestamp: f64, new_scale: Rational) -> i64 {
 	let micro_seconds = (timestamp * 1_000_000.0).round() as i64;
 	
 	micro_seconds.rescale(MICRO_TIME_BASE, new_scale)
+}
+
+pub fn scale_to_f64_secs(timestamp: i64, old_scale: Rational) -> f64 {
+	let micro_seconds = timestamp.rescale(old_scale, MICRO_TIME_BASE);
+	
+	micro_seconds as f64 / 1_000_000.0
 }
 
 pub fn scale_range(range: Range<i64>, from: Rational, to: Rational) -> Range<i64> {

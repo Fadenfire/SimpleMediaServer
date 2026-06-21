@@ -63,7 +63,8 @@ impl AutoTranscriptionGenerator {
 	}
 }
 
-const SEGMENT_LENGTH: f64 = 60.0;
+const SEGMENT_LENGTH: f64 = 120.0;
+const SEGMENT_OVERLAP: f64 = 15.0;
 
 impl ArtifactGenerator for AutoTranscriptionGenerator {
 	type Input = AutoSubtitleParams;
@@ -92,7 +93,7 @@ impl ArtifactGenerator for AutoTranscriptionGenerator {
 			let seg_start = input.segment_index as f64 * SEGMENT_LENGTH;
 			let time_bounds = seg_start..(seg_start + SEGMENT_LENGTH);
 			
-			transcription::transcribe(input.media_path, &mut model, time_bounds)
+			transcription::transcribe(input.media_path, &mut model, time_bounds, SEGMENT_OVERLAP)
 		}).await.context("Panic")??;
 		
 		info!("Transcribed segment in {:?}", start_time.elapsed());
