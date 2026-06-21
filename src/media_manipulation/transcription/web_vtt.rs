@@ -10,6 +10,8 @@ pub fn cues_to_web_vtt(cues: &[VTTCue]) -> String {
 	text.push_str("WEBVTT\n");
 	
 	for cue in cues {
+		text.push('\n');
+		
 		write_timestamp(&mut text, cue.start_time);
 		text.push_str(" --> ");
 		write_timestamp(&mut text, cue.end_time);
