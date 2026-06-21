@@ -12,9 +12,9 @@ pub fn cues_to_web_vtt(cues: &[VTTCue]) -> String {
 	for cue in cues {
 		text.push('\n');
 		
-		write_timestamp(&mut text, cue.start_time);
+		text.push_str(&make_timestamp(cue.start_time));
 		text.push_str(" --> ");
-		write_timestamp(&mut text, cue.end_time);
+		text.push_str(&make_timestamp(cue.end_time));
 		text.push('\n');
 		
 		text.push_str(&cue.text);
@@ -24,10 +24,11 @@ pub fn cues_to_web_vtt(cues: &[VTTCue]) -> String {
 	text
 }
 
-fn write_timestamp(text: &mut String, time: f32) {
-	let minutes = (time / 60.0).floor() as u32;
+fn make_timestamp(time: f32) -> String {
+	let hours = (time / 3600.0).floor() as u32;
+	let minutes = (time % 3600.0 / 60.0).floor() as u32;
 	let seconds = (time % 60.0).floor() as u32;
-	let milliseconds = (time % 1.0 * 1000.0).round() as u32;
+	let milliseconds = ((time % 1.0) * 1000.0).round() as u32 % 1000;
 	
-	text.push_str(&format!("{:02}:{:02}.{:03}", minutes, seconds, milliseconds));
+	format!("{:02}:{:02}:{:02}.{:03}", hours, minutes, seconds, milliseconds)
 }
