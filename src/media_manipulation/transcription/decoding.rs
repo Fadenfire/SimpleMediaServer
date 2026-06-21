@@ -1,13 +1,16 @@
+use crate::media_manipulation::media_utils::scale_to_f64_secs;
 use crate::media_manipulation::transcription::SAMPLE_RATE;
 use anyhow::Context;
 use ffmpeg_next::format::{sample, Sample};
 use ffmpeg_next::software::resampling;
-use ffmpeg_next::{codec, decoder, frame, ChannelLayout, Packet, Stream};
+use ffmpeg_next::{codec, decoder, frame, ChannelLayout, Packet, Rational, Stream};
 
 pub struct SampleCollector {
 	decoder: decoder::Audio,
 	resampler: resampling::Context,
+	time_base: Rational,
 	
+	first_pts: Option<f64>,
 	samples: Vec<f32>,
 }
 
@@ -17,7 +20,9 @@ impl SampleCollector {
 			.decoder()
 			.audio()?;
 		
-		decoder.set_packet_time_base(audio_stream.time_base());
+		let time_base = audio_stream.time_base();
+		
+		decoder.set_packet_time_base(time_base);
 		
 		let resampler = ffmpeg_next::software::resampler(
 			(decoder.format(), decoder.channel_layout(), decoder.rate()),
@@ -27,13 +32,19 @@ impl SampleCollector {
 		Ok(Self {
 			decoder,
 			resampler,
+			time_base,
 			
+			first_pts: None,
 			samples: Vec::new(),
 		})
 	}
 	
 	pub fn into_samples(self) -> Vec<f32> {
 		self.samples
+	}
+	
+	pub fn first_pts(&self) -> Option<f64> {
+		self.first_pts
 	}
 	
 	pub fn receive_input_packet(&mut self, in_packet: Packet) -> anyhow::Result<()> {
@@ -52,6 +63,10 @@ impl SampleCollector {
 		let mut in_frame = frame::Audio::empty();
 		
 		while self.decoder.receive_frame(&mut in_frame).is_ok() {
+			if self.first_pts.is_none() {
+				self.first_pts = Some(scale_to_f64_secs(in_frame.timestamp().unwrap(), self.time_base));
+			}
+			
 			let mut out_frame = frame::Audio::empty();
 			self.resampler.run(&in_frame, &mut out_frame)?;
 			

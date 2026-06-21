@@ -1,4 +1,4 @@
-use crate::config::{GeneralConfig, ServerConfig};
+use crate::config::ServerConfig;
 use crate::media_manipulation::backends::BackendFactory;
 use crate::media_manipulation::transcoding;
 use crate::media_manipulation::transcoding::TranscodingOptions;

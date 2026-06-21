@@ -6,7 +6,6 @@ use ffmpeg_next::{format, media, rescale, Rescale};
 use parakeet_rs::{ParakeetTDT, TimedToken, TimestampMode, Transcriber};
 use std::ops::Range;
 use std::path::PathBuf;
-use tracing::info;
 use web_vtt::VTTCue;
 
 mod web_vtt;
@@ -30,7 +29,6 @@ pub fn transcribe(
 	let mut sample_collector = SampleCollector::new(audio_stream)?;
 	
 	let container_start_time = media_utils::demuxer_start_time(&demuxer);
-	let mut decoding_start = None;
 	
 	if time_bounds.start > 0.0 {
 		let seek_pos_secs = (time_bounds.start - overlap).max(0.0);
@@ -41,21 +39,14 @@ pub fn transcribe(
 		time_bounds.start = f64::MIN;
 	}
 	
-	let last_dts = scale_from_f64_secs(time_bounds.end + overlap, rescale::TIME_BASE) + container_start_time;
+	let end_dts = scale_from_f64_secs(time_bounds.end + overlap, rescale::TIME_BASE) + container_start_time;
 	
 	for (stream, packet) in demuxer.packets() {
 		if stream.index() == audio_stream_index {
 			let dts = packet.dts()
 				.ok_or_else(|| anyhow!("Audio packet had no DTS"))?;
 			
-			if decoding_start.is_none() {
-				let f_dts = scale_to_f64_secs(dts, stream.time_base())
-					- scale_to_f64_secs(container_start_time, rescale::TIME_BASE);
-				
-				decoding_start = Some(f_dts);
-			}
-	
-			if dts > last_dts.rescale(rescale::TIME_BASE, stream.time_base()) {
+			if dts > end_dts.rescale(rescale::TIME_BASE, stream.time_base()) {
 				break;
 			}
 			
@@ -65,8 +56,11 @@ pub fn transcribe(
 	
 	sample_collector.send_eof()?;
 	
+	let first_pts = sample_collector.first_pts()
+		.unwrap_or(0.0)
+		- scale_to_f64_secs(container_start_time, rescale::TIME_BASE);
+	
 	let samples = sample_collector.into_samples();
-	let decoding_start = decoding_start.unwrap_or(time_bounds.start);
 	
 	let result = parakeet.transcribe_samples(
 		samples,
@@ -75,13 +69,11 @@ pub fn transcribe(
 		Some(TimestampMode::Tokens)
 	).context("Transcribing")?;
 	
-	info!("Transcribed: {:?}", &result.tokens);
-	
 	let cues = build_transcript(
 		result.tokens.into_iter()
 			.map(|token| TimedToken {
-				start: token.start + decoding_start as f32,
-				end: token.end + decoding_start as f32,
+				start: token.start + first_pts as f32,
+				end: token.end + first_pts as f32,
 				..token
 			})
 			.filter(|token| time_bounds.contains(&(token.start as f64)))
@@ -130,7 +122,7 @@ fn build_transcript(words: impl IntoIterator<Item = TimedToken>) -> Vec<VTTCue> 
 			line_start = word.start;
 		}
 		
-		line_end = word.start + 0.01;
+		line_end = word.end.min(word.start + 0.2);
 		
 		line.push_str(&word.text);
 	}
