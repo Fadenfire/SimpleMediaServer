@@ -94,6 +94,27 @@ fn build_transcript(words: impl IntoIterator<Item = TimedToken>) -> Vec<VTTCue> 
 	let mut line_start = 0f32;
 	let mut line_end = 0f32;
 	
+	let mut append_cue = |
+		text: &str,
+		start_time: f32,
+		end_time: f32,
+	| {
+		let final_text = text
+			.trim_start_matches(|c: char| {
+				c.is_whitespace() || matches!(c, '.' | ',')
+			})
+			.trim()
+			.to_string();
+		
+		if !final_text.is_empty() {
+			cues.push(VTTCue {
+				text: final_text,
+				start_time,
+				end_time,
+			});
+		}
+	};
+	
 	for word in words {
 		if !line.is_empty() {
 			if
@@ -101,18 +122,7 @@ fn build_transcript(words: impl IntoIterator<Item = TimedToken>) -> Vec<VTTCue> 
 				(line.len() >= MAX_SUB_LENGTH && line.ends_with(char::is_whitespace)) ||
 				(word.start - line_end) >= MAX_SILENCE_GAP
 			{
-				let final_line = line
-					.trim_start_matches(|c: char| {
-						c.is_whitespace() || matches!(c, '.' | ',' | '!' | '?' | ';' | ':' | ')')
-					})
-					.trim()
-					.to_string();
-				
-				cues.push(VTTCue {
-					text: final_line,
-					start_time: line_start,
-					end_time: line_end,
-				});
+				append_cue(&line, line_start, line_end);
 				
 				line.clear();
 			}
@@ -128,11 +138,7 @@ fn build_transcript(words: impl IntoIterator<Item = TimedToken>) -> Vec<VTTCue> 
 	}
 	
 	if !line.is_empty() {
-		cues.push(VTTCue {
-			text: line,
-			start_time: line_start,
-			end_time: line_end,
-		});
+		append_cue(&line, line_start, line_end);
 	}
 	
 	cues
