@@ -1,7 +1,7 @@
 <script lang="ts">
     import Button from "./Button.svelte";
     import SVGIcon from "$lib/components/SVGIcon.svelte";
-    import type { VideoPlayerState } from "../VideoPlayerInternal.svelte";
+    import { AUTO_SUBTITLE_TRACK_INDEX, NO_SUBTITLE_TRACK_INDEX, type VideoPlayerState } from "../VideoPlayerInternal.svelte";
 	import { iso6393To1 } from "iso-639-3";
 	import { lookup as langLookup } from "bcp-47-match";
 	
@@ -20,8 +20,11 @@
 		const subtitles = playerState.mediaInfo.subtitle_streams;
 		
 		if (playerState.subtitlesEnabled()) {
-			playerState.subtitleTrack = -1;
-		} else if (subtitles.length > 0) {
+			playerState.subtitleTrack = NO_SUBTITLE_TRACK_INDEX;
+			return;
+		}
+
+		if (subtitles.length > 0) {
 			const langCodeToTrack = new Map<string, ApiSubtitleStream>();
 			
 			for (const track of subtitles) {
@@ -45,6 +48,8 @@
 			}
 			
 			playerState.subtitleTrack = bestTrack.track_id;
+		} else if (playerState.mediaInfo.has_auto_subtitles) {
+			playerState.subtitleTrack = AUTO_SUBTITLE_TRACK_INDEX;
 		}
 	}
 </script>

@@ -15,7 +15,7 @@
 	export interface SubtitleStream {
 		id: string;
 		language: string | undefined;
-		src: string;
+		src: string | undefined;
 	}
 </script>
 
@@ -76,26 +76,33 @@
 
 		const backend = new VideoBackend(videoState.videoElement, mediaPath, hlsConfig);
 
+		// Re-add all subtitles tracks whenever we switch backends. This is done
+		//  because hls.js clears all subtitle tracks when it's attached.
 		backend.onMediaAttached = () => {
 			const video = videoState.videoElement;
 			if (!video) return;
 
-			for (const el of Array.from(video.querySelectorAll('track'))) {
-				el.remove();
+			for (const elem of Array.from(video.querySelectorAll("track"))) {
+				elem.remove();
 			}
 
 			for (const stream of subtitleStreams ?? []) {
-				const el = document.createElement('track');
-				el.kind = 'captions';
-				el.id = stream.id;
-				if (stream.language) el.srclang = stream.language;
-				el.src = stream.src;
-				el.addEventListener('load', () => {
-					for (const cue of Array.from(el.track.cues ?? [])) {
-						(cue as VTTCue).line = -3;
-					}
-				});
-				video.appendChild(el);
+				const trackElem = document.createElement("track");
+				trackElem.kind = "captions";
+				trackElem.id = stream.id;
+				if (stream.language) trackElem.srclang = stream.language;
+				
+				if (stream.src !== undefined) {
+					trackElem.src = stream.src;
+					
+					trackElem.addEventListener("load", () => {
+						for (const cue of Array.from(trackElem.track.cues ?? [])) {
+							(cue as VTTCue).line = -3;
+						}
+					});
+				}
+				
+				video.appendChild(trackElem);
 			}
 		};
 

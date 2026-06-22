@@ -2,7 +2,7 @@
     import SelectionDropdown from "$lib/components/SelectionDropdown.svelte";
     import { iso6393 } from "iso-639-3";
 	import type { VideoBackend } from "../video_backend";
-    import type { VideoPlayerState } from "../VideoPlayerInternal.svelte";
+    import { AUTO_SUBTITLE_TRACK_INDEX, NO_SUBTITLE_TRACK_INDEX, type VideoPlayerState } from "../VideoPlayerInternal.svelte";
     import SidebarMenu from "./SidebarMenu.svelte";
 
 	interface Props {
@@ -62,13 +62,17 @@
 		<option value={2.0}>2x</option>
 	</SelectionDropdown>
 	
-	{#if playerState.mediaInfo.subtitle_streams.length > 0}
+	{#if playerState.mediaInfo.subtitle_streams.length > 0 || playerState.mediaInfo.has_auto_subtitles}
 		<SelectionDropdown bind:value={playerState.subtitleTrack} label="Captions" style="width: 200px;">
-			<option value={-1}>Off</option>
+			<option value={NO_SUBTITLE_TRACK_INDEX}>Off</option>
 			
 			{#each playerState.mediaInfo.subtitle_streams as track, index}
 				<option value={track.track_id}>{getSubtitleStreamLabel(track, index)}</option>
 			{/each}
+
+			{#if playerState.mediaInfo.has_auto_subtitles}
+				<option value={AUTO_SUBTITLE_TRACK_INDEX}>Auto Subtitles</option>
+			{/if}
 		</SelectionDropdown>
 	{/if}
 	

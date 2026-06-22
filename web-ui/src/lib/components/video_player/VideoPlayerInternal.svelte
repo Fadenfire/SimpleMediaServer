@@ -1,10 +1,17 @@
 <script lang="ts" module>
+	export const AUTO_SUBTITLE_TRACK_ID = "auto_subtitle_track";
+	
+	export const NO_SUBTITLE_TRACK_INDEX = -1;
+	export const AUTO_SUBTITLE_TRACK_INDEX = -2;
+	
+	const AUTO_SUBTITLE_SEGMENT_LENGTH = 120;
+
 	export class VideoPlayerState {
 		mediaInfo: ApiFileInfo;
 		thumbSheetUrl: string | undefined = $state();
 		videoState: VideoState = $state(new VideoState());
 		
-		subtitleTrack: number = $state(-1);
+		subtitleTrack: number = $state(NO_SUBTITLE_TRACK_INDEX);
 		
 		constructor(mediaInfo: ApiFileInfo) {
 			this.mediaInfo = mediaInfo;
@@ -12,7 +19,7 @@
 		}
 		
 		subtitlesEnabled() {
-			return this.subtitleTrack >= 0;
+			return this.subtitleTrack != NO_SUBTITLE_TRACK_INDEX;
 		}
 	}
 </script>
@@ -25,6 +32,7 @@
     import { invalidate } from '$app/navigation';
     import { jumpToVideo } from './video_utils';
     import VideoElement, { VideoState } from './VideoElement.svelte';
+	import { WebVTTParser } from 'webvtt-parser';
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -48,13 +56,17 @@
 	
 	// Subtitles
 	
-	function makeSubtitleTrackId(track_id: number): string {
-		return `subtitle_track_${track_id}`;
+	function subtitleIdFromIndex(index: number): string {
+		if (index == AUTO_SUBTITLE_TRACK_INDEX) {
+			return AUTO_SUBTITLE_TRACK_ID;
+		}
+		
+		return `subtitle_track_${index}`;
 	}
 	
 	function updateSubtitleVisibility(textTracks: TextTrackList, selectedTrack: number) {		
 		for (const track of textTracks) {
-			track.mode = track.id === makeSubtitleTrackId(selectedTrack) ? "showing" : "hidden";
+			track.mode = track.id === subtitleIdFromIndex(selectedTrack) ? "showing" : "hidden";
 		}
 	}
 	
@@ -65,8 +77,74 @@
 			videoState.videoElement.textTracks,
 			playerState.subtitleTrack
 		);
-	});	
-	
+	});
+
+	// Auto Subtitles
+	//
+	// Auto subtitles are generated lazily by the backend in segments and are
+	//  only fetched once the auto subtitle track is selected. Each segment's
+	//  cues use absolute timestamps, so they can be appended to a single track.
+
+	let loadedAutoSegments = new Set<number>();
+
+	function getAutoSubtitleTrack(): TextTrack | undefined {
+		const textTracks = videoState.videoElement?.textTracks;
+		if (textTracks === undefined) return undefined;
+
+		for (const track of textTracks) {
+			if (track.id === AUTO_SUBTITLE_TRACK_ID) return track;
+		}
+
+		return undefined;
+	}
+
+	async function loadAutoSubtitleSegment(segmentIndex: number) {
+		if (segmentIndex < 0) return;
+		if (segmentIndex * AUTO_SUBTITLE_SEGMENT_LENGTH >= mediaInfo.duration) return;
+		if (loadedAutoSegments.has(segmentIndex)) return;
+
+		loadedAutoSegments.add(segmentIndex);
+
+		try {
+			const res = await fetch(
+				`/api/auto_subtitles/${escapePath(mediaInfo.full_path)}/segment/${segmentIndex}.webvtt`
+			);
+
+			if (!res.ok) throw new Error(`Got status ${res.status}`);
+			
+			const text = await res.text();
+
+			const track = getAutoSubtitleTrack();
+			if (track === undefined) throw new Error("Auto subtitle track is missing");
+
+			const parser = new WebVTTParser();
+			const vttData = parser.parse(text);
+			
+			console.log("ndjasn", vttData.cues.length, " ", vttData.errors);
+			
+			for (const cue of vttData.cues) {
+				track.addCue(new VTTCue(cue.startTime, cue.endTime, cue.text));
+			}
+
+			loadedAutoSegments.add(segmentIndex);
+		} catch (err) {
+			// Allow the segment to be retried later
+			loadedAutoSegments.delete(segmentIndex);
+			console.error(`Failed to load auto subtitle segment ${segmentIndex}`, err);
+		}
+	}
+
+	// Only changes when crossing a segment boundary, so the effect below
+	//  doesn't re-run on every time update.
+	let currentAutoSegment = $derived(Math.floor(videoState.currentTime / AUTO_SUBTITLE_SEGMENT_LENGTH));
+
+	$effect(() => {
+		if (playerState.subtitleTrack !== AUTO_SUBTITLE_TRACK_INDEX) return;
+
+		loadAutoSubtitleSegment(currentAutoSegment)
+			.then(() => loadAutoSubtitleSegment(currentAutoSegment + 1));
+	});
+
 	// Watch Progress
 	
 	let watchTime = $state(0);
@@ -169,12 +247,22 @@
 			}
 		}
 		
-		// Hide externally added text tracks
+		// Subtitles
 		
 		const textTracks = videoState.videoElement.textTracks;
 		
-		textTracks.addEventListener("addtrack", () => {
+		textTracks.addEventListener("addtrack", (event) => {
+			// Hide externally added text tracks as they're added
 			updateSubtitleVisibility(textTracks, playerState.subtitleTrack);
+
+			if (event.track?.id === AUTO_SUBTITLE_TRACK_ID) {
+				loadedAutoSegments.clear();
+
+				if (playerState.subtitleTrack === AUTO_SUBTITLE_TRACK_INDEX) {
+					loadAutoSubtitleSegment(currentAutoSegment)
+						.then(() => loadAutoSubtitleSegment(currentAutoSegment + 1));
+				}
+			}
 		});
 				
 		// Unmount callback
@@ -198,15 +286,20 @@
 	<VideoElement
 		mediaPath={mediaInfo.full_path}
 		provideState={state => playerState.videoState = state}
-		subtitleStreams={
-			mediaInfo.subtitle_streams.map(stream => {
+		subtitleStreams={[
+			...mediaInfo.subtitle_streams.map(stream => {
 				return {
-					id: makeSubtitleTrackId(stream.track_id),
+					id: subtitleIdFromIndex(stream.track_id),
 					language: stream.language ?? undefined,
 					src: `/api/subtitles/${escapePath(mediaInfo.full_path)}/track/${stream.track_id}`,
 				};
-			})
-		}
+			}),
+			...(mediaInfo.has_auto_subtitles ? [{
+				id: AUTO_SUBTITLE_TRACK_ID,
+				language: undefined,
+				src: undefined,
+			}] : []),
+		]}
 	/>
 </div>
 

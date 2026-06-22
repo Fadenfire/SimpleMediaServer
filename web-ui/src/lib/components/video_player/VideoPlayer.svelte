@@ -383,7 +383,7 @@
 				
 				<div class="flex-spacer"></div>
 				
-				{#if mediaInfo.subtitle_streams.length > 0} <CCButton playerState={playerState}/> {/if}
+				{#if mediaInfo.subtitle_streams.length > 0 || mediaInfo.has_auto_subtitles} <CCButton playerState={playerState}/> {/if}
 				<SettingsButton onclick={() => toggleSidebar(SidebarType.Settings)}/>
 				<FullscreenButton {isFullscreen} onclick={toggleFullscreen}/>
 			</div>
