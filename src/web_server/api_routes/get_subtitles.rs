@@ -18,7 +18,10 @@ pub async fn subtitles_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
-	let stream_index: usize = stream_index.parse().map_err(|_| ApiError::NotFound)?;
+	let stream_index: usize = stream_index.strip_suffix(".vtt")
+		.unwrap_or(stream_index)
+		.parse()
+		.map_err(|_| ApiError::NotFound)?;
 	
 	let resolved_path = libraries::resolve_path_with_auth(
 		server_state, library_id, library_path.iter().collect(), request.headers())?;

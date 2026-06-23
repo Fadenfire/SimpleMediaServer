@@ -18,7 +18,7 @@ pub async fn auto_subtitle_segment_route(
 ) -> Result<HyperResponse, ApiError> {
 	restrict_method(request, &[Method::GET, Method::HEAD])?;
 	
-	let segment_index: usize = segment_index.strip_suffix(".webvtt")
+	let segment_index: usize = segment_index.strip_suffix(".vtt")
 		.unwrap_or(segment_index)
 		.parse()
 		.map_err(|_| ApiError::NotFound)?;

@@ -107,7 +107,7 @@
 
 		try {
 			const res = await fetch(
-				`/api/auto_subtitles/${escapePath(mediaInfo.full_path)}/segment/${segmentIndex}.webvtt`
+				`/api/auto_subtitles/${escapePath(mediaInfo.full_path)}/segment/${segmentIndex}.vtt`
 			);
 
 			if (!res.ok) throw new Error(`Got status ${res.status}`);
@@ -291,7 +291,7 @@
 				return {
 					id: subtitleIdFromIndex(stream.track_id),
 					language: stream.language ?? undefined,
-					src: `/api/subtitles/${escapePath(mediaInfo.full_path)}/track/${stream.track_id}`,
+					src: `/api/subtitles/${escapePath(mediaInfo.full_path)}/track/${stream.track_id}.vtt`,
 				};
 			}),
 			...(mediaInfo.has_auto_subtitles ? [{
