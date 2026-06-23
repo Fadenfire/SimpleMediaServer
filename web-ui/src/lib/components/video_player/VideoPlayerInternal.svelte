@@ -70,6 +70,14 @@
 		}
 	}
 	
+	function transformCue(cue: TextTrackCue) {
+		(cue as VTTCue).line = -3;
+	}
+	
+	function transformSubtitleTrack(track: TextTrack) {
+		Array.from(track.cues ?? []).forEach(transformCue)
+	}
+	
 	$effect(() => {
 		if (videoState.videoElement === undefined) return;
 		
@@ -119,11 +127,12 @@
 
 			const parser = new WebVTTParser();
 			const vttData = parser.parse(text);
-			
-			console.log("ndjasn", vttData.cues.length, " ", vttData.errors);
-			
+						
 			for (const cue of vttData.cues) {
-				track.addCue(new VTTCue(cue.startTime, cue.endTime, cue.text));
+				const webCue = new VTTCue(cue.startTime, cue.endTime, cue.text);
+				transformCue(webCue);
+				
+				track.addCue(webCue);
 			}
 
 			loadedAutoSegments.add(segmentIndex);
@@ -300,6 +309,7 @@
 				src: undefined,
 			}] : []),
 		]}
+		onSubtitleLoad={transformSubtitleTrack}
 	/>
 </div>
 

@@ -31,6 +31,7 @@
 		subtitleStreams?: SubtitleStream[];
 		hlsConfig?: Partial<HlsConfig>;
 		provideState: (state: VideoState) => void;
+		onSubtitleLoad?: (track: TextTrack) => void;
 	}
 
 	let {
@@ -38,6 +39,7 @@
 		subtitleStreams,
 		hlsConfig,
 		provideState,
+		onSubtitleLoad = () => {},
 	}: Props = $props();
 	
 	// Set up video state
@@ -96,9 +98,7 @@
 					trackElem.src = stream.src;
 					
 					trackElem.addEventListener("load", () => {
-						for (const cue of Array.from(trackElem.track.cues ?? [])) {
-							(cue as VTTCue).line = -3;
-						}
+						onSubtitleLoad(trackElem.track);
 					});
 				}
 				
