@@ -2,13 +2,13 @@ use http::{Method, Response};
 use http::header::CONTENT_TYPE;
 use tracing::instrument;
 
-use crate::web_server::{libraries, video_locator};
+use crate::web_server::{libraries, video_locator, web_utils};
 use crate::web_server::api_error::ApiError;
 use crate::web_server::media_metadata::AdvancedMediaMetadata;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::services::hls_segment_service;
 use crate::web_server::services::hls_segment_service::HLS_AUDIO_CODEC_STRING;
-use crate::web_server::web_utils::{full_body, HyperRequest, HyperResponse, restrict_method};
+use crate::web_server::web_utils::{HyperRequest, HyperResponse, restrict_method};
 
 #[instrument(skip(server_state, request))]
 pub async fn hls_manifest_route(
@@ -55,8 +55,10 @@ pub async fn hls_manifest_route(
 		}
 	}
 	
-	Ok(Response::builder()
-		.header(CONTENT_TYPE, "application/x-mpegURL")
-		.body(full_body(manifest))
-		.unwrap())
+	let builder = Response::builder()
+		.header(CONTENT_TYPE, "application/x-mpegURL");
+	
+	let res = web_utils::finish_compressed_response(builder, manifest, request.headers()).await?;
+	
+	Ok(res)
 }
