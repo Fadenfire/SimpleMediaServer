@@ -19,13 +19,13 @@ RUN --mount=type=cache,target=/corepack,sharing=locked \
 
 # ============= Build Backend =============
 
-FROM rust:1.93.1-slim-bookworm AS builder
+FROM rust:1.96.0-slim-trixie AS builder
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
-    apt-get --no-install-recommends install -y pkg-config clang cmake make nasm xz-utils
+    apt-get --no-install-recommends install -y pkg-config clang cmake make nasm xz-utils libssl-dev
 
 WORKDIR /app
 
@@ -47,7 +47,7 @@ RUN --mount=type=cache,sharing=locked,target=/usr/local/cargo/registry \
 
 # ============= Final Container =============
 
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 
 # Adapted from https://github.com/jellyfin/jellyfin/blob/9dd80083fbab61ed7af13e09906b76441c728bcb/Dockerfile#L36-L41
 #  and https://github.com/jellyfin/jellyfin-packaging/blob/df6c5f8f5d4538f9e0f38003a1429c3419cacdcc/docker/Dockerfile#L144-L160
