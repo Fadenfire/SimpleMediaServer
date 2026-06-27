@@ -161,10 +161,12 @@ pub async fn serve_file_basic(
 		return Ok(res);
 	}
 	
-	let res = Response::builder()
+	let mut res = Response::builder()
 		.header(CONTENT_TYPE, mime_type.essence_str())
 		.body(full_body(file_data))
 		.unwrap();
+	
+	res.headers_mut().typed_insert(LastModified::from(mod_time));
 	
 	Ok(res)
 }
@@ -182,7 +184,11 @@ pub async fn serve_file_compressed(
 	let builder = Response::builder()
 		.header(CONTENT_TYPE, mime_type.essence_str());
 	
-	finish_compressed_response(builder, file_data, request_headers).await
+	let mut res = finish_compressed_response(builder, file_data, request_headers).await?;
+	
+	res.headers_mut().typed_insert(LastModified::from(mod_time));
+	
+	Ok(res)
 }
 
 pub fn split_path(path: &str) -> anyhow::Result<Vec<String>> {
