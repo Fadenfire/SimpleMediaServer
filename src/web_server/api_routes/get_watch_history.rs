@@ -7,7 +7,7 @@ use crate::web_server::api_routes::list_dir;
 use crate::web_server::api_types::ApiWatchHistoryEntry;
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
-use crate::web_server::web_utils::{large_json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
 use crate::web_server::{video_locator, web_utils};
 
 #[instrument(skip_all)]
@@ -89,7 +89,7 @@ pub async fn get_watch_history_route(server_state: &ServerState, request: &Hyper
 		entries,
 	};
 	
-	Ok(large_json_response(&res, request.headers()).await?)
+	Ok(json_response(&res, request.headers()).await?)
 }
 
 #[derive(Debug, Deserialize)]

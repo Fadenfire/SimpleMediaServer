@@ -11,7 +11,7 @@ use crate::web_server::libraries::Library;
 use crate::web_server::media_metadata::{AdvancedMediaMetadata, BasicMediaMetadata, Dimension};
 use crate::web_server::server_state::ServerState;
 use crate::web_server::video_locator::LocatedFile;
-use crate::web_server::web_utils::{large_json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
 use crate::web_server::{libraries, media_connections, video_locator};
 use anyhow::Context;
 use http::Method;
@@ -60,7 +60,7 @@ pub async fn file_info_route(
 		}
 	};
 	
-	Ok(large_json_response(&res, request.headers()).await?)
+	Ok(json_response(&res, request.headers()).await?)
 }
 
 #[derive(Debug, Serialize)]

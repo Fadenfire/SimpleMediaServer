@@ -4,7 +4,7 @@ use tracing::instrument;
 use crate::web_server::api_error::ApiError;
 use crate::web_server::api_types::ApiUserInfo;
 use crate::web_server::auth::AuthManager;
-use crate::web_server::web_utils::{large_json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
 
 #[instrument(skip_all)]
 pub async fn get_user_route(request: &HyperRequest, auth_manager: &AuthManager) -> Result<HyperResponse, ApiError> {
@@ -17,5 +17,5 @@ pub async fn get_user_route(request: &HyperRequest, auth_manager: &AuthManager) 
 		username: user.username.clone(),
 	};
 	
-	Ok(large_json_response(&user_res, request.headers()).await?)
+	Ok(json_response(&user_res, request.headers()).await?)
 }

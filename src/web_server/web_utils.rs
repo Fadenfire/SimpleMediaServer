@@ -45,7 +45,7 @@ pub fn simple_json_response<T: Serialize>(status_code: StatusCode, json: &T) -> 
 		.unwrap()
 }
 
-pub async fn large_json_response<T: Serialize>(
+pub async fn json_response<T: Serialize>(
 	json: &T,
 	request_headers: &HeaderMap,
 ) -> anyhow::Result<HyperResponse> {
@@ -90,32 +90,10 @@ pub fn parse_query<T: DeserializeOwned>(uri: &Uri) -> Result<T, ApiError> {
 		.ok_or(ApiError::InvalidQuery)
 }
 
-fn check_if_modified_since(
-	mod_time: SystemTime,
-	request_headers: &HeaderMap,
-) -> anyhow::Result<Option<HyperResponse>> {
-	let if_modified_since: Option<IfModifiedSince> = request_headers.typed_get();
-	
-	if let Some(if_modified_since) = if_modified_since {
-		if !if_modified_since.is_modified(mod_time) {
-			let mut res = Response::builder()
-				.status(StatusCode::NOT_MODIFIED)
-				.body(empty_body())
-				.unwrap();
-			
-			res.headers_mut().typed_insert(LastModified::from(mod_time));
-			
-			return Ok(Some(res));
-		}
-	}
-	
-	Ok(None)
-}
-
 const COMPRESSION_LEVEL: flate2::Compression = flate2::Compression::new(3);
-const COMPRESSION_THRESHOLD: usize = 16 * 1024; // 16 KiB
+const COMPRESSION_THRESHOLD: usize = 8 * 1024; // 8 KiB
 
-async fn finish_compressed_response(
+pub async fn finish_compressed_response(
 	builder: http::response::Builder,
 	body_data: impl Into<Bytes>,
 	request_headers: &HeaderMap
@@ -149,6 +127,28 @@ async fn finish_compressed_response(
 		
 		Ok(res)
 	}
+}
+
+fn check_if_modified_since(
+	mod_time: SystemTime,
+	request_headers: &HeaderMap,
+) -> anyhow::Result<Option<HyperResponse>> {
+	let if_modified_since: Option<IfModifiedSince> = request_headers.typed_get();
+	
+	if let Some(if_modified_since) = if_modified_since {
+		if !if_modified_since.is_modified(mod_time) {
+			let mut res = Response::builder()
+				.status(StatusCode::NOT_MODIFIED)
+				.body(empty_body())
+				.unwrap();
+			
+			res.headers_mut().typed_insert(LastModified::from(mod_time));
+			
+			return Ok(Some(res));
+		}
+	}
+	
+	Ok(None)
 }
 
 pub async fn serve_file_basic(

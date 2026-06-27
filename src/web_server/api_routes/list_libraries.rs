@@ -4,7 +4,7 @@ use tracing::instrument;
 use crate::web_server::api_error::ApiError;
 use crate::web_server::api_types::ApiLibraryEntry;
 use crate::web_server::server_state::ServerState;
-use crate::web_server::web_utils::{large_json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
 
 #[instrument(skip_all)]
 pub async fn list_libraries_route(server_state: &ServerState, request: &HyperRequest) -> Result<HyperResponse, ApiError> {
@@ -20,5 +20,5 @@ pub async fn list_libraries_route(server_state: &ServerState, request: &HyperReq
 		})
 		.collect();
 	
-	Ok(large_json_response(&libraries, request.headers()).await?)
+	Ok(json_response(&libraries, request.headers()).await?)
 }

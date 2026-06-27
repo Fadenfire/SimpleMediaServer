@@ -14,7 +14,7 @@ use crate::web_server::auth::User;
 use crate::web_server::media_metadata::BasicMediaMetadata;
 use crate::web_server::metadata_cache::FileMetadata;
 use crate::web_server::server_state::ServerState;
-use crate::web_server::web_utils::{large_json_response, restrict_method, HyperRequest, HyperResponse};
+use crate::web_server::web_utils::{json_response, restrict_method, HyperRequest, HyperResponse};
 use crate::web_server::{libraries, video_locator};
 
 #[instrument(skip(server_state, request))]
@@ -110,7 +110,7 @@ pub async fn list_dir_route(
 		total_size,
 	};
 	
-	Ok(large_json_response(&res, request.headers()).await?)
+	Ok(json_response(&res, request.headers()).await?)
 }
 
 pub async fn create_file_entry(
