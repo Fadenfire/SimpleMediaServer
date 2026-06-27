@@ -28,17 +28,9 @@ pub fn transcribe(
 	
 	let mut sample_collector = SampleCollector::new(audio_stream)?;
 	
+	media_utils::seek_to_bounds_beginning(&mut demuxer, &mut time_bounds, overlap).context("Seeking")?;
+	
 	let container_start_time = media_utils::demuxer_start_time(&demuxer);
-	
-	if time_bounds.start > 0.0 {
-		let seek_pos_secs = (time_bounds.start - overlap).max(0.0);
-		let seek_pos = scale_from_f64_secs(seek_pos_secs, rescale::TIME_BASE) + container_start_time;
-		
-		demuxer.seek(seek_pos, ..seek_pos).context("Seeking")?;
-	} else {
-		time_bounds.start = f64::MIN;
-	}
-	
 	let end_dts = scale_from_f64_secs(time_bounds.end + overlap, rescale::TIME_BASE) + container_start_time;
 	
 	for (stream, packet) in demuxer.packets() {

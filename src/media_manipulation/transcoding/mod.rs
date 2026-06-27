@@ -6,8 +6,9 @@ use bytes::Bytes;
 use ffmpeg_next::{codec, encoder, format, media, rescale, Dictionary, Rescale};
 
 use crate::media_manipulation::backends::BackendFactory;
+use crate::media_manipulation::media_utils;
 use crate::media_manipulation::media_utils::in_memory_muxer::InMemoryMuxer;
-use crate::media_manipulation::media_utils::MILLIS_TIME_BASE;
+use crate::media_manipulation::media_utils::scale_from_f64_secs;
 use crate::media_manipulation::transcoding::audio::{AudioTranscoder, AudioTranscoderParams};
 use crate::media_manipulation::transcoding::video::{VideoTranscoder, VideoTranscoderParams};
 
@@ -15,8 +16,8 @@ mod audio;
 mod video;
 pub mod subtitle;
 
-const START_PADDING_MS: i64 = 300;
-const END_PADDING_MS: i64 = 150;
+const START_PADDING: f64 = 0.3;
+const END_PADDING: f64 = 0.15;
 
 pub fn calculate_output_width(source_width: u32, source_height: u32, target_height: u32) -> u32 {
 	source_width * target_height / source_height / 2 * 2
@@ -32,7 +33,7 @@ pub struct TranscodingOptions<'a> {
 	pub audio_bitrate: usize,
 }
 
-pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<i64>) -> anyhow::Result<Bytes> {
+pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<f64>) -> anyhow::Result<Bytes> {
 	let mut demuxer = format::input(&opts.media_path).context("Opening video file")?;
 	let mut muxer = InMemoryMuxer::new("mpegts").context("Opening output")?;
 	
@@ -80,16 +81,10 @@ pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<i64>) 
 		return Err(anyhow!("Media has neither audio nor video"));
 	}
 	
-	if time_bounds.start > 0 {
-		let start_time_ms = time_bounds.start * 1000 - START_PADDING_MS;
-		let seek_pos = start_time_ms.rescale(MILLIS_TIME_BASE, rescale::TIME_BASE);
-		
-		demuxer.seek(seek_pos, ..seek_pos).context("Seeking")?;
-	} else {
-		time_bounds.start = i64::MIN;
-	}
+	media_utils::seek_to_bounds_beginning(&mut demuxer, &mut time_bounds, START_PADDING).context("Seeking")?;
 	
-	let end_time_ms = time_bounds.end * 1000 + END_PADDING_MS;
+	let container_start_time = media_utils::demuxer_start_time(&demuxer);
+	let end_dts = scale_from_f64_secs(time_bounds.end + END_PADDING, rescale::TIME_BASE) + container_start_time;
 	
 	let mut has_more_video = video_transcoder.is_some();
 	let mut has_more_audio = audio_transcoder.is_some();
@@ -99,7 +94,7 @@ pub fn transcode_segment(opts: TranscodingOptions, mut time_bounds: Range<i64>) 
 			let dts = packet.dts()
 				.ok_or_else(|| anyhow!("Video/audio packet had no DTS"))?;
 			
-			if dts > end_time_ms.rescale(MILLIS_TIME_BASE, stream.time_base()) {
+			if dts > end_dts.rescale(rescale::TIME_BASE, stream.time_base()) {
 				match stream.index() {
 					i if i == video_stream_index => has_more_video = false,
 					i if i == audio_stream_index => has_more_audio = false,

@@ -3,10 +3,9 @@ use std::ops::Range;
 
 use anyhow::{anyhow, Context};
 use ffmpeg_next as ffmpeg;
-use ffmpeg_next::{codec, Dictionary, format, frame, Packet, Rational, Rescale};
+use ffmpeg_next::{codec, format, frame, Dictionary, Packet, Rational, Rescale};
 
 use crate::media_manipulation::media_utils;
-use crate::media_manipulation::media_utils::SECONDS_TIME_BASE;
 
 pub struct AudioTranscoder {
 	decoder: codec::decoder::Audio,
@@ -90,7 +89,7 @@ impl AudioTranscoder {
 	pub fn receive_input_packet(&mut self,
 		in_stream: &ffmpeg::Stream,
 		mut in_packet: Packet,
-		time_bounds: Range<i64>
+		time_bounds: Range<f64>
 	) -> anyhow::Result<()> {
 		in_packet.rescale_ts(in_stream.time_base(), self.in_stream_time_base);
 		
@@ -98,7 +97,7 @@ impl AudioTranscoder {
 		self.decode_frames(time_bounds)
 	}
 	
-	pub fn send_eof(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
+	pub fn send_eof(&mut self, time_bounds: Range<f64>) -> anyhow::Result<()> {
 		self.decoder.send_eof()?;
 		self.decode_frames(time_bounds.clone())?;
 		
@@ -118,7 +117,7 @@ impl AudioTranscoder {
 		Ok(())
 	}
 	
-	fn decode_frames(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
+	fn decode_frames(&mut self, time_bounds: Range<f64>) -> anyhow::Result<()> {
 		let out_frame_size = self.encoder.frame_size() as usize;
 		
 		let mut in_frame = frame::Audio::empty();
@@ -185,8 +184,9 @@ impl AudioTranscoder {
 		Ok(())
 	}
 	
-	fn process_output_packets(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		let scaled_time_bounds = media_utils::scale_range(time_bounds, SECONDS_TIME_BASE, self.rate_time_base);
+	fn process_output_packets(&mut self, time_bounds: Range<f64>) -> anyhow::Result<()> {
+		let scaled_time_bounds = media_utils::scale_range_from_f64_secs(
+			time_bounds, self.rate_time_base);
 		let mut out_packet = Packet::empty();
 		
 		while self.encoder.receive_packet(&mut out_packet).is_ok() {

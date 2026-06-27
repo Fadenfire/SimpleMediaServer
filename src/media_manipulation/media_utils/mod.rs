@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use std::ops::Range;
 
 use anyhow::Context;
-use ffmpeg_next::{decoder, Discard, format, frame, Rational, Rescale, Stream, encoder, codec, StreamMut};
+use ffmpeg_next::{decoder, Discard, format, frame, Rational, Rescale, Stream, encoder, codec, StreamMut, rescale};
 use ffmpeg_next::packet::Mut;
 use ffmpeg_sys_next::{AVERROR, ENOMEM};
 use image::flat::SampleLayout;
@@ -30,10 +30,10 @@ pub fn scale_to_f64_secs(timestamp: i64, old_scale: Rational) -> f64 {
 	micro_seconds as f64 / 1_000_000.0
 }
 
-pub fn scale_range(range: Range<i64>, from: Rational, to: Rational) -> Range<i64> {
+pub fn scale_range_from_f64_secs(range: Range<f64>, new_scale: Rational) -> Range<i64> {
 	Range {
-		start: range.start.rescale(from, to),
-		end: range.end.rescale(from, to),
+		start: scale_from_f64_secs(range.start, new_scale),
+		end: scale_from_f64_secs(range.end, new_scale),
 	}
 }
 
@@ -121,6 +121,23 @@ pub fn add_output_stream(
 	unsafe { (*(*out_stream.as_mut_ptr()).codecpar).codec_tag = 0; }
 	
 	Ok(out_stream)
+}
+
+pub fn seek_to_bounds_beginning(
+	demuxer: &mut format::context::Input,
+	time_bounds: &mut Range<f64>,
+	padding: f64,
+) -> anyhow::Result<()> {
+	if time_bounds.start > 0.0 {
+		let seek_pos_secs = (time_bounds.start - padding).max(0.0);
+		let seek_pos = scale_from_f64_secs(seek_pos_secs, rescale::TIME_BASE) + demuxer_start_time(demuxer);
+		
+		demuxer.seek(seek_pos, ..seek_pos)?;
+	} else {
+		time_bounds.start = f64::MIN;
+	}
+	
+	Ok(())
 }
 
 pub fn av_error(code: c_int) -> Result<c_int, ffmpeg_next::Error> {

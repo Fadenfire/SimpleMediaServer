@@ -2,14 +2,14 @@ use std::ops::Range;
 
 use anyhow::{anyhow, Context};
 use ffmpeg_next as ffmpeg;
-use ffmpeg_next::{codec, filter, format, frame, picture, Dictionary, Packet, Rational};
 use ffmpeg_next::format::Pixel;
+use ffmpeg_next::{codec, filter, format, frame, picture, Dictionary, Packet, Rational};
 use ffmpeg_sys_next::{av_buffersrc_parameters_alloc, av_buffersrc_parameters_set, av_free, AVColorRange, AVColorSpace, AVPixelFormat};
 
 use crate::media_manipulation::backends::{FilterGraphParams, VideoBackend, VideoDecoderParams, VideoEncoderParams};
 use crate::media_manipulation::media_utils;
 use crate::media_manipulation::media_utils::av_error;
-use crate::media_manipulation::media_utils::{check_alloc, SECONDS_TIME_BASE};
+use crate::media_manipulation::media_utils::check_alloc;
 
 pub struct VideoTranscoder {
 	decoder: codec::decoder::Video,
@@ -86,7 +86,7 @@ impl VideoTranscoder {
 	pub fn receive_input_packet(&mut self,
 		in_stream: &ffmpeg::Stream,
 		mut in_packet: Packet,
-		time_bounds: Range<i64>
+		time_bounds: Range<f64>
 	) -> anyhow::Result<()> {
 		in_packet.rescale_ts(in_stream.time_base(), self.time_base);
 		
@@ -94,7 +94,7 @@ impl VideoTranscoder {
 		self.decode_frames(time_bounds).context("Decoding frames")
 	}
 	
-	pub fn send_eof(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
+	pub fn send_eof(&mut self, time_bounds: Range<f64>) -> anyhow::Result<()> {
 		self.decoder.send_eof().context("Closing decoder")?;
 		self.decode_frames(time_bounds.clone()).context("Decoding frames")?;
 		
@@ -111,9 +111,9 @@ impl VideoTranscoder {
 		Ok(())
 	}
 	
-	fn decode_frames(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		let scaled_time_bounds = media_utils::scale_range(
-			time_bounds.clone(), SECONDS_TIME_BASE, self.time_base);
+	fn decode_frames(&mut self, time_bounds: Range<f64>) -> anyhow::Result<()> {
+		let scaled_time_bounds = media_utils::scale_range_from_f64_secs(
+			time_bounds.clone(), self.time_base);
 		let mut in_frame = frame::Video::empty();
 		
 		while self.decoder.receive_frame(&mut in_frame).is_ok() {
@@ -195,9 +195,9 @@ impl VideoTranscoder {
 		Ok(filter)
 	}
 	
-	fn drain_filter(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		let scaled_time_bounds = media_utils::scale_range(
-			time_bounds.clone(), SECONDS_TIME_BASE, self.time_base);
+	fn drain_filter(&mut self, time_bounds: Range<f64>) -> anyhow::Result<()> {
+		let scaled_time_bounds = media_utils::scale_range_from_f64_secs(
+			time_bounds.clone(), self.time_base);
 		let mut out_frame = frame::Video::empty();
 		
 		while self.filter.as_mut().unwrap()
@@ -249,9 +249,9 @@ impl VideoTranscoder {
 		Ok(())
 	}
 	
-	fn process_output_packets(&mut self, time_bounds: Range<i64>) -> anyhow::Result<()> {
-		let scaled_time_bounds = media_utils::scale_range(
-			time_bounds.clone(), SECONDS_TIME_BASE, self.time_base);
+	fn process_output_packets(&mut self, time_bounds: Range<f64>) -> anyhow::Result<()> {
+		let scaled_time_bounds = media_utils::scale_range_from_f64_secs(
+			time_bounds.clone(), self.time_base);
 		let mut out_packet = Packet::empty();
 		
 		while self.encoder.as_mut().unwrap().receive_packet(&mut out_packet).is_ok() {
