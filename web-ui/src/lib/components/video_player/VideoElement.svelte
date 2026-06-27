@@ -17,12 +17,14 @@
 		language: string | undefined;
 		src: string | undefined;
 	}
+	
+	const MAX_BUFFERING_TIME_MS = 1000;
 </script>
 
 <!-- svelte-ignore state_referenced_locally -->
 <script lang="ts">
 	import type { SvelteMediaTimeRange } from 'svelte/elements';
-    import { NATIVE_LEVEL_INDEX, VideoBackend } from './video_backend';
+    import { HLS_AUTO_LEVEL_INDEX, NATIVE_LEVEL_INDEX, SourceType, VideoBackend } from './video_backend';
     import { onMount } from 'svelte';
     import type { HlsConfig } from 'hls.js';
 
@@ -68,6 +70,30 @@
 	function onVideoPlaying() {
 		videoState.isBuffering = false;
 	}
+	
+	// Slow Loading Detection
+	
+	let slowLoadingTimeout: number | undefined;
+	
+	$effect(() => {
+		if (videoState.isBuffering) {
+			if (slowLoadingTimeout === undefined) {
+				slowLoadingTimeout = setTimeout(() => {
+					clearTimeout(slowLoadingTimeout);
+					slowLoadingTimeout = undefined;
+					
+					if (videoState.playerBackend?.currentSource == SourceType.Native) {
+						console.log("Video is loading slowly, switching to HLS for better performance");
+						
+						videoState.playerBackend?.currentLevelIndex.set(HLS_AUTO_LEVEL_INDEX);
+					}
+				}, MAX_BUFFERING_TIME_MS);
+			}
+		} else {
+			clearTimeout(slowLoadingTimeout);
+			slowLoadingTimeout = undefined;
+		}
+	});
 	
 	// On mount callback
 
