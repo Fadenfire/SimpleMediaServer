@@ -62,7 +62,7 @@ async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<S
 				.unwrap()
 				.map(|body| body.map_err(anyhow::Error::new).boxed_unsync());
 			
-			if matches!(path, ["_app", "immutable", ..]) {
+			if res.status() == StatusCode::OK && matches!(path, ["_app", "immutable", ..]) {
 				res.headers_mut().typed_insert(CacheControl::new()
 					.with_public()
 					.with_max_age(Duration::from_secs(31536000))
