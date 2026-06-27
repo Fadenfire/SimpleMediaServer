@@ -4,9 +4,10 @@ use std::io::Cursor;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
-
+use std::time::Duration;
 use anyhow::anyhow;
 use futures_util::future::join_all;
+use headers::{CacheControl, HeaderMapExt};
 use http::{Response, StatusCode};
 use http_body_util::BodyExt;
 use hyper::service::service_fn;
@@ -56,10 +57,20 @@ async fn route_request(request: HyperRequest, path: &[&str], server_state: Arc<S
 				.precompressed_br()
 				.fallback(fallback);
 			
-			serve_web_ui.call(request)
+			let mut res = serve_web_ui.call(request)
 				.await
 				.unwrap()
-				.map(|body| body.map_err(anyhow::Error::new).boxed_unsync())
+				.map(|body| body.map_err(anyhow::Error::new).boxed_unsync());
+			
+			if matches!(path, ["_app", "immutable", ..]) {
+				res.headers_mut().typed_insert(CacheControl::new()
+					.with_public()
+					.with_max_age(Duration::from_secs(31536000))
+					.with_immutable()
+				)
+			}
+			
+			res
 		}
 	}
 }
