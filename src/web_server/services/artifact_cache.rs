@@ -1,32 +1,30 @@
-use anyhow::Context;
 use bytes::Bytes;
 use hashlink::LinkedHashMap;
-use serde::de::{DeserializeOwned, Error, MapAccess};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
-use std::time::SystemTime;
-use time::format_description::well_known::Iso8601;
 use time::OffsetDateTime;
 use tracing::debug;
 
 use crate::utils;
-use crate::web_server::services::task_pool::TaskPool;
+use crate::web_server::services::task_pool::{ReservedTask, TaskPool};
 
 pub trait ArtifactGenerator {
 	type Input;
-	type ValidityKey: Eq + Serialize + DeserializeOwned + Debug;
-	type Metadata: Serialize + DeserializeOwned;
+	type Metadata: Clone + Serialize + DeserializeOwned;
 	
-	fn create_cache_key(&self, input: &Self::Input) -> String;
-	
-	async fn create_validity_key(&self, input: &Self::Input) -> anyhow::Result<Self::ValidityKey>;
+	async fn create_cache_key(&self, input: &Self::Input) -> anyhow::Result<String>;
 	
 	async fn generate_artifact(&self, input: Self::Input) -> anyhow::Result<(Bytes, Self::Metadata)>;
+}
+
+pub fn builder() -> ArtifactCacheBuilder {
+	ArtifactCacheBuilder::default()
 }
 
 pub struct ArtifactCacheBuilder {
@@ -73,18 +71,12 @@ impl ArtifactCacheBuilder {
 
 const ENTRY_METADATA_EXTENSION: &str = "meta.json";
 
-pub struct ArtifactCache<G> {
+pub struct ArtifactCache<G: ArtifactGenerator> {
 	generator: G,
 	cache_dir: PathBuf,
-	locks: LockPool<CacheEntry>,
-	entry_tracker: Mutex<EntryTracker>,
+	locks: LockPool<HeldCacheEntryInner>,
+	entry_tracker: Mutex<EntryTracker<G::Metadata>>,
 	task_pool: Arc<TaskPool>,
-}
-
-impl ArtifactCache<()> {
-	pub fn builder() -> ArtifactCacheBuilder {
-		ArtifactCacheBuilder::default()
-	}
 }
 
 impl<G: ArtifactGenerator> ArtifactCache<G> {
@@ -105,17 +97,13 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 			let cache_entry_path = cache_dir.join(cache_key);
 			
 			let entry_metadata = tokio::fs::read(&path).await.ok()
-				.and_then(|data| serde_json::from_slice::<CacheEntryMetadata<G::ValidityKey, G::Metadata>>(&data).ok());
+				.and_then(|data| serde_json::from_slice::<CacheEntryMetadata<G::Metadata>>(&data).ok());
 			
 			let mut valid = false;
 			
 			if let Some(entry_metadata) = entry_metadata {
 				if tokio::fs::try_exists(&cache_entry_path).await.unwrap_or(false) {
-					entries.push(EntryDesc {
-						key: cache_key.to_owned(),
-						entry_size: entry_metadata.entry_size,
-						last_accessed: entry_metadata.last_accessed,
-					});
+					entries.push(entry_metadata);
 					
 					valid = true;
 				}
@@ -139,102 +127,71 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 	}
 	
 	pub async fn get(&self, input: &G::Input) -> anyhow::Result<Option<CacheQuery<G::Metadata>>> {
-		let validity_key = self.generator.create_validity_key(input).await?;
-		let cache_key = self.generator.create_cache_key(input);
+		let held_entry = self.lock_entry(&input).await?;
 		
-		let entry_lock = self.get_entry_lock(&cache_key);
-		let entry = entry_lock.lock().await;
+		self.get_inner(&held_entry).await
+	}
+	
+	pub async fn get_or_reserve(&self, input: G::Input) -> anyhow::Result<QueryResult<'_, G>> {
+		let held_entry = self.lock_entry(&input).await?;
 		
-		match self.get_inner(&entry, &validity_key).await? {
-			QueryResult::Valid(cache_query) => Ok(Some(cache_query)),
-			QueryResult::Invalid => Ok(None),
+		match self.get_inner(&held_entry).await? {
+			Some(cache_query) => Ok(QueryResult::Valid(cache_query)),
+			None => {
+				let task_reservation = self.task_pool.reserve().await;
+				
+				Ok(QueryResult::Invalid(PendingGeneration {
+					cache: self,
+					input,
+					held_entry,
+					task_reservation,
+				}))
+			}
 		}
 	}
 	
 	pub async fn get_or_generate(&self, input: G::Input) -> anyhow::Result<CacheQuery<G::Metadata>> {
-		let validity_key = self.generator.create_validity_key(&input).await?;
-		let cache_key = self.generator.create_cache_key(&input);
-		
-		let entry_lock = self.get_entry_lock(&cache_key);
-		let entry = entry_lock.lock().await;
-		
-		match self.get_inner(&entry, &validity_key).await? {
+		match self.get_or_reserve(input).await? {
 			QueryResult::Valid(cache_query) => Ok(cache_query),
-			QueryResult::Invalid => {
-				let (artifact_data, metadata) =
-					self.task_pool.execute_task(self.generator.generate_artifact(input)).await?;
+			QueryResult::Invalid(pending_generation) => pending_generation.generate().await,
+		}
+	}
+	
+	async fn get_inner(&self, held_entry: &HeldCacheEntry) -> anyhow::Result<Option<CacheQuery<G::Metadata>>> {
+		if tokio::fs::metadata(&held_entry.cache_file_path).await.is_ok() {
+			let entry_metadata = self.entry_tracker.lock().unwrap()
+				.get_entry(&held_entry.cache_key);
+			
+			if let Some(entry_metadata) = entry_metadata {
+				tokio::fs::write(&held_entry.cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
 				
-				let now = OffsetDateTime::now_utc();
+				let entry_data = tokio::fs::read(&held_entry.cache_file_path).await?;
 				
-				let entry_metadata = CacheEntryMetadata {
-					cache_key: cache_key.clone(),
-					creation_date: now,
-					last_accessed: now,
-					entry_size: artifact_data.len() as u64,
-					validity_key,
-					extra_metadata: metadata,
+				let cache_query = CacheQuery {
+					entry_data: Bytes::from(entry_data),
+					creation_date: entry_metadata.creation_date,
+					metadata: entry_metadata.extra_metadata,
 				};
 				
-				tokio::fs::write(&entry.cache_file_path, &artifact_data).await?;
-				tokio::fs::write(&entry.cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
-				
-				let evicted = self.entry_tracker.lock().unwrap().insert(entry.cache_key.clone(), artifact_data.len() as u64);
-				
-				drop(entry);
-				
-				for evicted_cache_key in evicted {
-					debug!("Evicting cache entry {} from {} cache", evicted_cache_key, std::any::type_name::<G>());
-					
-					let evicted_entry_lock = self.get_entry_lock(&evicted_cache_key);
-					let evicted_entry = evicted_entry_lock.lock().await;
-					
-					let _ = tokio::fs::remove_file(&evicted_entry.cache_file_path).await;
-					let _ = tokio::fs::remove_file(&evicted_entry.cache_metadata_path).await;
-				}
-				
-				Ok(CacheQuery {
-					entry_data: artifact_data,
-					creation_date: now,
-					metadata: entry_metadata.extra_metadata,
-				})
-			}
-		}
-	}
-	
-	async fn get_inner(&self, entry: &CacheEntry, validity_key: &G::ValidityKey) -> anyhow::Result<QueryResult<G::Metadata>> {
-		if tokio::fs::metadata(&entry.cache_file_path).await.is_ok() {
-			let entry_metadata = tokio::fs::read(&entry.cache_metadata_path).await.ok()
-				.and_then(|data| serde_json::from_slice::<CacheEntryMetadata<G::ValidityKey, G::Metadata>>(&data).ok());
-			
-			if let Some(mut entry_metadata) = entry_metadata {
-				if &entry_metadata.validity_key == validity_key {
-					self.entry_tracker.lock().unwrap().promote(&entry.cache_key);
-					
-					entry_metadata.last_accessed = OffsetDateTime::now_utc();
-					tokio::fs::write(&entry.cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
-					
-					let entry_data = tokio::fs::read(&entry.cache_file_path).await?;
-					
-					let cache_query = CacheQuery {
-						entry_data: Bytes::from(entry_data),
-						creation_date: entry_metadata.creation_date,
-						metadata: entry_metadata.extra_metadata,
-					};
-					
-					return Ok(QueryResult::Valid(cache_query));
-				}
+				return Ok(Some(cache_query));
 			}
 		}
 		
-		Ok(QueryResult::Invalid)
+		Ok(None)
 	}
 	
-	fn get_entry_lock(&self, cache_key: &str) -> Arc<tokio::sync::Mutex<CacheEntry>> {
-		self.locks.get_lock(cache_key, || {
-			let cache_file_path = self.cache_dir.join(cache_key);
+	async fn lock_entry(&self, input: &G::Input) -> anyhow::Result<HeldCacheEntry> {
+		let cache_key = self.generator.create_cache_key(&input).await?;
+		
+		Ok(self.get_entry_lock(&cache_key).lock_owned().await)
+	}
+	
+	fn get_entry_lock(&self, cache_key: &str) -> Arc<tokio::sync::Mutex<HeldCacheEntryInner>> {
+		self.locks.get_lock(&cache_key, || {
+			let cache_file_path = self.cache_dir.join(&cache_key);
 			let cache_metadata_path = utils::add_extension(&cache_file_path, ENTRY_METADATA_EXTENSION);
 			
-			CacheEntry {
+			HeldCacheEntryInner {
 				cache_key: cache_key.to_owned(),
 				cache_file_path,
 				cache_metadata_path,
@@ -247,6 +204,54 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 	}
 }
 
+pub struct PendingGeneration<'a, G: ArtifactGenerator> {
+	cache: &'a ArtifactCache<G>,
+	input: G::Input,
+	held_entry: HeldCacheEntry,
+	task_reservation: ReservedTask,
+}
+
+impl<'a, G: ArtifactGenerator> PendingGeneration<'a, G> {
+	pub async fn generate(self) -> anyhow::Result<CacheQuery<G::Metadata>> {
+		let (artifact_data, metadata) =
+			self.task_reservation.execute_task(self.cache.generator.generate_artifact(self.input)).await?;
+		
+		let now = OffsetDateTime::now_utc();
+		
+		let entry_metadata = CacheEntryMetadata {
+			cache_key: self.held_entry.cache_key.clone(),
+			creation_date: now,
+			last_accessed: now,
+			entry_size: artifact_data.len() as u64,
+			extra_metadata: metadata,
+		};
+		
+		tokio::fs::write(&self.held_entry.cache_file_path, &artifact_data).await?;
+		tokio::fs::write(&self.held_entry.cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
+		
+		let evicted = self.cache.entry_tracker.lock().unwrap()
+			.insert(entry_metadata.clone());
+		
+		drop(self.held_entry);
+		
+		for evicted_cache_key in evicted {
+			debug!("Evicting cache entry {} from {} cache", evicted_cache_key, std::any::type_name::<G>());
+			
+			let evicted_entry_lock = self.cache.get_entry_lock(&evicted_cache_key);
+			let evicted_entry = evicted_entry_lock.lock().await;
+			
+			let _ = tokio::fs::remove_file(&evicted_entry.cache_file_path).await;
+			let _ = tokio::fs::remove_file(&evicted_entry.cache_metadata_path).await;
+		}
+		
+		Ok(CacheQuery {
+			entry_data: artifact_data,
+			creation_date: now,
+			metadata: entry_metadata.extra_metadata,
+		})
+	}
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct CacheQuery<M = ()> {
 	pub entry_data: Bytes,
@@ -254,28 +259,28 @@ pub struct CacheQuery<M = ()> {
 	pub metadata: M,
 }
 
+pub enum QueryResult<'a, G: ArtifactGenerator> {
+	Valid(CacheQuery<G::Metadata>),
+	Invalid(PendingGeneration<'a, G>),
+}
+
+type HeldCacheEntry = tokio::sync::OwnedMutexGuard<HeldCacheEntryInner>;
+
 #[derive(Debug, Eq, PartialEq)]
-struct CacheEntry {
+struct HeldCacheEntryInner {
 	cache_key: String,
 	cache_file_path: PathBuf,
 	cache_metadata_path: PathBuf,
 }
 
-#[derive(Debug, Eq, PartialEq)]
-enum QueryResult<M> {
-	Valid(CacheQuery<M>),
-	Invalid,
-}
-
-#[derive(Eq, PartialEq, Serialize, Deserialize)]
-struct CacheEntryMetadata<V, M> {
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+struct CacheEntryMetadata<M> {
 	cache_key: String,
 	#[serde(with = "time::serde::iso8601")]
 	creation_date: OffsetDateTime,
 	#[serde(with = "time::serde::iso8601")]
 	last_accessed: OffsetDateTime,
 	entry_size: u64,
-	validity_key: V,
 	extra_metadata: M,
 }
 
@@ -308,115 +313,82 @@ impl<T> LockPool<T> {
 	}
 }
 
-struct EntryTracker {
-	entry_sizes: LinkedHashMap<String, u64>,
+struct EntryTracker<M> {
+	entries: LinkedHashMap<String, CacheEntryMetadata<M>>,
 	total_size: u64,
 	size_limit: u64,
 }
 
-#[derive(Debug, Eq, PartialEq)]
-struct EntryDesc {
-	key: String,
-	entry_size: u64,
-	last_accessed: OffsetDateTime,
-}
-
-impl EntryTracker {
-	pub fn new(mut entries: Vec<EntryDesc>, size_limit: u64) -> Self {
-		let mut entry_sizes = LinkedHashMap::new();
+impl<M: Clone> EntryTracker<M> {
+	pub fn new(mut entries_vec: Vec<CacheEntryMetadata<M>>, size_limit: u64) -> Self {
+		let mut entries = LinkedHashMap::new();
 		let mut total_size = 0;
 		
 		// Sort from oldest to newest
-		entries.sort_by_key(|entry| entry.last_accessed);
+		entries_vec.sort_by_key(|entry| entry.last_accessed);
 		
-		for entry in entries {
-			entry_sizes.insert(entry.key, entry.entry_size);
-			
+		for entry in entries_vec {
 			total_size += entry.entry_size;
+			
+			entries.insert(entry.cache_key.clone(), entry);
 		}
 		
 		Self {
-			entry_sizes,
+			entries,
 			total_size,
 			size_limit,
 		}
 	}
 	
 	pub fn promote(&mut self, key: &str) {
-		self.entry_sizes.to_back(key);
+		self.entries.to_back(key);
 	}
 	
-	pub fn insert(&mut self, key: String, entry_size: u64) -> Vec<String> {
-		let old_entry_size = self.entry_sizes.insert(key, entry_size).unwrap_or(0);
+	pub fn get_entry(&mut self, key: &str) -> Option<CacheEntryMetadata<M>> {
+		self.entries.to_back(key)
+			.map(|entry| {
+				entry.last_accessed = OffsetDateTime::now_utc();
+				
+				entry.clone()
+			})
+	}
+	
+	pub fn insert(&mut self, new_entry: CacheEntryMetadata<M>) -> Vec<String> {
+		self.total_size += new_entry.entry_size;
 		
-		self.total_size -= old_entry_size;
-		self.total_size += entry_size;
+		if let Some(old_entry) = self.entries.insert(new_entry.cache_key.clone(), new_entry) {
+			self.total_size -= old_entry.entry_size;
+		}
 		
 		let mut removed = Vec::new();
 		
 		while self.total_size > self.size_limit {
-			let (removed_key, removed_size) = self.entry_sizes.pop_front().expect("Not entries left but total size is non zero");
+			let (_, removed_entry) = self.entries.pop_front()
+				.expect("Not entries left but total size is non zero");
 			
-			removed.push(removed_key);
-			self.total_size -= removed_size;
+			removed.push(removed_entry.cache_key);
+			self.total_size -= removed_entry.entry_size;
 		}
 		
 		removed
 	}
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct FileValidityKey {
-	source_path: PathBuf,
-	file_size: u64,
+pub async fn create_fast_file_hash(file_path: &Path) -> anyhow::Result<String> {
+	let metadata = tokio::fs::metadata(&file_path).await?;
 	
-	// This used to be serialized using iso8601 in a previous version.
-	// Continue to accept iso8601 to prevent a breaking change.
-	#[serde(deserialize_with = "deserialize_time_maybe_iso8601")]
-	mod_time: SystemTime,
-}
-
-impl FileValidityKey {
-	pub async fn from_file(source_path: impl AsRef<Path>) -> anyhow::Result<Self> {
-		let metadata = tokio::fs::metadata(&source_path).await?;
-		
-		Ok(Self {
-			source_path: source_path.as_ref().to_owned(),
-			file_size: metadata.len(),
-			mod_time: metadata.modified().context("FS doesn't support mod time")?,
-		})
-	}
-}
-
-fn deserialize_time_maybe_iso8601<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
-where
-	D: Deserializer<'de>
-{
-	struct Visitor;
+	let mod_time = metadata.modified()?
+		.duration_since(std::time::UNIX_EPOCH)?
+		.as_nanos();
 	
-	impl<'de> serde::de::Visitor<'de> for Visitor {
-		type Value = SystemTime;
-		
-		fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-			formatter.write_str("Iso8601 or SystemTime")
-		}
-		
-		fn visit_str<E>(self, val: &str) -> Result<Self::Value, E>
-		where E: Error
-		{
-			OffsetDateTime::parse(val, &Iso8601::DEFAULT)
-				.map(SystemTime::from)
-				.map_err(E::custom)
-		}
-		
-		fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
-		where A: MapAccess<'de>
-		{
-			Deserialize::deserialize(serde::de::value::MapAccessDeserializer::new(map))
-		}
-	}
+	let string = format!(
+		"{}\0{}\0{}",
+		file_path.as_os_str().to_string_lossy(),
+		metadata.len(),
+		mod_time,
+	);
 	
-	deserializer.deserialize_any(Visitor)
+	Ok(blake3::hash(string.as_bytes()).to_hex().to_string())
 }
 
 #[cfg(test)]
@@ -430,7 +402,7 @@ mod tests {
 	use tempfile::TempDir;
 	use time::macros::datetime;
 	
-	use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, CacheEntryMetadata, CacheQuery, EntryDesc, EntryTracker, LockPool, ENTRY_METADATA_EXTENSION};
+	use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, CacheEntryMetadata, CacheQuery, EntryTracker, LockPool, ENTRY_METADATA_EXTENSION};
 	use crate::web_server::services::task_pool::TaskPool;
 	
 	#[test]
@@ -460,25 +432,25 @@ mod tests {
 		
 		let mut lru_state = EntryTracker::new(lru_entries, u64::MAX);
 		
-		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key4"]);
+		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key4"]);
 		assert_eq!(lru_state.total_size, 50);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
 		assert!(lru_state.insert("key5".to_owned(), 50).is_empty());
 		
-		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key4", "key5"]);
+		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key4", "key5"]);
 		assert_eq!(lru_state.total_size, 100);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
 		assert!(lru_state.insert("key4".to_owned(), 30).is_empty());
 		
-		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key5", "key4"]);
+		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key5", "key4"]);
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
 		lru_state.promote("key3");
 		
-		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key5", "key4", "key3"]);
+		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key5", "key4", "key3"]);
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
@@ -488,17 +460,17 @@ mod tests {
 		
 		lru_state.promote("key5");
 		
-		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key4", "key3", "key5"]);
+		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key4", "key3", "key5"]);
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, 90);
 		
 		assert_eq!(lru_state.insert("key6".to_owned(), 10), &["key1", "key2", "key4"]);
 		
-		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key3", "key5", "key6"]);
+		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key3", "key5", "key6"]);
 		assert_eq!(lru_state.total_size, 70);
 		assert_eq!(lru_state.size_limit, 90);
 		
-		assert_eq!(lru_state.entry_sizes.iter().map(|e| e.1).sum::<u64>(), lru_state.total_size);
+		assert_eq!(lru_state.entries.iter().map(|e| e.1).sum::<u64>(), lru_state.total_size);
 	}
 	
 	#[tokio::test]
@@ -599,7 +571,7 @@ mod tests {
 		
 		{
 			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
-			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3"]);
+			assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3"]);
 			assert_eq!(lru_state.total_size, 18);
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
@@ -614,7 +586,7 @@ mod tests {
 		
 		{
 			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
-			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1"]);
+			assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1"]);
 			assert_eq!(lru_state.total_size, 18);
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
@@ -628,7 +600,7 @@ mod tests {
 		
 		{
 			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
-			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1", "key44"]);
+			assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1", "key44"]);
 			assert_eq!(lru_state.total_size, 25);
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
@@ -649,7 +621,7 @@ mod tests {
 		
 		{
 			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
-			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1", "key44"]);
+			assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key2", "key3", "key1", "key44"]);
 			assert_eq!(lru_state.total_size, 25);
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
@@ -670,7 +642,7 @@ mod tests {
 		
 		{
 			let lru_state = artifact_cache.entry_tracker.get_mut().unwrap();
-			assert_eq!(lru_state.entry_sizes.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key44", "key5"]);
+			assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key44", "key5"]);
 			assert_eq!(lru_state.total_size, 19);
 			assert_eq!(lru_state.size_limit, 20);
 		}
