@@ -229,19 +229,24 @@ impl<'a, G: ArtifactGenerator> PendingGeneration<'a, G> {
 		tokio::fs::write(&self.held_entry.cache_file_path, &artifact_data).await?;
 		tokio::fs::write(&self.held_entry.cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
 		
-		let evicted = self.cache.entry_tracker.lock().unwrap()
+		let to_evict = self.cache.entry_tracker.lock().unwrap()
 			.insert(entry_metadata.clone());
 		
 		drop(self.held_entry);
 		
-		for evicted_cache_key in evicted {
-			debug!("Evicting cache entry {} from {} cache", evicted_cache_key, std::any::type_name::<G>());
-			
+		for evicted_cache_key in to_evict {
 			let evicted_entry_lock = self.cache.get_entry_lock(&evicted_cache_key);
-			let evicted_entry = evicted_entry_lock.lock().await;
 			
-			let _ = tokio::fs::remove_file(&evicted_entry.cache_file_path).await;
-			let _ = tokio::fs::remove_file(&evicted_entry.cache_metadata_path).await;
+			// Try to evict the entry if it's not being used
+			if let Ok(held_entry) = evicted_entry_lock.try_lock() {
+				debug!("Evicting cache entry {} from {} cache", evicted_cache_key, std::any::type_name::<G>());
+				
+				self.cache.entry_tracker.lock().unwrap()
+					.remove_entry(&evicted_cache_key);
+				
+				let _ = tokio::fs::remove_file(&held_entry.cache_file_path).await;
+				let _ = tokio::fs::remove_file(&held_entry.cache_metadata_path).await;
+			}
 		}
 		
 		Ok(CacheQuery {
@@ -353,6 +358,13 @@ impl<M: Clone> EntryTracker<M> {
 			})
 	}
 	
+	pub fn remove_entry(&mut self, key: &str) -> Option<CacheEntryMetadata<M>> {
+		let removed = self.entries.remove(key)?;
+		self.total_size -= removed.entry_size;
+		
+		Some(removed)
+	}
+	
 	pub fn insert(&mut self, new_entry: CacheEntryMetadata<M>) -> Vec<String> {
 		self.total_size += new_entry.entry_size;
 		
@@ -360,17 +372,19 @@ impl<M: Clone> EntryTracker<M> {
 			self.total_size -= old_entry.entry_size;
 		}
 		
-		let mut removed = Vec::new();
+		let mut to_remove = Vec::new();
+		let mut future_size = self.total_size;
 		
-		while self.total_size > self.size_limit {
-			let (_, removed_entry) = self.entries.pop_front()
-				.expect("Not entries left but total size is non zero");
+		for entry in self.entries.values() {
+			if future_size <= self.size_limit {
+				break;
+			}
 			
-			removed.push(removed_entry.cache_key);
-			self.total_size -= removed_entry.entry_size;
+			to_remove.push(entry.cache_key.clone());
+			future_size -= entry.entry_size;
 		}
 		
-		removed
+		to_remove
 	}
 }
 
