@@ -151,10 +151,10 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 	}
 	
 	pub async fn get_or_generate(&self, input: G::Input) -> anyhow::Result<CacheQuery<G::Metadata>> {
-		match self.get_or_reserve(input).await? {
-			QueryResult::Valid(cache_query) => Ok(cache_query),
-			QueryResult::Invalid(pending_generation) => pending_generation.generate().await,
-		}
+		self.get_or_reserve(input)
+			.await?
+			.unwrap_or_generate()
+			.await
 	}
 	
 	async fn get_inner(&self, held_entry: &HeldCacheEntry) -> anyhow::Result<Option<CacheQuery<G::Metadata>>> {
@@ -267,6 +267,15 @@ pub struct CacheQuery<M = ()> {
 pub enum QueryResult<'a, G: ArtifactGenerator> {
 	Valid(CacheQuery<G::Metadata>),
 	Invalid(PendingGeneration<'a, G>),
+}
+
+impl<'a, G: ArtifactGenerator> QueryResult<'a, G> {
+	pub async fn unwrap_or_generate(self) -> anyhow::Result<CacheQuery<G::Metadata>> {
+		match self {
+			QueryResult::Valid(query) => Ok(query),
+			QueryResult::Invalid(pending) => pending.generate().await,
+		}
+	}
 }
 
 type HeldCacheEntry = tokio::sync::OwnedMutexGuard<HeldCacheEntryInner>;

@@ -102,6 +102,10 @@ pub fn get_quality_level(id: &str) -> Result<HlsQualityLevel, ApiError> {
 		.ok_or(ApiError::UnknownQualityLevel)
 }
 
+pub fn is_segment_index_valid(segment_index: usize, advanced_metadata: &AdvancedMediaMetadata) -> bool {
+	segment_index as f64 * SEGMENT_DURATION <= advanced_metadata.ffmpeg_duration.as_secs_f64()
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum HlsVideoCodec {
 	H264,
