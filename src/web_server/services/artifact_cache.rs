@@ -345,10 +345,6 @@ impl<M: Clone> EntryTracker<M> {
 		}
 	}
 	
-	pub fn promote(&mut self, key: &str) {
-		self.entries.to_back(key);
-	}
-	
 	pub fn get_entry(&mut self, key: &str) -> Option<CacheEntryMetadata<M>> {
 		self.entries.to_back(key)
 			.map(|entry| {
@@ -409,39 +405,33 @@ pub async fn create_fast_file_hash(file_path: &Path) -> anyhow::Result<String> {
 mod tests {
 	use std::sync::Arc;
 	use std::task::Poll;
-	use std::time::{Duration, SystemTime};
+	use std::time::Duration;
 	
 	use bytes::Bytes;
 	use futures_util::poll;
 	use tempfile::TempDir;
 	use time::macros::datetime;
-	
-	use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, CacheEntryMetadata, CacheQuery, EntryTracker, LockPool, ENTRY_METADATA_EXTENSION};
+	use time::OffsetDateTime;
+	use crate::web_server::services::artifact_cache::{ArtifactGenerator, CacheEntryMetadata, CacheQuery, EntryTracker, LockPool, ENTRY_METADATA_EXTENSION};
 	use crate::web_server::services::task_pool::TaskPool;
 	
 	#[test]
 	fn test_lru() {
+		fn make_entry(key: &str, entry_size: u64, last_accessed: OffsetDateTime) -> CacheEntryMetadata<()> {
+			CacheEntryMetadata {
+				cache_key: key.to_owned(),
+				entry_size,
+				creation_date: last_accessed.clone(),
+				last_accessed,
+				extra_metadata: ()
+			}
+		}
+		
 		let lru_entries = vec![
-			EntryDesc {
-				key: "key1".to_owned(),
-				entry_size: 10,
-				last_accessed: datetime!(2020-01-01 00:00:01 UTC),
-			},
-			EntryDesc {
-				key: "key3".to_owned(),
-				entry_size: 10,
-				last_accessed: datetime!(2020-01-01 00:00:03 UTC),
-			},
-			EntryDesc {
-				key: "key2".to_owned(),
-				entry_size: 20,
-				last_accessed: datetime!(2020-01-01 00:00:02 UTC),
-			},
-			EntryDesc {
-				key: "key4".to_owned(),
-				entry_size: 10,
-				last_accessed: datetime!(2020-01-01 00:00:04 UTC),
-			},
+			make_entry("key1", 10, datetime!(2020-01-01 00:00:01 UTC)),
+			make_entry("key3", 10, datetime!(2020-01-01 00:00:03 UTC)),
+			make_entry("key2", 20, datetime!(2020-01-01 00:00:02 UTC)),
+			make_entry("key4", 10, datetime!(2020-01-01 00:00:04 UTC)),
 		];
 		
 		let mut lru_state = EntryTracker::new(lru_entries, u64::MAX);
@@ -450,19 +440,19 @@ mod tests {
 		assert_eq!(lru_state.total_size, 50);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
-		assert!(lru_state.insert("key5".to_owned(), 50).is_empty());
+		assert!(lru_state.insert(make_entry("key5", 50, datetime!(2020-01-01 00:00:05 UTC))).is_empty());
 		
 		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key4", "key5"]);
 		assert_eq!(lru_state.total_size, 100);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
-		assert!(lru_state.insert("key4".to_owned(), 30).is_empty());
+		assert!(lru_state.insert(make_entry("key4", 30, datetime!(2020-01-01 00:00:09 UTC))).is_empty());
 		
 		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key3", "key5", "key4"]);
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, u64::MAX);
 		
-		lru_state.promote("key3");
+		lru_state.get_entry("key3");
 		
 		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key5", "key4", "key3"]);
 		assert_eq!(lru_state.total_size, 120);
@@ -472,19 +462,24 @@ mod tests {
 		
 		assert_eq!(lru_state.size_limit, 90);
 		
-		lru_state.promote("key5");
+		lru_state.get_entry("key5");
 		
 		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key1", "key2", "key4", "key3", "key5"]);
 		assert_eq!(lru_state.total_size, 120);
 		assert_eq!(lru_state.size_limit, 90);
 		
-		assert_eq!(lru_state.insert("key6".to_owned(), 10), &["key1", "key2", "key4"]);
+		let to_evict = lru_state.insert(make_entry("key6", 10, datetime!(2020-01-01 00:00:10 UTC)));
+		assert_eq!(to_evict, &["key1", "key2", "key4"]);
 		
+		for key in &to_evict {
+			lru_state.remove_entry(key);
+		}
+
 		assert_eq!(lru_state.entries.iter().map(|e| e.0.as_str()).collect::<Vec<&str>>(), &["key3", "key5", "key6"]);
 		assert_eq!(lru_state.total_size, 70);
 		assert_eq!(lru_state.size_limit, 90);
-		
-		assert_eq!(lru_state.entries.iter().map(|e| e.1).sum::<u64>(), lru_state.total_size);
+
+		assert_eq!(lru_state.entries.iter().map(|e| e.1.entry_size).sum::<u64>(), lru_state.total_size);
 	}
 	
 	#[tokio::test]
@@ -532,17 +527,12 @@ mod tests {
 	
 	impl ArtifactGenerator for TestGenerator {
 		type Input = u32;
-		type ValidityKey = ();
 		type Metadata = String;
-		
-		fn create_cache_key(&self, input: &Self::Input) -> String {
-			format!("key{}", *input)
+
+		async fn create_cache_key(&self, input: &Self::Input) -> anyhow::Result<String> {
+			Ok(format!("key{}", *input))
 		}
-		
-		async fn create_validity_key(&self, _input: &Self::Input) -> anyhow::Result<Self::ValidityKey> {
-			Ok(())
-		}
-		
+
 		async fn generate_artifact(&self, input: Self::Input) -> anyhow::Result<(Bytes, Self::Metadata)> {
 			let data = format!("stuff{}", input);
 			let metadata = format!("meta{}", input);
@@ -566,7 +556,6 @@ mod tests {
 				creation_date: datetime!(2020-01-01 00:00:00 UTC) + Duration::from_secs(time / 10),
 				last_accessed: datetime!(2020-01-01 00:00:00 UTC) + Duration::from_secs(time),
 				entry_size: content.len() as u64,
-				validity_key: (),
 				extra_metadata: format!("meta{}", id),
 			}).unwrap()).await.unwrap();
 		}
@@ -577,7 +566,7 @@ mod tests {
 		
 		let task_pool = Arc::new(TaskPool::new(4));
 		
-		let mut artifact_cache = ArtifactCache::builder()
+		let mut artifact_cache = super::builder()
 			.cache_dir(temp_dir.path().to_owned())
 			.task_pool(task_pool.clone())
 			.build(TestGenerator)
@@ -605,7 +594,7 @@ mod tests {
 			assert_eq!(lru_state.size_limit, u64::MAX);
 		}
 		
-		let now = SystemTime::now();
+		let now = OffsetDateTime::now_utc();
 		let query = artifact_cache.get_or_generate(44).await.unwrap();
 		
 		assert_eq!(query.entry_data, "stuff44");
@@ -621,7 +610,7 @@ mod tests {
 		
 		assert_eq!(tokio::fs::read(temp_dir.path().join("key44")).await.unwrap(), "stuff44".as_bytes());
 		
-		let mut artifact_cache = ArtifactCache::builder()
+		let mut artifact_cache = super::builder()
 			.cache_dir(temp_dir.path().to_owned())
 			.task_pool(task_pool.clone())
 			.build(TestGenerator)
@@ -647,7 +636,7 @@ mod tests {
 		assert!(tokio::fs::try_exists(temp_dir.path().join("key3")).await.unwrap());
 		assert!(tokio::fs::try_exists(temp_dir.path().join("key3").with_extension(ENTRY_METADATA_EXTENSION)).await.unwrap());
 		
-		let now = SystemTime::now();
+		let now = OffsetDateTime::now_utc();
 		let query = artifact_cache.get_or_generate(5).await.unwrap();
 		
 		assert_eq!(query.entry_data, "stuff5");
