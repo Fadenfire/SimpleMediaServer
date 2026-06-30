@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 use http::Method;
-use tracing::instrument;
+use tracing::{error, info, instrument, Instrument};
 
 use crate::web_server::services::hls_segment_service::SegmentParams;
 use crate::web_server::api_error::ApiError;
@@ -55,12 +55,18 @@ pub async fn hls_segment_route(
 	if hls_segment_service::is_segment_index_valid(next_segment_index, &advanced_metadata) {
 		let server_state = server_state.clone();
 		
+		info!("Pre-generating segment {}", next_segment_index);
+		
 		tokio::task::spawn(async move {
-			let _ = server_state.hls_segment_generator.get_or_reserve(SegmentParams {
+			let params_next = SegmentParams {
 				segment_index: next_segment_index,
 				..params
-			}).await;
-		});
+			};
+			
+			if let Err(err) = server_state.hls_segment_generator.get_or_generate(params_next).await {
+				error!("Failed to pre-generate segment {}: {:?}", next_segment_index, err);
+			}
+		}.in_current_span());
 	}
 	
 	let generated_segment = pending_query.unwrap_or_generate().await?;
