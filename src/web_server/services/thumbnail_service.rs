@@ -10,7 +10,7 @@ use crate::config::ServerConfig;
 use crate::media_manipulation::thumbnail;
 use crate::utils;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
-use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, FileValidityKey};
+use crate::web_server::services::artifact_cache::{self, ArtifactCache, ArtifactGenerator};
 use crate::web_server::services::task_pool::TaskPool;
 
 pub async fn init_service(
@@ -18,7 +18,7 @@ pub async fn init_service(
 	transcoding_task_pool: Arc<TaskPool>,
 	media_backend_factory: Arc<MediaBackendFactory>,
 ) -> anyhow::Result<ArtifactCache<ThumbnailGenerator>> {
-	let thumbnail_generator = ArtifactCache::builder()
+	let thumbnail_generator = artifact_cache::builder()
 		.cache_dir(config.paths.thumbnail_cache_dir.clone())
 		.task_pool(transcoding_task_pool)
 		.file_size_limit(config.main_config.caches.thumbnail_cache_size_limit)
@@ -46,17 +46,14 @@ impl ThumbnailGenerator {
 
 impl ArtifactGenerator for ThumbnailGenerator {
 	type Input = PathBuf;
-	type ValidityKey = FileValidityKey;
 	type Metadata = ();
-	
-	fn create_cache_key(&self, media_path: &Self::Input) -> String {
-		format!("{}.jpg", blake3::hash(media_path.as_os_str().as_encoded_bytes()).to_hex())
+
+	async fn create_cache_key(&self, media_path: &Self::Input) -> anyhow::Result<String> {
+		let file_hash = artifact_cache::create_fast_file_hash(media_path).await?;
+
+		Ok(format!("{}.jpg", file_hash))
 	}
-	
-	async fn create_validity_key(&self, media_path: &Self::Input) -> anyhow::Result<Self::ValidityKey> {
-		FileValidityKey::from_file(&media_path).await
-	}
-	
+
 	async fn generate_artifact(&self, media_path: Self::Input) -> anyhow::Result<(Bytes, Self::Metadata)> {
 		let backend_factory = self.media_backend_factory.clone();
 		

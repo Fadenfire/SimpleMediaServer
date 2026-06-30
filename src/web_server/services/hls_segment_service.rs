@@ -5,8 +5,8 @@ use crate::media_manipulation::transcoding::TranscodingOptions;
 use crate::utils;
 use crate::web_server::api_error::ApiError;
 use crate::web_server::media_backend_factory::MediaBackendFactory;
-use crate::web_server::media_metadata::{Dimension, VideoMetadata};
-use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator, FileValidityKey};
+use crate::web_server::media_metadata::{AdvancedMediaMetadata, Dimension, VideoMetadata};
+use crate::web_server::services::artifact_cache::{self, ArtifactCache, ArtifactGenerator};
 use crate::web_server::services::task_pool::TaskPool;
 use anyhow::Context;
 use bytes::Bytes;
@@ -155,7 +155,7 @@ pub async fn init_service(
 	transcoding_task_pool: Arc<TaskPool>,
 	media_backend_factory: Arc<MediaBackendFactory>,
 ) -> anyhow::Result<ArtifactCache<HlsSegmentGenerator>> {
-	let hls_segment_generator = ArtifactCache::builder()
+	let hls_segment_generator = artifact_cache::builder()
 		.cache_dir(config.paths.transcoded_segments_cache_dir.clone())
 		.task_pool(transcoding_task_pool)
 		.file_size_limit(config.main_config.caches.segments_cache_size_limit)
@@ -190,19 +190,14 @@ impl HlsSegmentGenerator {
 
 impl ArtifactGenerator for HlsSegmentGenerator {
 	type Input = SegmentParams;
-	type ValidityKey = FileValidityKey;
 	type Metadata = ();
-	
-	fn create_cache_key(&self, input: &Self::Input) -> String {
-		let path_hash = blake3::hash(input.media_path.as_os_str().as_encoded_bytes()).to_hex();
-		
-		format!("{}_{}_s{}.ts", path_hash, input.quality_level.id, input.segment_index)
+
+	async fn create_cache_key(&self, input: &Self::Input) -> anyhow::Result<String> {
+		let file_hash = artifact_cache::create_fast_file_hash(&input.media_path).await?;
+
+		Ok(format!("{}_{}_s{}.ts", file_hash, input.quality_level.id, input.segment_index))
 	}
-	
-	async fn create_validity_key(&self, input: &Self::Input) -> anyhow::Result<Self::ValidityKey> {
-		FileValidityKey::from_file(&input.media_path).await
-	}
-	
+
 	async fn generate_artifact(&self, input: Self::Input) -> anyhow::Result<(Bytes, Self::Metadata)> {
 		let backend_factory = self.media_backend_factory.clone();
 		

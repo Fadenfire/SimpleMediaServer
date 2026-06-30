@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::config::ServerConfig;
 use crate::utils;
-use crate::web_server::services::artifact_cache::{ArtifactCache, ArtifactGenerator};
+use crate::web_server::services::artifact_cache::{self, ArtifactCache, ArtifactGenerator};
 use crate::web_server::services::task_pool::TaskPool;
 
 pub const TARGET_WIDTH: u32 = 640;
@@ -18,7 +18,7 @@ const WEBP_QUALITY: f32 = 80.0;
 pub async fn init_service(
 	config: &ServerConfig,
 ) -> anyhow::Result<ArtifactCache<ScaledThumbnailGenerator>> {
-	let scaled_thumbnail_generator = ArtifactCache::builder()
+	let scaled_thumbnail_generator = artifact_cache::builder()
 		.cache_dir(config.paths.scaled_thumbnail_cache_dir.clone())
 		.task_pool(Arc::new(TaskPool::new(8)))
 		.file_size_limit(config.main_config.caches.scaled_thumbnail_cache_size_limit)
@@ -42,17 +42,12 @@ impl ScaledThumbnailGenerator {
 
 impl ArtifactGenerator for ScaledThumbnailGenerator {
 	type Input = Bytes;
-	type ValidityKey = String;
 	type Metadata = ();
-	
-	fn create_cache_key(&self, thumbnail_data: &Self::Input) -> String {
-		format!("{}.webp", blake3::hash(&thumbnail_data).to_hex())
+
+	async fn create_cache_key(&self, thumbnail_data: &Self::Input) -> anyhow::Result<String> {
+		Ok(format!("{}.webp", blake3::hash(&thumbnail_data).to_hex()))
 	}
-	
-	async fn create_validity_key(&self, thumbnail_data: &Self::Input) -> anyhow::Result<Self::ValidityKey> {
-		Ok(blake3::hash(&thumbnail_data).to_hex().to_string())
-	}
-	
+
 	async fn generate_artifact(&self, thumbnail_data: Self::Input) -> anyhow::Result<(Bytes, Self::Metadata)> {
 		let mut image = ImageReader::new(Cursor::new(thumbnail_data))
 			.with_guessed_format()?
