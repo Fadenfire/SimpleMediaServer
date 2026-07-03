@@ -19,12 +19,13 @@ impl TaskPool {
 			.await
 			.unwrap();
 		
-		ReservedTask { permit }
+		ReservedTask { _permit: permit }
 	}
 }
 
 pub struct ReservedTask {
-	permit: OwnedSemaphorePermit,
+	// We hold the permit to reserve it, the field is never actually accessed.
+	_permit: OwnedSemaphorePermit,
 }
 
 impl ReservedTask {
