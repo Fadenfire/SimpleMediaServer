@@ -5,6 +5,8 @@
 	export const AUTO_SUBTITLE_TRACK_INDEX = -2;
 	
 	const AUTO_SUBTITLE_SEGMENT_LENGTH = 120;
+	
+	import { getInitialSubtitleTrack, saveSubtitlesState } from './subtitle_controls';
 
 	export class VideoPlayerState {
 		mediaInfo: ApiFileInfo;
@@ -16,6 +18,7 @@
 		constructor(mediaInfo: ApiFileInfo) {
 			this.mediaInfo = mediaInfo;
 			this.videoState.duration = mediaInfo.duration;
+			this.subtitleTrack = getInitialSubtitleTrack(mediaInfo);
 		}
 		
 		subtitlesEnabled() {
@@ -77,6 +80,10 @@
 	function transformSubtitleTrack(track: TextTrack) {
 		Array.from(track.cues ?? []).forEach(transformCue)
 	}
+	
+	$effect(() => {
+		saveSubtitlesState(playerState.subtitlesEnabled());
+	});
 	
 	$effect(() => {
 		if (videoState.videoElement === undefined) return;
