@@ -134,11 +134,25 @@
 
 			const parser = new WebVTTParser();
 			const vttData = parser.parse(text);
-						
+
+			// Remove any cues already present for this segment (e.g. from a
+			//  concurrent or prior load) so the load is idempotent. There's no
+			//  await between here and the addCue loop below, so this
+			//  remove-then-add runs atomically and can't interleave with
+			//  another segment load.
+			const segmentStart = segmentIndex * AUTO_SUBTITLE_SEGMENT_LENGTH;
+			const segmentEnd = segmentStart + AUTO_SUBTITLE_SEGMENT_LENGTH;
+
+			for (const cue of Array.from(track.cues ?? [])) {
+				if (cue.startTime >= segmentStart && cue.startTime < segmentEnd) {
+					track.removeCue(cue);
+				}
+			}
+
 			for (const cue of vttData.cues) {
 				const webCue = new VTTCue(cue.startTime, cue.endTime, cue.text);
 				transformCue(webCue);
-				
+
 				track.addCue(webCue);
 			}
 
