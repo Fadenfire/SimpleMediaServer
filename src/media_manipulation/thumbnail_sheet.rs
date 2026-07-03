@@ -15,6 +15,9 @@ use crate::media_manipulation::media_utils::frame_scaler::FrameScaler;
 use crate::media_manipulation::media_utils::{MILLIS_TIME_BASE, SECONDS_TIME_BASE};
 
 const TARGET_THUMBNAIL_HEIGHT: u32 = 120;
+const TARGET_THUMBNAIL_COUNT: u64 = 200;
+const MIN_THUMBNAIL_INTERVAL: u64 = 5;
+
 const WEBP_QUALITY: f32 = 90.0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -28,7 +31,7 @@ pub struct ThumbnailSheetParams {
 }
 
 pub fn calculate_sheet_params(video_duration: Duration, video_width: u32, video_height: u32) -> ThumbnailSheetParams {
-	let interval = (video_duration.as_secs() / 500).max(5) as u32;
+	let interval = (video_duration.as_secs() / TARGET_THUMBNAIL_COUNT).max(MIN_THUMBNAIL_INTERVAL) as u32;
 	
 	let thumbnail_count = (video_duration.as_secs_f64() / interval as f64).ceil() as u32;
 	let sheet_dimension = (thumbnail_count as f64).sqrt().ceil() as u32;
