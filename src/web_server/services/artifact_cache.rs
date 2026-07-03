@@ -400,15 +400,13 @@ pub async fn create_file_metadata_hash(file_path: &Path) -> anyhow::Result<Strin
 	let mod_time = metadata.modified()?
 		.duration_since(std::time::UNIX_EPOCH)?
 		.as_nanos();
-	
-	let string = format!(
-		"{}\0{}\0{}",
-		full_path.as_os_str().to_string_lossy(),
-		metadata.len(),
-		mod_time,
-	);
-	
-	Ok(blake3::hash(string.as_bytes()).to_hex().to_string())
+
+	let mut hasher = blake3::Hasher::new();
+	hasher.update(full_path.as_os_str().as_encoded_bytes());
+	hasher.update(&metadata.len().to_le_bytes());
+	hasher.update(&mod_time.to_le_bytes());
+
+	Ok(hasher.finalize().to_hex().to_string())
 }
 
 #[cfg(test)]
