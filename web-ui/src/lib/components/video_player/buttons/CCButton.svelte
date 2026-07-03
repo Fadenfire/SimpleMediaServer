@@ -53,7 +53,6 @@
 		border-radius: 50%;
 		background-color: currentColor;
 
-		// Bounce back and forth horizontally around the button's center.
 		animation: bounce 0.5s ease-in-out infinite alternate;
 	}
 
