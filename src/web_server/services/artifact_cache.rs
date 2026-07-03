@@ -393,8 +393,9 @@ impl<M: Clone> EntryTracker<M> {
 	}
 }
 
-pub async fn create_fast_file_hash(file_path: &Path) -> anyhow::Result<String> {
-	let metadata = tokio::fs::metadata(&file_path).await?;
+pub async fn create_file_metadata_hash(file_path: &Path) -> anyhow::Result<String> {
+	let full_path = tokio::fs::canonicalize(file_path).await?;
+	let metadata = tokio::fs::metadata(&full_path).await?;
 	
 	let mod_time = metadata.modified()?
 		.duration_since(std::time::UNIX_EPOCH)?
@@ -402,7 +403,7 @@ pub async fn create_fast_file_hash(file_path: &Path) -> anyhow::Result<String> {
 	
 	let string = format!(
 		"{}\0{}\0{}",
-		file_path.as_os_str().to_string_lossy(),
+		full_path.as_os_str().to_string_lossy(),
 		metadata.len(),
 		mod_time,
 	);

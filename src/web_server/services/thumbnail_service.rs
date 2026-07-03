@@ -49,7 +49,7 @@ impl ArtifactGenerator for ThumbnailGenerator {
 	type Metadata = ();
 
 	async fn create_cache_key(&self, media_path: &Self::Input) -> anyhow::Result<String> {
-		let file_hash = artifact_cache::create_fast_file_hash(media_path).await?;
+		let file_hash = artifact_cache::create_file_metadata_hash(media_path).await?;
 
 		Ok(format!("{}.jpg", file_hash))
 	}

@@ -48,7 +48,7 @@ impl ArtifactGenerator for TranscodedSubtitleGenerator {
 	type Metadata = ();
 
 	async fn create_cache_key(&self, input: &Self::Input) -> anyhow::Result<String> {
-		let file_hash = artifact_cache::create_fast_file_hash(&input.media_path).await?;
+		let file_hash = artifact_cache::create_file_metadata_hash(&input.media_path).await?;
 
 		Ok(format!("{}_track_{}.vtt", file_hash, input.stream_index))
 	}
