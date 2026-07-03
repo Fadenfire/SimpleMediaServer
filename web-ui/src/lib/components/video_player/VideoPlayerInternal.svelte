@@ -14,7 +14,11 @@
 		videoState: VideoState = $state(new VideoState());
 		
 		subtitleTrack: number = $state(NO_SUBTITLE_TRACK_INDEX);
-		
+
+		// Whether the auto subtitle segment for the current playback position is
+		//  still being fetched.
+		autoSubtitleLoading: boolean = $state(false);
+
 		constructor(mediaInfo: ApiFileInfo) {
 			this.mediaInfo = mediaInfo;
 			this.videoState.duration = mediaInfo.duration;
@@ -164,15 +168,29 @@
 		}
 	}
 
+	// Loads the segment for the current position (showing a loading indicator
+	//  while it's outstanding) followed by prefetching the next segment.
+	function loadAutoSubtitlesAround(currentSegment: number) {
+		playerState.autoSubtitleLoading = !loadedAutoSegments.has(currentSegment);
+
+		loadAutoSubtitleSegment(currentSegment)
+			.then(() => {
+				playerState.autoSubtitleLoading = false;
+				return loadAutoSubtitleSegment(currentSegment + 1);
+			});
+	}
+
 	// Only changes when crossing a segment boundary, so the effect below
 	//  doesn't re-run on every time update.
 	let currentAutoSegment = $derived(Math.floor(videoState.currentTime / AUTO_SUBTITLE_SEGMENT_LENGTH));
 
 	$effect(() => {
-		if (playerState.subtitleTrack !== AUTO_SUBTITLE_TRACK_INDEX) return;
+		if (playerState.subtitleTrack !== AUTO_SUBTITLE_TRACK_INDEX) {
+			playerState.autoSubtitleLoading = false;
+			return;
+		}
 
-		loadAutoSubtitleSegment(currentAutoSegment)
-			.then(() => loadAutoSubtitleSegment(currentAutoSegment + 1));
+		loadAutoSubtitlesAround(currentAutoSegment);
 	});
 
 	// Watch Progress
@@ -289,8 +307,7 @@
 				loadedAutoSegments.clear();
 
 				if (playerState.subtitleTrack === AUTO_SUBTITLE_TRACK_INDEX) {
-					loadAutoSubtitleSegment(currentAutoSegment)
-						.then(() => loadAutoSubtitleSegment(currentAutoSegment + 1));
+					loadAutoSubtitlesAround(currentAutoSegment);
 				}
 			}
 		});
