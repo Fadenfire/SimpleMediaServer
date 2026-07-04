@@ -1,11 +1,11 @@
 # ============= Build Frontend =============
 
 # Use native platform for web-builder since it doesn't produce any platform specific artifacts
-FROM --platform=$BUILDPLATFORM node:24.8.0-alpine AS web-builder
+FROM --platform=$BUILDPLATFORM node:26.4.0-alpine AS web-builder
 
 ENV COREPACK_HOME="/corepack"
 ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+ENV PATH="$PNPM_HOME/bin:$PATH"
 ENV CI=true
 RUN corepack enable
 
@@ -40,8 +40,9 @@ RUN mkdir ffmpeg &&  \
 
 COPY Cargo.toml Cargo.lock ./
 COPY src src
-RUN --mount=type=cache,sharing=locked,target=/usr/local/cargo/registry \
-    --mount=type=cache,sharing=locked,target=/app/target \
+RUN --mount=type=cache,target=/app/target/ \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/ \
     cargo build --release && \
     cp target/release/simple-media-server ./
 
