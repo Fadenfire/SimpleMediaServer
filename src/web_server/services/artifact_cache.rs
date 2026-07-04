@@ -163,6 +163,7 @@ impl<G: ArtifactGenerator> ArtifactCache<G> {
 				.get_entry(&held_entry.cache_key);
 			
 			if let Some(entry_metadata) = entry_metadata {
+				// Looking up the entry updates the last accessed time, so write that change back to the disk.
 				tokio::fs::write(&held_entry.cache_metadata_path, serde_json::to_vec_pretty(&entry_metadata).unwrap()).await?;
 				
 				let entry_data = tokio::fs::read(&held_entry.cache_file_path).await?;
