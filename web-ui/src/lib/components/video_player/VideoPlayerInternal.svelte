@@ -29,6 +29,11 @@
 			return this.subtitleTrack != NO_SUBTITLE_TRACK_INDEX;
 		}
 	}
+	
+	enum AutoSubtitleLoadingState {
+		LOADING,
+		FINISHED
+	}
 </script>
 
 <!-- svelte-ignore state_referenced_locally -->
@@ -40,6 +45,7 @@
     import { jumpToVideo } from './video_utils';
     import VideoElement, { VideoState } from './VideoElement.svelte';
 	import { WebVTTParser } from 'webvtt-parser';
+    import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		mediaInfo: ApiFileInfo;
@@ -104,7 +110,7 @@
 	//  only fetched once the auto subtitle track is selected. Each segment's
 	//  cues use absolute timestamps, so they can be appended to a single track.
 
-	let loadedAutoSegments = new Set<number>();
+	let loadedAutoSegments = new SvelteMap<number, AutoSubtitleLoadingState>();
 
 	function getAutoSubtitleTrack(): TextTrack | undefined {
 		const textTracks = videoState.videoElement?.textTracks;
@@ -122,7 +128,7 @@
 		if (segmentIndex * AUTO_SUBTITLE_SEGMENT_LENGTH >= mediaInfo.duration) return;
 		if (loadedAutoSegments.has(segmentIndex)) return;
 
-		loadedAutoSegments.add(segmentIndex);
+		loadedAutoSegments.set(segmentIndex, AutoSubtitleLoadingState.LOADING);
 
 		try {
 			const res = await fetch(
@@ -160,7 +166,7 @@
 				track.addCue(webCue);
 			}
 
-			loadedAutoSegments.add(segmentIndex);
+			loadedAutoSegments.set(segmentIndex, AutoSubtitleLoadingState.FINISHED);
 		} catch (err) {
 			// Allow the segment to be retried later
 			loadedAutoSegments.delete(segmentIndex);
@@ -168,30 +174,42 @@
 		}
 	}
 
-	// Loads the segment for the current position (showing a loading indicator
-	//  while it's outstanding) followed by prefetching the next segment.
-	function loadAutoSubtitlesAround(currentSegment: number) {
-		playerState.autoSubtitleLoading = !loadedAutoSegments.has(currentSegment);
-
-		loadAutoSubtitleSegment(currentSegment)
-			.then(() => {
-				playerState.autoSubtitleLoading = false;
-				return loadAutoSubtitleSegment(currentSegment + 1);
-			});
-	}
-
 	// Only changes when crossing a segment boundary, so the effect below
 	//  doesn't re-run on every time update.
 	let currentAutoSegment = $derived(Math.floor(videoState.currentTime / AUTO_SUBTITLE_SEGMENT_LENGTH));
-
+	
+	// Loads the segment for the current position (showing a loading indicator
+	//  while it's outstanding) followed by prefetching the next segment.
+	function loadAutoSubtitlesAround(currentSegment: number) {
+		loadAutoSubtitleSegment(currentSegment)
+			.then(() => {
+				const nextSegment = currentSegment + 1;
+				
+				if (playerState.subtitleTrack !== AUTO_SUBTITLE_TRACK_INDEX) {
+					return;
+				}
+				
+				if (currentAutoSegment !== currentSegment && currentAutoSegment !== nextSegment) {
+					// If we've seeked away from this position, don't try to
+					//  fetch the next segment.
+					return;
+				}
+				
+				return loadAutoSubtitleSegment(nextSegment);
+			});
+	}
+	
 	$effect(() => {
-		if (playerState.subtitleTrack !== AUTO_SUBTITLE_TRACK_INDEX) {
-			playerState.autoSubtitleLoading = false;
-			return;
+		if (playerState.subtitleTrack === AUTO_SUBTITLE_TRACK_INDEX) {
+			loadAutoSubtitlesAround(currentAutoSegment);
 		}
-
-		loadAutoSubtitlesAround(currentAutoSegment);
 	});
+	
+	$effect(() => {
+		playerState.autoSubtitleLoading =
+			playerState.subtitleTrack === AUTO_SUBTITLE_TRACK_INDEX &&
+			loadedAutoSegments.get(currentAutoSegment) !== AutoSubtitleLoadingState.FINISHED;
+	})
 
 	// Watch Progress
 	
