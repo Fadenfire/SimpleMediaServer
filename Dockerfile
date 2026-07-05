@@ -1,19 +1,18 @@
 # ============= Build Frontend =============
 
 # Use native platform for web-builder since it doesn't produce any platform specific artifacts
-FROM --platform=$BUILDPLATFORM node:26.4.0-alpine AS web-builder
+FROM --platform=$BUILDPLATFORM ghcr.io/pnpm/pnpm:11.9.0 AS web-builder
 
-ENV COREPACK_HOME="/corepack"
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME/bin:$PATH"
-ENV CI=true
-RUN corepack enable
+# Increase pnpm fetch timeout to 20 minutes
+RUN pnpm config set -g fetchTimeout 1200000
+
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm runtime set node 26 -g
 
 COPY web-ui /app
 WORKDIR /app
 
-RUN --mount=type=cache,target=/corepack,sharing=locked \
-    --mount=type=cache,target=/pnpm/store,sharing=locked \
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile && \
     pnpm run build
 
@@ -22,8 +21,8 @@ RUN --mount=type=cache,target=/corepack,sharing=locked \
 FROM rust:1.96.0-slim-trixie AS builder
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=apt-lib,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get --no-install-recommends install -y pkg-config clang cmake make nasm xz-utils libssl-dev
 
@@ -53,8 +52,8 @@ FROM debian:trixie-slim AS runtime
 # Adapted from https://github.com/jellyfin/jellyfin/blob/9dd80083fbab61ed7af13e09906b76441c728bcb/Dockerfile#L36-L41
 #  and https://github.com/jellyfin/jellyfin-packaging/blob/df6c5f8f5d4538f9e0f38003a1429c3419cacdcc/docker/Dockerfile#L144-L160
 RUN rm -f /etc/apt/apt.conf.d/docker-clean && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
+	--mount=type=cache,id=apt-lib,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install --no-install-recommends --no-install-suggests -y ca-certificates gnupg curl && \
     curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key | gpg --dearmor -o /etc/apt/trusted.gpg.d/debian-jellyfin.gpg && \
