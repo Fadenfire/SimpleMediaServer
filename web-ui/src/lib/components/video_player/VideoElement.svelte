@@ -18,7 +18,7 @@
 		src: string | undefined;
 	}
 	
-	const MAX_BUFFERING_TIME_MS = 1000;
+	const MAX_BUFFERING_TIME_MS = 5000;
 </script>
 
 <!-- svelte-ignore state_referenced_locally -->
