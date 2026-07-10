@@ -97,7 +97,10 @@
 	let controlsContainerElement: HTMLElement | undefined = $state();
 	
 	let showControls = $derived(
-		!isIdle || sidebarShown != SidebarType.None || (!mobile && controlsContainerElement?.matches(":hover"))
+		!isIdle ||
+		videoState.isEnded ||
+		sidebarShown != SidebarType.None ||
+		(!mobile && controlsContainerElement?.matches(":hover"))
 	);
 	
 	// Player Actions
