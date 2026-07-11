@@ -54,20 +54,27 @@ export class VideoBackend {
 		this.qualityLevels = writable(this.#createLevels());
 		
 		if (Hls.isSupported()) {
-			this.hls = new Hls(hlsConfig);
-			this.hls.loadSource(this.hlsManifestURL);
+			const hls = new Hls(hlsConfig);
+			this.hls = hls;
+			
+			hls.loadSource(this.hlsManifestURL);
 
-			this.hls.on(Events.MEDIA_ATTACHED, () => {
+			hls.on(Events.MEDIA_ATTACHED, () => {
 				this.onMediaAttached?.();
 			});
 
 			this.hls.on(Events.MANIFEST_PARSED, () => {
 				// console.log(this.hls?.levels);
-
+				
 				this.qualityLevels.set(this.#createLevels());
+				
+				// Force HLS.js to start at the highest level.
+				// Otherwise it estimates the bandwidth as really low due to
+				//  the delay while it transcodes the segment.
+				hls.startLevel = hls.levels.length - 1;
 			});
 			
-			this.hls.on(Events.LEVEL_SWITCHED, () => this.qualityLevels.set(this.#createLevels()));
+			hls.on(Events.LEVEL_SWITCHED, () => this.qualityLevels.set(this.#createLevels()));
 		}
 		
 		this.videoElement.addEventListener("error", () => this.#onVideoError());
